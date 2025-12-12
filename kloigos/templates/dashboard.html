@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
         :root {
-            --bg: #0f172a;
+            --bg: #020617;
             --bg-elevated: #020617;
-            --card: #0b1120;
+            --card: #020617;
             --accent: #38bdf8;
             --accent-soft: rgba(56, 189, 248, 0.15);
             --border-subtle: #1f2937;
@@ -23,13 +23,16 @@
             --radius-lg: 14px;
         }
 
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
         body {
             margin: 0;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             background: radial-gradient(circle at top left, #1f2933 0, #020617 50%, #020617 100%);
             color: var(--text);
+            font-size: 16px; /* larger base text */
         }
 
         .page {
@@ -39,27 +42,25 @@
         }
 
         .topbar {
+            flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 16px 32px;
-            background: rgba(15, 23, 42, 0.9);
+            background: rgba(15, 23, 42, 0.95);
             border-bottom: 1px solid rgba(148, 163, 184, 0.2);
             backdrop-filter: blur(16px);
-            position: sticky;
-            top: 0;
-            z-index: 10;
         }
 
         .topbar-title {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
         .logo-pill {
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             border-radius: 999px;
             background: radial-gradient(circle at 30% 30%, #38bdf8, #0ea5e9 45%, #020617 100%);
             display: flex;
@@ -67,20 +68,19 @@
             justify-content: center;
             box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.35),
                         0 18px 35px rgba(15, 23, 42, 0.9);
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 700;
             color: #e5f4ff;
         }
 
         .topbar h1 {
             margin: 0;
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 600;
-            letter-spacing: 0.01em;
         }
 
         .topbar-sub {
-            font-size: 12px;
+            font-size: 13px;
             color: var(--muted);
         }
 
@@ -91,9 +91,9 @@
         }
 
         .pill {
-            padding: 6px 10px;
+            padding: 6px 12px;
             border-radius: 999px;
-            font-size: 11px;
+            font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.12em;
             border: 1px solid rgba(148, 163, 184, 0.4);
@@ -107,27 +107,29 @@
         }
 
         .layout {
-            flex: 1;
+            flex: 1 1 auto;
             display: flex;
-            padding: 20px 32px 32px;
+            padding: 20px 32px 16px;
             gap: 20px;
+            min-height: 0; /* allows inner flex children to scroll */
         }
 
         .sidebar {
             width: 260px;
             max-width: 100%;
-            background: radial-gradient(circle at top, #020617 0, #020617 60%, #020617 100%);
+            background: var(--card);
             border-radius: var(--radius-lg);
             border: 1px solid rgba(148, 163, 184, 0.25);
-            padding: 14px 14px 12px;
+            padding: 16px 16px 12px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 14px;
+            flex-shrink: 0;
         }
 
         .sidebar h2 {
-            margin: 0 0 4px;
-            font-size: 13px;
+            margin: 0 0 6px;
+            font-size: 14px;
             text-transform: uppercase;
             letter-spacing: 0.14em;
             color: var(--muted);
@@ -135,50 +137,50 @@
 
         .metric {
             background: radial-gradient(circle at 10% 0, rgba(148, 163, 184, 0.25) 0, transparent 55%),
-                        radial-gradient(circle at 100% 120%, rgba(37, 99, 235, 0.5) 0, transparent 55%);
+                        radial-gradient(circle at 100% 120%, rgba(37, 99, 235, 0.4) 0, transparent 55%);
             border-radius: 10px;
-            padding: 10px 11px 9px;
+            padding: 12px 12px 10px;
             border: 1px solid rgba(148, 163, 184, 0.35);
         }
 
         .metric-label {
-            font-size: 11px;
+            font-size: 12px;
             color: var(--muted);
-            margin-bottom: 2px;
+            margin-bottom: 4px;
         }
 
         .metric-value {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 600;
         }
 
         .metric-sub {
             margin-top: 2px;
-            font-size: 11px;
+            font-size: 12px;
             color: var(--muted);
         }
 
         .legend {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px;
-            font-size: 11px;
-            margin-top: 2px;
+            gap: 8px;
+            font-size: 12px;
+            margin-top: 4px;
         }
 
         .legend-pill {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            padding: 4px 7px;
+            gap: 6px;
+            padding: 4px 8px;
             border-radius: 999px;
             background: rgba(15, 23, 42, 0.9);
             border: 1px solid rgba(148, 163, 184, 0.45);
         }
 
         .dot {
-            width: 8px;
-            height: 8px;
+            width: 9px;
+            height: 9px;
             border-radius: 999px;
         }
 
@@ -187,17 +189,19 @@
         .dot-offline { background: var(--danger); }
 
         .main {
-            flex: 1;
+            flex: 1 1 auto;
             min-width: 0;
-            background: radial-gradient(circle at top right, #020617 0, #020617 60%, #020617 100%);
+            background: var(--card);
             border-radius: var(--radius-lg);
             border: 1px solid rgba(148, 163, 184, 0.25);
-            padding: 16px 18px 18px;
+            padding: 16px 18px 10px;
             display: flex;
             flex-direction: column;
+            min-height: 0; /* critical for inner scroll */
         }
 
         .main-header {
+            flex-shrink: 0;
             display: flex;
             flex-wrap: wrap;
             align-items: center;
@@ -213,12 +217,12 @@
         }
 
         .main-title {
-            font-size: 15px;
+            font-size: 18px;
             font-weight: 500;
         }
 
         .main-subtitle {
-            font-size: 12px;
+            font-size: 13px;
             color: var(--muted);
         }
 
@@ -232,10 +236,10 @@
             background: rgba(15, 23, 42, 0.85);
             border: 1px solid rgba(148, 163, 184, 0.4);
             border-radius: 999px;
-            padding: 6px 10px;
-            font-size: 12px;
+            padding: 8px 12px;
+            font-size: 14px;
             color: var(--text);
-            min-width: 180px;
+            min-width: 220px;
         }
 
         .search-input::placeholder {
@@ -246,8 +250,8 @@
             border-radius: 999px;
             border: 1px solid rgba(148, 163, 184, 0.45);
             background: radial-gradient(circle at 30% 0, rgba(56, 189, 248, 0.16) 0, transparent 50%);
-            padding: 6px 11px;
-            font-size: 11px;
+            padding: 8px 14px;
+            font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.14em;
             color: #e5f4ff;
@@ -258,24 +262,28 @@
             border-color: rgba(56, 189, 248, 0.9);
         }
 
-        .table-wrapper {
-            margin-top: 6px;
+        /* Container that will hold the table and scroll only rows */
+        .table-container {
+            flex: 1 1 auto;
+            min-height: 0; /* critical */
+            display: flex;
             border-radius: 11px;
             border: 1px solid rgba(148, 163, 184, 0.4);
-            overflow: hidden;
             background: rgba(15, 23, 42, 0.95);
             box-shadow: 0 26px 60px rgba(15, 23, 42, 0.9);
+            overflow: hidden;
         }
 
         .table-scroll {
-            max-height: 480px;
-            overflow: auto;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: auto; /* only rows scroll */
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 13px;
+            font-size: 14px; /* larger table text */
         }
 
         thead {
@@ -286,17 +294,40 @@
         }
 
         th, td {
-            padding: 9px 11px;
+            padding: 10px 12px;
             text-align: left;
             white-space: nowrap;
         }
 
         th {
-            font-size: 11px;
+            font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.13em;
             color: #9ca3af;
             border-bottom: 1px solid rgba(55, 65, 81, 0.9);
+            cursor: default;
+            user-select: none;
+        }
+
+        th[data-sort] {
+            cursor: pointer;
+        }
+
+        th[data-sort]::after {
+            content: "⇅";
+            margin-left: 6px;
+            font-size: 11px;
+            opacity: 0.4;
+        }
+
+        th[data-sort].sort-asc::after {
+            content: "↑";
+            opacity: 0.9;
+        }
+
+        th[data-sort].sort-desc::after {
+            content: "↓";
+            opacity: 0.9;
         }
 
         tbody tr:nth-child(even) {
@@ -313,22 +344,22 @@
 
         td:first-child {
             font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            font-size: 12px;
+            font-size: 13px;
         }
 
         .status {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 3px 9px;
+            padding: 4px 10px;
             border-radius: 999px;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 500;
         }
 
         .status-dot {
-            width: 7px;
-            height: 7px;
+            width: 8px;
+            height: 8px;
             border-radius: 999px;
         }
 
@@ -371,10 +402,10 @@
         .ip-pill {
             display: inline-flex;
             align-items: center;
-            padding: 3px 8px;
+            padding: 3px 9px;
             border-radius: 999px;
             font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            font-size: 11px;
+            font-size: 12px;
             background: rgba(15, 23, 42, 0.9);
             border: 1px solid rgba(148, 163, 184, 0.45);
         }
@@ -382,9 +413,9 @@
         .owner-pill {
             display: inline-flex;
             align-items: center;
-            padding: 3px 8px;
+            padding: 3px 9px;
             border-radius: 999px;
-            font-size: 11px;
+            font-size: 12px;
             background: rgba(15, 23, 42, 0.9);
             border: 1px solid rgba(148, 163, 184, 0.35);
         }
@@ -397,7 +428,7 @@
             border-radius: 999px;
             background: rgba(15, 23, 42, 0.9);
             border: 1px solid rgba(148, 163, 184, 0.4);
-            font-size: 11px;
+            font-size: 12px;
         }
 
         .service-tag {
@@ -408,8 +439,9 @@
         }
 
         .footer {
+            flex-shrink: 0;
             margin-top: 10px;
-            font-size: 11px;
+            font-size: 12px;
             color: var(--muted);
             display: flex;
             justify-content: space-between;
@@ -496,7 +528,7 @@
             </div>
         </aside>
 
-        <!-- Main table -->
+        <!-- Main content -->
         <section class="main">
             <div class="main-header">
                 <div class="main-header-left">
@@ -510,24 +542,25 @@
                         type="search"
                         class="search-input"
                         placeholder="Filter by hostname, owner, or service…" />
-                    <button class="btn" type="button">
+                    <button class="btn" type="button" onclick="window.location.reload()">
                         REFRESH
                     </button>
                 </div>
             </div>
 
-            <div class="table-wrapper">
+            <!-- Scrollable table area -->
+            <div class="table-container">
                 <div class="table-scroll">
                     <table>
                         <thead>
                         <tr>
-                            <th>Hostname</th>
-                            <th>IP (ansible_host)</th>
-                            <th>NUMA Node</th>
-                            <th>Service</th>
-                            <th>Owner</th>
-                            <th>Started At</th>
-                            <th>Status</th>
+                            <th data-sort="string">Hostname</th>
+                            <th data-sort="ip">IP (ansible_host)</th>
+                            <th data-sort="number">NUMA Node</th>
+                            <th data-sort="string">Service</th>
+                            <th data-sort="string">Owner</th>
+                            <th data-sort="date">Started At</th>
+                            <th data-sort="string">Status</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -606,10 +639,129 @@
 
             <div class="footer">
                 <span>Rendered at {{ rendered_at or "now" }}</span>
-                <span>κλοηγός dashboard</span>
+                <span>πλοηγός dashboard</span>
             </div>
         </section>
     </main>
 </div>
+
+<script>
+    // Auto-refresh every 10 seconds
+    setInterval(() => {
+        window.location.reload();
+    }, 10_000);
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const table   = document.querySelector("table");
+        const tbody   = table.querySelector("tbody");
+        const allRows = Array.from(tbody.querySelectorAll("tr"));
+        const search  = document.querySelector(".search-input");
+        const headers = Array.from(table.querySelectorAll("thead th"));
+
+        // --- restore state from localStorage ---
+        const storedSortIndex = localStorage.getItem("ploigos_sort_index");
+        const storedSortDir   = localStorage.getItem("ploigos_sort_dir");
+        const storedFilter    = localStorage.getItem("ploigos_filter");
+
+        let currentSort = { index: null, direction: "asc" };
+
+        if (storedSortIndex !== null && !Number.isNaN(+storedSortIndex)) {
+            currentSort.index = +storedSortIndex;
+            currentSort.direction = storedSortDir === "desc" ? "desc" : "asc";
+        }
+
+        if (search && storedFilter !== null) {
+            search.value = storedFilter;
+        }
+
+        function getCellText(row, index) {
+            return row.children[index].innerText.trim();
+        }
+
+        function parseValue(type, value) {
+            if (type === "number") {
+                const n = parseFloat(value);
+                return isNaN(n) ? Number.NEGATIVE_INFINITY : n;
+            }
+            if (type === "date") {
+                const d = new Date(value);
+                return isNaN(d.getTime()) ? 0 : d.getTime();
+            }
+            if (type === "ip") {
+                // simple IP sort: pad octets
+                return value.split(".")
+                    .map(o => o.padStart(3, "0"))
+                    .join(".");
+            }
+            return value.toLowerCase();
+        }
+
+        function applyFilterAndSort() {
+            const q = (search?.value || "").toLowerCase();
+
+            let rows = allRows.filter(row => {
+                if (!q) return true;
+                const text = row.innerText.toLowerCase();
+                return text.includes(q);
+            });
+
+            if (currentSort.index !== null) {
+                const th = headers[currentSort.index];
+                const type = th.dataset.sort || "string";
+
+                rows.sort((a, b) => {
+                    const aVal = parseValue(type, getCellText(a, currentSort.index));
+                    const bVal = parseValue(type, getCellText(b, currentSort.index));
+
+                    if (aVal < bVal) return currentSort.direction === "asc" ? -1 : 1;
+                    if (aVal > bVal) return currentSort.direction === "asc" ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            // clear sort classes
+            headers.forEach(h => h.classList.remove("sort-asc", "sort-desc"));
+            if (currentSort.index !== null) {
+                headers[currentSort.index].classList.add(
+                    currentSort.direction === "asc" ? "sort-asc" : "sort-desc"
+                );
+            }
+
+            // re-render rows
+            tbody.innerHTML = "";
+            rows.forEach(r => tbody.appendChild(r));
+        }
+
+        // --- wire up filter (and persist it) ---
+        if (search) {
+            search.addEventListener("input", () => {
+                localStorage.setItem("ploigos_filter", search.value || "");
+                applyFilterAndSort();
+            });
+        }
+
+        // --- wire up sorting (and persist it) ---
+        headers.forEach((th, index) => {
+            if (!th.dataset.sort) return;
+
+            th.addEventListener("click", () => {
+                if (currentSort.index === index) {
+                    currentSort.direction = currentSort.direction === "asc" ? "desc" : "asc";
+                } else {
+                    currentSort.index = index;
+                    currentSort.direction = "asc";
+                }
+
+                localStorage.setItem("ploigos_sort_index", String(currentSort.index));
+                localStorage.setItem("ploigos_sort_dir", currentSort.direction);
+
+                applyFilterAndSort();
+            });
+        });
+
+        // --- initial apply (using restored state, if any) ---
+        applyFilterAndSort();
+    });
+</script>
 </body>
 </html>

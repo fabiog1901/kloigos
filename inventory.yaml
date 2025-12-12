@@ -2,69 +2,69 @@
   hostname: srv1_n0
   numa_node: 0
   owner: anastasia
-  service_name: mexico
+  service_name: australia
   started_at: 2025-01-01 00:00:00+00:00
   status: running
 - ansible_host: 10.0.0.1
   hostname: srv1_n1
   numa_node: 1
   owner: anastasia
-  service_name: peru
+  service_name: texas
   started_at: 2025-01-01 00:00:00+00:00
   status: running
 - ansible_host: 10.0.0.2
   hostname: srv2_n0
   numa_node: 0
   owner: kostas
-  service_name: mexico
+  service_name: australia
   started_at: 2025-01-01 00:00:00+00:00
   status: running
 - ansible_host: 10.0.0.2
   hostname: srv2_n1
   numa_node: 1
   owner: kostas
-  service_name: peru
+  service_name: texas
   started_at: 2025-01-01 00:00:00+00:00
   status: running
 - ansible_host: 10.0.0.3
   hostname: srv3_n0
   numa_node: 0
   owner: alex
-  service_name: brazil
+  service_name: c555
   started_at: 2025-01-01 00:00:00+00:00
   status: running
 - ansible_host: 10.0.0.3
   hostname: srv3_n1
   numa_node: 1
   owner: alex
-  service_name: brazil
+  service_name: c555
   started_at: 2025-01-01 00:00:00+00:00
   status: running
 - ansible_host: 10.0.0.3
   hostname: srv3_n2
   numa_node: 2
   owner: alex
-  service_name: brazil
+  service_name: c555
   started_at: 2025-01-01 00:00:00+00:00
   status: running
 - ansible_host: 10.0.0.3
   hostname: srv3_n3
   numa_node: 3
   owner: alex
-  service_name: brazil
+  service_name: c555
   started_at: 2025-01-01 00:00:00+00:00
   status: running
 - ansible_host: 10.0.0.4
   hostname: srv4_n0
   numa_node: 0
   owner: ''
-  service_name: dd
+  service_name: cockroach-dev
   started_at: null
   status: running
 - ansible_host: 10.0.0.4
   hostname: srv4_n1
   numa_node: 1
   owner: ''
-  service_name: null
+  service_name: cockroach-dev
   started_at: null
-  status: free
+  status: running
