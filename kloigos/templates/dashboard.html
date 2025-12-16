@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <title>{{ title }}</title>
@@ -32,7 +33,8 @@
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             background: radial-gradient(circle at top left, #1f2933 0, #020617 50%, #020617 100%);
             color: var(--text);
-            font-size: 16px; /* larger base text */
+            font-size: 16px;
+            /* larger base text */
         }
 
         .page {
@@ -67,7 +69,7 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.35),
-                        0 18px 35px rgba(15, 23, 42, 0.9);
+                0 18px 35px rgba(15, 23, 42, 0.9);
             font-size: 20px;
             font-weight: 700;
             color: #e5f4ff;
@@ -111,7 +113,8 @@
             display: flex;
             padding: 20px 32px 16px;
             gap: 20px;
-            min-height: 0; /* allows inner flex children to scroll */
+            min-height: 0;
+            /* allows inner flex children to scroll */
         }
 
         .sidebar {
@@ -137,7 +140,7 @@
 
         .metric {
             background: radial-gradient(circle at 10% 0, rgba(148, 163, 184, 0.25) 0, transparent 55%),
-                        radial-gradient(circle at 100% 120%, rgba(37, 99, 235, 0.4) 0, transparent 55%);
+                radial-gradient(circle at 100% 120%, rgba(37, 99, 235, 0.4) 0, transparent 55%);
             border-radius: 10px;
             padding: 12px 12px 10px;
             border: 1px solid rgba(148, 163, 184, 0.35);
@@ -184,9 +187,17 @@
             border-radius: 999px;
         }
 
-        .dot-online { background: var(--success); }
-        .dot-warning { background: var(--warn); }
-        .dot-offline { background: var(--danger); }
+        .dot-online {
+            background: var(--success);
+        }
+
+        .dot-warning {
+            background: var(--warn);
+        }
+
+        .dot-offline {
+            background: var(--danger);
+        }
 
         .main {
             flex: 1 1 auto;
@@ -197,7 +208,8 @@
             padding: 16px 18px 10px;
             display: flex;
             flex-direction: column;
-            min-height: 0; /* critical for inner scroll */
+            min-height: 0;
+            /* critical for inner scroll */
         }
 
         .main-header {
@@ -265,7 +277,8 @@
         /* Container that will hold the table and scroll only rows */
         .table-container {
             flex: 1 1 auto;
-            min-height: 0; /* critical */
+            min-height: 0;
+            /* critical */
             display: flex;
             border-radius: 11px;
             border: 1px solid rgba(148, 163, 184, 0.4);
@@ -277,13 +290,15 @@
         .table-scroll {
             flex: 1 1 auto;
             min-height: 0;
-            overflow: auto; /* only rows scroll */
+            overflow: auto;
+            /* only rows scroll */
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 14px; /* larger table text */
+            font-size: 14px;
+            /* larger table text */
         }
 
         thead {
@@ -293,7 +308,8 @@
             background: linear-gradient(to bottom, #020617, #020617);
         }
 
-        th, td {
+        th,
+        td {
             padding: 10px 12px;
             text-align: left;
             white-space: nowrap;
@@ -331,11 +347,11 @@
         }
 
         tbody tr:nth-child(even) {
-            background: rgba(15, 23, 42, 0.85);
+            background: rgba(23, 34, 60, 0.85);
         }
 
         tbody tr:nth-child(odd) {
-            background: rgba(15, 23, 42, 0.65);
+            background: rgba(15, 23, 42, 0.45);
         }
 
         tbody tr:hover {
@@ -431,6 +447,14 @@
             font-size: 12px;
         }
 
+        .tag-list {
+            display: flex;
+            flex-direction: column;
+            /* stack vertically */
+            gap: 4px;
+            /* space between pills */
+        }
+
         .service-tag {
             font-size: 10px;
             text-transform: uppercase;
@@ -473,295 +497,340 @@
         }
     </style>
 </head>
+
 <body>
-<div class="page">
-    <header class="topbar">
-        <div class="topbar-title">
-            <div class="logo-pill">π</div>
-            <div>
-                <h1>{{ title }}</h1>
-                <div class="topbar-sub">
-                    Host &amp; service status overview
-                </div>
-            </div>
-        </div>
-        <div class="topbar-right">
-            <div class="pill">
-                Updated: {{ last_updated or "–" }}
-            </div>
-            <div class="pill pill-accent">
-                {{ hosts|length }} Hosts
-            </div>
-        </div>
-    </header>
-
-    <main class="layout">
-        <!-- Sidebar summary -->
-        <aside class="sidebar">
-            <div>
-                <h2>Summary</h2>
-                <div class="metric">
-                    <div class="metric-label">Total Hosts</div>
-                    <div class="metric-value">{{ hosts|length }}</div>
-                    <div class="metric-sub">
-                        Across all registered services
+    <div class="page">
+        <header class="topbar">
+            <div class="topbar-title">
+                <div class="logo-pill">π</div>
+                <div>
+                    <h1>{{ title }}</h1>
+                    <div class="topbar-sub">
+                        Host &amp; service status overview
                     </div>
                 </div>
             </div>
+            <div class="topbar-right">
+                <div class="pill">
+                    Updated: {{ last_updated or "–" }}
+                </div>
+                <div class="pill pill-accent">
+                    {{ hosts|length }} Hosts
+                </div>
+            </div>
+        </header>
 
-            <div>
-                <h2>Status</h2>
-                <div class="metric">
-                    <div class="metric-label">By health</div>
-                    <div class="legend">
-                        <div class="legend-pill">
-                            <span class="dot dot-online"></span> Running / Healthy
-                        </div>
-                        <div class="legend-pill">
-                            <span class="dot dot-warning"></span> Starting / Degraded
-                        </div>
-                        <div class="legend-pill">
-                            <span class="dot dot-offline"></span> Stopped / Failed
+        <main class="layout">
+            <!-- Sidebar summary -->
+            <aside class="sidebar">
+                <div>
+                    <h2>Summary</h2>
+                    <div class="metric">
+                        <div class="metric-label">Total Hosts</div>
+                        <div class="metric-value">{{ hosts|length }}</div>
+                        <div class="metric-sub">
+                            Across all registered services
                         </div>
                     </div>
                 </div>
-            </div>
-        </aside>
 
-        <!-- Main content -->
-        <section class="main">
-            <div class="main-header">
-                <div class="main-header-left">
-                    <div class="main-title">Hosts</div>
-                    <div class="main-subtitle">
-                        Live view of host allocation and status.
+                <div>
+                    <h2>Status</h2>
+                    <div class="metric">
+                        <div class="metric-label">By health</div>
+                        <div class="legend">
+                            <div class="legend-pill">
+                                <span class="dot dot-online"></span> Free
+                            </div>
+                            <div class="legend-pill">
+                                <span class="dot dot-warning"></span> Allocated
+                            </div>
+                            <div class="legend-pill">
+                                <span class="dot dot-offline"></span> Unavailable
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="main-actions">
-                    <input
-                        type="search"
-                        class="search-input"
-                        placeholder="Filter by hostname, owner, or service…" />
-                    <button class="btn" type="button" onclick="window.location.reload()">
-                        REFRESH
-                    </button>
+            </aside>
+
+            <!-- Main content -->
+            <section class="main">
+                <div class="main-header">
+                    <div class="main-header-left">
+                        <div class="main-title">Hosts</div>
+                        <div class="main-subtitle">
+                            Live view of host allocation and status.
+                        </div>
+                    </div>
+                    <div class="main-actions">
+                        <input type="search" class="search-input"
+                            placeholder="Filter by hostname, owner, or service…" />
+                        <button class="btn" type="button" onclick="window.location.reload()">
+                            REFRESH
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Scrollable table area -->
-            <div class="table-container">
-                <div class="table-scroll">
-                    <table>
-                        <thead>
-                        <tr>
-                            <th data-sort="string">Hostname</th>
-                            <th data-sort="ip">IP (ansible_host)</th>
-                            <th data-sort="number">NUMA Node</th>
-                            <th data-sort="string">Service</th>
-                            <th data-sort="string">Owner</th>
-                            <th data-sort="date">Started At</th>
-                            <th data-sort="string">Status</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {% for h in hosts %}
-                            {% set s = (h.status or "")|lower %}
-                            <tr>
-                                <!-- hostname (key) -->
-                                <td>{{ h.hostname }}</td>
+                <!-- Scrollable table area -->
+                <div class="table-container">
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th data-sort="string">Compute ID</th>
+                                    <th data-sort="string">Hostname</th>
+                                    <th data-sort="ip">IP</th>
+                                    <th data-sort="number">CPUs</th>
+                                    <th data-sort="number">CPU Range</th>
+                                    <th data-sort="number">Ports Range</th>
+                                    <th data-sort="date">Started At</th>
+                                    <th data-sort="string">Deployment ID</th>
+                                    <th data-sort="string">Owner</th>
+                                    <th data-sort="string">Tags</th>
+                                    <th data-sort="string">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for compute_id, details in hosts.items() %}
+                                {% set s = (details.status or "")|lower %}
+                                <tr>
+                                    <!-- hostname (key) -->
+                                    <td>{{ compute_id }}</td>
 
-                                <!-- ansible_host -->
-                                <td>
-                                    {% if h.ansible_host %}
-                                        <span class="ip-pill">{{ h.ansible_host }}</span>
-                                    {% else %}
-                                        —
-                                    {% endif %}
-                                </td>
-
-                                <!-- numa_node -->
-                                <td>{{ h.numa_node if h.numa_node is not none else "—" }}</td>
-
-                                <!-- service_name -->
-                                <td>
-                                    <span class="service-pill">
-                                        <span>{{ h.service_name or "—" }}</span>
-                                        {% if h.numa_node is not none %}
-                                            <span class="service-tag">NUMA {{ h.numa_node }}</span>
+                                    <!-- hostname -->
+                                    <td>
+                                        {% if details.hostname %}
+                                        <span class="ip-pill">{{ details.hostname }}</span>
+                                        {% else %}
+                                        -
                                         {% endif %}
-                                    </span>
-                                </td>
+                                    </td>
 
-                                <!-- owner -->
-                                <td>
-                                    {% if h.owner %}
-                                        <span class="owner-pill">{{ h.owner }}</span>
-                                    {% else %}
-                                        —
-                                    {% endif %}
-                                </td>
+                                    <!-- ip -->
+                                    <td>{{ details.ip if details.ip is not none else "-" }}</td>
 
-                                <!-- started_at -->
-                                <td>
-                                    {{ h.started_at or "—" }}
-                                </td>
+                                    <!-- cpu_count -->
+                                    <td>
+                                        <span class="service-pill">
+                                            {% set start = details.cpu_range.split('-')[0] | int %}
+                                            {% set end = details.cpu_range.split('-')[1] | int %}
+                                            {{ end - start + 1 }}</span>
+                                        </span>
+                                    </td>
 
-                                <!-- status -->
-                                <td>
-                                    {% if "running" in s or "up" in s or "ok" in s or "healthy" in s or "online" in s %}
+                                    <!-- cpu_range -->
+                                    <td>
+                                        <span class="service-pill">
+                                            <span>{{ details.cpu_range or "-" }}</span>
+                                        </span>
+                                    </td>
+
+                                    <!-- ports range -->
+                                    <td>
+                                        <span class="service-pill">
+                                            {% set upper = details.cpu_range.split('-')[1] | trim %}
+                                            {% if upper in cpu_ports_map %}
+                                            {% set base = cpu_ports_map[upper] %}
+                                            {{ 20000 + base }}-{{ 20000 + base + 1000 }}
+                                            {% else %}
+                                            ERROR
+                                            {% endif %}
+                                        </span>
+                                        </span>
+                                    </td>
+
+
+                                    <!-- started_at -->
+                                    <td>
+                                        {{ details.started_at or "-" }}
+                                    </td>
+
+                                    <!-- deployment_id -->
+                                    <td>
+                                        {% if details.tags.deployment_id %}
+                                        <span class="owner-pill">{{ details.tags.deployment_id }}</span>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- owner -->
+                                    <td>
+                                        {% if details.tags.owner %}
+                                        <span class="owner-pill">{{ details.tags.owner }}</span>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- tags -->
+                                    <td>
+                                        <div class="tag-list">
+                                            {% for k, v in details.tags.items() %}
+                                            {% if k not in ["deployment_id", "owner"] %}
+                                            {% if v is sequence and v is not string %}
+                                            <span class="owner-pill">{{ k }}:[{{ v | join(',') }}]</span>
+                                            {% else %}
+                                            <span class="owner-pill">{{ k }}:{{ v }}</span>
+                                            {% endif %}
+                                            {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+
+
+                                    <!-- status -->
+                                    <td>
+                                        {% if "free" in s %}
                                         <span class="status status-online">
                                             <span class="status-dot"></span>
-                                            {{ h.status }}
+                                            {{ details.status.upper() }}
                                         </span>
-                                    {% elif "start" in s or "pending" in s or "warm" in s or "degrad" in s %}
+                                        {% elif "allocated" in s %}
                                         <span class="status status-warning">
                                             <span class="status-dot"></span>
-                                            {{ h.status }}
+                                            {{ details.status.upper() }}
                                         </span>
-                                    {% elif "down" in s or "stop" in s or "error" in s or "offline" in s or "fail" in s or "crash" in s %}
+                                        {% else %}
                                         <span class="status status-offline">
                                             <span class="status-dot"></span>
-                                            {{ h.status }}
+                                            {{ details.status.upper() }}
                                         </span>
-                                    {% else %}
-                                        <span class="status status-default">
-                                            <span class="status-dot"></span>
-                                            {{ h.status }}
-                                        </span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
 
-            <div class="footer">
-                <span>Rendered at {{ rendered_at or "now" }}</span>
-                <span>πλοηγός dashboard</span>
-            </div>
-        </section>
-    </main>
-</div>
+                <div class="footer">
+                    <span>Rendered at {{ rendered_at or "now" }}</span>
+                    <span>πλοηγός dashboard</span>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script>
+        // Auto-refresh every 10 seconds
+        setInterval(() => {
+            window.location.reload();
+        }, 10_000);
 
-<script>
-    // Auto-refresh every 10 seconds
-    setInterval(() => {
-        window.location.reload();
-    }, 10_000);
+        document.addEventListener("DOMContentLoaded", () => {
+            const table = document.querySelector("table");
+            const tbody = table.querySelector("tbody");
+            const allRows = Array.from(tbody.querySelectorAll("tr"));
+            const search = document.querySelector(".search-input");
+            const headers = Array.from(table.querySelectorAll("thead th"));
 
-    document.addEventListener("DOMContentLoaded", () => {
-        const table   = document.querySelector("table");
-        const tbody   = table.querySelector("tbody");
-        const allRows = Array.from(tbody.querySelectorAll("tr"));
-        const search  = document.querySelector(".search-input");
-        const headers = Array.from(table.querySelectorAll("thead th"));
+            // --- restore state from localStorage ---
+            const storedSortIndex = localStorage.getItem("ploigos_sort_index");
+            const storedSortDir = localStorage.getItem("ploigos_sort_dir");
+            const storedFilter = localStorage.getItem("ploigos_filter");
 
-        // --- restore state from localStorage ---
-        const storedSortIndex = localStorage.getItem("ploigos_sort_index");
-        const storedSortDir   = localStorage.getItem("ploigos_sort_dir");
-        const storedFilter    = localStorage.getItem("ploigos_filter");
+            let currentSort = { index: null, direction: "asc" };
 
-        let currentSort = { index: null, direction: "asc" };
-
-        if (storedSortIndex !== null && !Number.isNaN(+storedSortIndex)) {
-            currentSort.index = +storedSortIndex;
-            currentSort.direction = storedSortDir === "desc" ? "desc" : "asc";
-        }
-
-        if (search && storedFilter !== null) {
-            search.value = storedFilter;
-        }
-
-        function getCellText(row, index) {
-            return row.children[index].innerText.trim();
-        }
-
-        function parseValue(type, value) {
-            if (type === "number") {
-                const n = parseFloat(value);
-                return isNaN(n) ? Number.NEGATIVE_INFINITY : n;
+            if (storedSortIndex !== null && !Number.isNaN(+storedSortIndex)) {
+                currentSort.index = +storedSortIndex;
+                currentSort.direction = storedSortDir === "desc" ? "desc" : "asc";
             }
-            if (type === "date") {
-                const d = new Date(value);
-                return isNaN(d.getTime()) ? 0 : d.getTime();
+
+            if (search && storedFilter !== null) {
+                search.value = storedFilter;
             }
-            if (type === "ip") {
-                // simple IP sort: pad octets
-                return value.split(".")
-                    .map(o => o.padStart(3, "0"))
-                    .join(".");
+
+            function getCellText(row, index) {
+                return row.children[index].innerText.trim();
             }
-            return value.toLowerCase();
-        }
 
-        function applyFilterAndSort() {
-            const q = (search?.value || "").toLowerCase();
+            function parseValue(type, value) {
+                if (type === "number") {
+                    const n = parseFloat(value);
+                    return isNaN(n) ? Number.NEGATIVE_INFINITY : n;
+                }
+                if (type === "date") {
+                    const d = new Date(value);
+                    return isNaN(d.getTime()) ? 0 : d.getTime();
+                }
+                if (type === "ip") {
+                    // simple IP sort: pad octets
+                    return value.split(".")
+                        .map(o => o.padStart(3, "0"))
+                        .join(".");
+                }
+                return value.toLowerCase();
+            }
 
-            let rows = allRows.filter(row => {
-                if (!q) return true;
-                const text = row.innerText.toLowerCase();
-                return text.includes(q);
-            });
+            function applyFilterAndSort() {
+                const q = (search?.value || "").toLowerCase();
 
-            if (currentSort.index !== null) {
-                const th = headers[currentSort.index];
-                const type = th.dataset.sort || "string";
+                let rows = allRows.filter(row => {
+                    if (!q) return true;
+                    const text = row.innerText.toLowerCase();
+                    return text.includes(q);
+                });
 
-                rows.sort((a, b) => {
-                    const aVal = parseValue(type, getCellText(a, currentSort.index));
-                    const bVal = parseValue(type, getCellText(b, currentSort.index));
+                if (currentSort.index !== null) {
+                    const th = headers[currentSort.index];
+                    const type = th.dataset.sort || "string";
 
-                    if (aVal < bVal) return currentSort.direction === "asc" ? -1 : 1;
-                    if (aVal > bVal) return currentSort.direction === "asc" ? 1 : -1;
-                    return 0;
+                    rows.sort((a, b) => {
+                        const aVal = parseValue(type, getCellText(a, currentSort.index));
+                        const bVal = parseValue(type, getCellText(b, currentSort.index));
+
+                        if (aVal < bVal) return currentSort.direction === "asc" ? -1 : 1;
+                        if (aVal > bVal) return currentSort.direction === "asc" ? 1 : -1;
+                        return 0;
+                    });
+                }
+
+                // clear sort classes
+                headers.forEach(h => h.classList.remove("sort-asc", "sort-desc"));
+                if (currentSort.index !== null) {
+                    headers[currentSort.index].classList.add(
+                        currentSort.direction === "asc" ? "sort-asc" : "sort-desc"
+                    );
+                }
+
+                // re-render rows
+                tbody.innerHTML = "";
+                rows.forEach(r => tbody.appendChild(r));
+            }
+
+            // --- wire up filter (and persist it) ---
+            if (search) {
+                search.addEventListener("input", () => {
+                    localStorage.setItem("ploigos_filter", search.value || "");
+                    applyFilterAndSort();
                 });
             }
 
-            // clear sort classes
-            headers.forEach(h => h.classList.remove("sort-asc", "sort-desc"));
-            if (currentSort.index !== null) {
-                headers[currentSort.index].classList.add(
-                    currentSort.direction === "asc" ? "sort-asc" : "sort-desc"
-                );
-            }
+            // --- wire up sorting (and persist it) ---
+            headers.forEach((th, index) => {
+                if (!th.dataset.sort) return;
 
-            // re-render rows
-            tbody.innerHTML = "";
-            rows.forEach(r => tbody.appendChild(r));
-        }
+                th.addEventListener("click", () => {
+                    if (currentSort.index === index) {
+                        currentSort.direction = currentSort.direction === "asc" ? "desc" : "asc";
+                    } else {
+                        currentSort.index = index;
+                        currentSort.direction = "asc";
+                    }
 
-        // --- wire up filter (and persist it) ---
-        if (search) {
-            search.addEventListener("input", () => {
-                localStorage.setItem("ploigos_filter", search.value || "");
-                applyFilterAndSort();
+                    localStorage.setItem("ploigos_sort_index", String(currentSort.index));
+                    localStorage.setItem("ploigos_sort_dir", currentSort.direction);
+
+                    applyFilterAndSort();
+                });
             });
-        }
 
-        // --- wire up sorting (and persist it) ---
-        headers.forEach((th, index) => {
-            if (!th.dataset.sort) return;
-
-            th.addEventListener("click", () => {
-                if (currentSort.index === index) {
-                    currentSort.direction = currentSort.direction === "asc" ? "desc" : "asc";
-                } else {
-                    currentSort.index = index;
-                    currentSort.direction = "asc";
-                }
-
-                localStorage.setItem("ploigos_sort_index", String(currentSort.index));
-                localStorage.setItem("ploigos_sort_dir", currentSort.direction);
-
-                applyFilterAndSort();
-            });
+            // --- initial apply (using restored state, if any) ---
+            applyFilterAndSort();
         });
+    </script>
 
-        // --- initial apply (using restored state, if any) ---
-        applyFilterAndSort();
-    });
-</script>
 </body>
+
 </html>

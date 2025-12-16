@@ -1,70 +1,45 @@
-- ansible_host: 10.0.0.1
-  hostname: srv1_n0
-  numa_node: 0
-  owner: anastasia
-  service_name: australia
-  started_at: 2025-01-01 00:00:00+00:00
-  status: running
-- ansible_host: 10.0.0.1
-  hostname: srv1_n1
-  numa_node: 1
-  owner: anastasia
-  service_name: texas
-  started_at: 2025-01-01 00:00:00+00:00
-  status: running
-- ansible_host: 10.0.0.2
-  hostname: srv2_n0
-  numa_node: 0
-  owner: kostas
-  service_name: australia
-  started_at: 2025-01-01 00:00:00+00:00
-  status: running
-- ansible_host: 10.0.0.2
-  hostname: srv2_n1
-  numa_node: 1
-  owner: kostas
-  service_name: texas
-  started_at: 2025-01-01 00:00:00+00:00
-  status: running
-- ansible_host: 10.0.0.3
-  hostname: srv3_n0
-  numa_node: 0
-  owner: alex
-  service_name: c555
-  started_at: 2025-01-01 00:00:00+00:00
-  status: running
-- ansible_host: 10.0.0.3
-  hostname: srv3_n1
-  numa_node: 1
-  owner: alex
-  service_name: c555
-  started_at: 2025-01-01 00:00:00+00:00
-  status: running
-- ansible_host: 10.0.0.3
-  hostname: srv3_n2
-  numa_node: 2
-  owner: alex
-  service_name: c555
-  started_at: 2025-01-01 00:00:00+00:00
-  status: running
-- ansible_host: 10.0.0.3
-  hostname: srv3_n3
-  numa_node: 3
-  owner: alex
-  service_name: c555
-  started_at: 2025-01-01 00:00:00+00:00
-  status: running
-- ansible_host: 10.0.0.4
-  hostname: srv4_n0
-  numa_node: 0
-  owner: ''
-  service_name: cockroach-dev
-  started_at: null
-  status: running
-- ansible_host: 10.0.0.4
-  hostname: srv4_n1
-  numa_node: 1
-  owner: ''
-  service_name: cockroach-dev
-  started_at: null
-  status: running
+ec2-3-250-173-37_c0-3:
+  hostname: ec2-3-250-173-37
+  ip: 3.250.173.37
+  cpu_range: "0-3"
+  status: allocated
+  started_at: 
+  tags: 
+    deployment_id: cluster555
+    owner: fabio
+    groups:
+      - cockroachdb
+  labels: []
+ec2-3-250-173-37_c4-7:
+  hostname: ec2-3-250-173-37
+  ip: 3.250.173.37
+  cpu_range: "4-7"
+  status: allocated
+  started_at: 
+  tags: 
+    deployment_id: cluster555
+    owner: fabio
+    groups:
+      - cockroachdb
+  labels: []
+
+ec2-34-247-86-193_c0-3:
+  hostname: ec2-34-247-86-193
+  ip: 34.247.86.193
+  cpu_range: "0-3"
+  status: free
+  started_at: 
+  tags: {}
+  labels: []
+ec2-34-247-86-193_c4-7:
+  hostname: ec2-34-247-86-193
+  ip: 34.247.86.193
+  cpu_range: "4-7"
+  status: allocated
+  started_at: 
+  tags: 
+    deployment_id: cluster555
+    owner: fabio
+    groups:
+      - cockroachdb
+  labels: []

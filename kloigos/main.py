@@ -1,18 +1,18 @@
 import datetime as dt
 import sys
 import threading
-from typing import Literal
+from typing import Any
 
 import yaml
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 app = FastAPI()
 
 INVENTORY_FILE = "inventory.yaml"
-
+CPU_PORTS_MAP = {f"{k}": i * 1000 for i, k in enumerate(range(3, 501, 4))}
 
 # Use a lock to prevent race conditions when multiple Ansible playbooks
 # try to allocate hosts at the exact same time.
@@ -20,13 +20,15 @@ inventory_lock = threading.Lock()
 
 
 class HostDetails(BaseModel):
-    hostname: str
     ansible_host: str
-    numa_node: int
-    service_name: str | None
-    started_at: dt.datetime | None
-    owner: str | None
+    hostname: str
+    ip: str
+    cpu_range: str
+    ports_range: str | None
     status: str
+    started_at: dt.datetime | None
+    tags: dict[str, Any] | None
+    labels: list[str] | None
 
 
 class ProvisionRequest(BaseModel):
@@ -73,39 +75,45 @@ async def deprovision_resources(
 
 @app.get("/servers")
 async def list_servers(
-    service_name: str | None = None,
+    deployment_id: str | None = None,
     status: str | None = None,
 ) -> list[HostDetails]:
     """
     Returns a list of all servers.
-    Optionally filter the results by 'service_name' or 'status' query parameters.
+    Optionally filter the results by 'deployment_id' or 'status' query parameters.
 
     Example:
     - /servers
-    - /servers?service_name=web_app_v1
+    - /servers?deployment_id=web_app_v1
     - /servers?status=free
     """
 
     filtered_hosts = []
-    inventory_dict = {}
+    inventory_raw = {}
 
     with open(INVENTORY_FILE, "r") as f:
-        inventory_dict = yaml.safe_load(f)
+        inventory_raw: dict[str, dict] = yaml.safe_load(f)
 
-    inventory: list[HostDetails] = [HostDetails(**x) for x in inventory_dict]
+        inventory: list[HostDetails] = []
+        for k, v in inventory_raw.items():
+            s = CPU_PORTS_MAP[v.get("cpu_range").split("-")[1]]
+            ports_range = f"{20000+s}-{20000+s+1000}"
+            inventory.append(HostDetails(ansible_host=k, ports_range=ports_range, **v))
 
-    for h in inventory:
+    for x in inventory:
 
-        # Check service_name filter (if provided)
-        service_match = (service_name is None) or (h.service_name == service_name)
+        # Check deployment_id filter (if provided)
+        deployment_id_match = (deployment_id is None) or (
+            x.tags.get("deployment_id", "") == deployment_id
+        )
 
         # Check status filter (if provided)
-        status_match = (status is None) or (h.status == status)
+        status_match = (status is None) or (x.status == status)
 
         # If both matches are true, include the host
-        if service_match and status_match:
+        if deployment_id_match and status_match:
             # We explicitly create the AllocatedHost Pydantic object
-            filtered_hosts.append(h)
+            filtered_hosts.append(x)
 
     return filtered_hosts
 
@@ -116,14 +124,16 @@ def manage_inventory_file(action: str, item: str):
         try:
             # 1. Load Inventory
             with open(INVENTORY_FILE, "r") as f:
-                inventory_raw = yaml.safe_load(f)
+                inventory_raw: dict[str, dict] = yaml.safe_load(f)
         except FileNotFoundError:
             print(
                 f"Error: Inventory file '{INVENTORY_FILE}' not found.", file=sys.stderr
             )
             return {"status": "error", "message": f"Inventory file missing."}
 
-        inventory: list[HostDetails] = [HostDetails(**x) for x in inventory_raw]
+        inventory: list[HostDetails] = [
+            HostDetails(ansible_host=k, **v) for k, v in inventory_raw.items()
+        ]
 
         if action == "provision":
             # Find the first free host
@@ -133,7 +143,7 @@ def manage_inventory_file(action: str, item: str):
                     available_host_name = h
 
                     h.status = "running"
-                    h.service_name = item
+                    h.deployment_id = item
 
                     with open(INVENTORY_FILE, "w") as f:
                         yaml.dump(
@@ -151,7 +161,7 @@ def manage_inventory_file(action: str, item: str):
                 if h.hostname == item:
 
                     h.status = "free"
-                    h.service_name = None
+                    h.deployment_id = None
 
                     with open(INVENTORY_FILE, "w") as f:
                         yaml.dump(
@@ -174,15 +184,14 @@ async def inventory_dashboard(request: Request):
 
     # 1. Load the current inventory data from the YAML file
     with open(INVENTORY_FILE, "r") as f:
-        inventory: list[dict[str, any]] = yaml.safe_load(f)
-
-    inventory_data = inventory
+        inventory = yaml.safe_load(f)
 
     # 2. Prepare the context dictionary to pass data to the HTML template
     context = {
         "request": request,  # Required by Jinja2Templates
         "title": "κλοηγός: Data Center Inventory Dashboard",
-        "hosts": inventory_data,
+        "hosts": inventory,
+        "cpu_ports_map": CPU_PORTS_MAP,
     }
 
     # 3. Render the HTML page
