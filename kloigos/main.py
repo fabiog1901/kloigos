@@ -12,7 +12,8 @@ from pydantic import BaseModel
 app = FastAPI(title="Κλοηγός")
 
 INVENTORY_FILE = "inventory.yaml"
-CPU_PORTS_MAP = {f"{k}": i * 1000 for i, k in enumerate(range(3, 501, 4))}
+RANGE_SIZE=200
+CPU_PORTS_MAP = {f"{k}": 2000 + i * RANGE_SIZE for i, k in enumerate(range(256))}
 
 # Use a lock to prevent race conditions when multiple Ansible playbooks
 # try to allocate hosts at the exact same time.
@@ -96,8 +97,8 @@ async def list_servers(
 
         inventory: list[HostDetails] = []
         for k, v in inventory_raw.items():
-            s = CPU_PORTS_MAP[v.get("cpu_range").split("-")[1]]
-            ports_range = f"{20000+s}-{20000+s+1000}"
+            s = CPU_PORTS_MAP[v.get("cpu_range").split(",")[-1]]
+            ports_range = f"{s}-{s + RANGE_SIZE}"
             inventory.append(HostDetails(ansible_host=k, ports_range=ports_range, **v))
 
     for x in inventory:
@@ -192,6 +193,7 @@ async def inventory_dashboard(request: Request):
         "title": "κλοηγός: Data Center Inventory Dashboard",
         "hosts": inventory,
         "cpu_ports_map": CPU_PORTS_MAP,
+        "range_size": RANGE_SIZE,
     }
 
     # 3. Render the HTML page

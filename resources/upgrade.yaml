@@ -8,7 +8,7 @@
     deployment_id: cluster555
     kloigos_server: "http://127.0.0.1:8000"
   tasks:
-    - name: provision local instance
+    - name: fetch local instances
       ansible.builtin.uri:
         url: "{{ kloigos_server }}/servers?deployment_id={{ deployment_id }}"
         method: GET
@@ -27,6 +27,7 @@
         ansible_host: "{{ item.ip }}"
         public_ip: "{{ item.ip }}"
         cpu_range: "{{ item.cpu_range }}"
+        cpu_range_str: "{{ item.cpu_range_str.replace(',', '-') }}"
         ports_range: "{{ item.ports_range }}"
         groups: "{{ item.tags.groups + [item.tags.deployment_id] }}"
         cloud: "{{ item.region | default('k1') }}"
@@ -52,7 +53,7 @@
   gather_facts: yes
   become: yes
   vars:
-    cockroachdb_version: v25.4.0
+    cockroachdb_version: v25.4.1
     cockroachdb_autofinalize: yes
     cockroachdb_advertise_addr: "{{ public_ip }}"
     cockroachdb_sql_port: 257
@@ -60,13 +61,13 @@
   tasks:
     - name: get current cockroachdb version
       shell: |
-        /opt/c{{ cpu_range }}/cockroach version | head -n1 | awk '{print $3}'
+        /opt/c{{ cpu_range_str }}/cockroach version | head -n1 | awk '{print $3}'
       register: out
 
     - name: preserve downgrade
       run_once: yes
       shell: |
-        /opt/c{{ cpu_range }}/cockroach sql \
+        /opt/c{{ cpu_range_str }}/cockroach sql \
           --insecure \
           --host={{ cockroachdb_advertise_addr }}:{{ ports_range.split('-')[0] | int + cockroachdb_sql_port }} \
           -e "SET CLUSTER SETTING cluster.preserve_downgrade_option = '{{ out.stdout[1:5] }}';"
@@ -81,26 +82,26 @@
 
     - name: make sure compute_unit dir exists
       shell: |
-        mkdir -p c{{ cpu_range }}
+        mkdir -p c{{ cpu_range_str }}
 
     - name: Check that the CockroachDB tarball exists locally
       stat:
-        path: "c{{ cpu_range }}/cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}.tgz"
+        path: "c{{ cpu_range_str }}/cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}.tgz"
       register: _stat_result
 
     - name: Download CockroachDB binary
       shell: |
-        wget -q -P c{{ cpu_range }} {{ cockroachdb_repo_url }}/cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}.tgz
+        wget -q -P c{{ cpu_range_str }} {{ cockroachdb_repo_url }}/cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}.tgz
       when: not _stat_result.stat.exists
 
     - name: Install CockroachDB binary
       shell: |
-        mkdir -p /opt/c{{ cpu_range }}
+        mkdir -p /opt/c{{ cpu_range_str }}
 
-        cd c{{ cpu_range }}
+        cd c{{ cpu_range_str }}
         tar xvf cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}.tgz
-        mv cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}/cockroach /opt/c{{ cpu_range }}
-        chmod 755 /opt/c{{ cpu_range }}/cockroach
+        mv cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}/cockroach /opt/c{{ cpu_range_str }}
+        chmod 755 /opt/c{{ cpu_range_str }}/cockroach
         mkdir /usr/local/lib/cockroach/
         mv cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}/lib/libgeos*.so /usr/local/lib/cockroach/
         rm -rf cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}
@@ -118,7 +119,7 @@
       shell: |
         # printing only the `is_available` and `is_live` columns
         # and checking if any of the string == `false`
-        /opt/c{{ cpu_range }}/cockroach node status \
+        /opt/c{{ cpu_range_str }}/cockroach node status \
           --insecure \
           --format tsv \
           --host={{ ansible_host }}:{{ ports_range.split('-')[0] | int + cockroachdb_sql_port }} \
@@ -133,8 +134,8 @@
     - name: Ensure cockroachdb service is restarted
       shell: |
         systemctl daemon-reload
-        systemctl enable cockroachdb-c{{ cpu_range }}
-        systemctl restart cockroachdb-c{{ cpu_range }}
+        systemctl enable cockroachdb-c{{ cpu_range_str }}
+        systemctl restart cockroachdb-c{{ cpu_range_str }}
 
     - name: pause between restarts
       pause:
@@ -144,7 +145,7 @@
       shell: |
         # printing only the `is_available` and `is_live` columns
         # and checking if any of the string == `false`
-        /opt/c{{ cpu_range }}/cockroach node status \
+        /opt/c{{ cpu_range_str }}/cockroach node status \
           --insecure \
           --format tsv \
           --host={{ ansible_host }}:{{ ports_range.split('-')[0] | int + cockroachdb_sql_port }} \

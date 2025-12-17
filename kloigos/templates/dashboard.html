@@ -628,9 +628,7 @@
                                     <!-- cpu_count -->
                                     <td>
                                         <span class="service-pill">
-                                            {% set start = details.cpu_range.split('-')[0] | int %}
-                                            {% set end = details.cpu_range.split('-')[1] | int %}
-                                            {{ end - start + 1 }}</span>
+                                            {{ details.cpu_range.split(',') | length }}</span>
                                         </span>
                                     </td>
 
@@ -644,10 +642,10 @@
                                     <!-- ports range -->
                                     <td>
                                         <span class="service-pill">
-                                            {% set upper = details.cpu_range.split('-')[1] | trim %}
+                                            {% set upper = details.cpu_range.split(',')[-1] | trim %}
                                             {% if upper in cpu_ports_map %}
                                             {% set base = cpu_ports_map[upper] %}
-                                            {{ 20000 + base }}-{{ 20000 + base + 1000 }}
+                                            {{ base }}-{{ base + range_size }}
                                             {% else %}
                                             ERROR
                                             {% endif %}
