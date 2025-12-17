@@ -53,7 +53,7 @@
   gather_facts: yes
   become: yes
   vars:
-    cockroachdb_version: v25.2.3
+    cockroachdb_version: v25.4.0
     cockroachdb_secure: no
     cockroachdb_certificates_dir: certs
     cockroachdb_certificates_clients:
@@ -140,7 +140,8 @@
           {% for v in cockroachdb_env_vars %}
           Environment="{{ v }}"
           {% endfor %}
-          ExecStart=/opt/c{{ cpu_range }}/cockroach start \
+          ExecStart=numactl --physcpubind={{ cpu_range }} \
+              /opt/c{{ cpu_range }}/cockroach start \
               {{ (cockroachdb_secure) | ternary(cockroachdb_secure_flag, cockroachdb_insecure_flag) }} \
               --store=/mnt/cockroach/c{{ cpu_range }} \
               --listen-addr={{ cockroachdb_listen_addr }}:{{ ports_range.split('-')[0] | int + cockroachdb_rpc_port }} \

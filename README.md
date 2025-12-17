@@ -1,4 +1,4 @@
-# kloigos | κλοηγός
+# Kloigos | Κλοηγός
 
 Ultrasimple micro CMDB for managing local servers
 

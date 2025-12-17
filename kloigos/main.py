@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-app = FastAPI()
+app = FastAPI(title="Κλοηγός")
 
 INVENTORY_FILE = "inventory.yaml"
 CPU_PORTS_MAP = {f"{k}": i * 1000 for i, k in enumerate(range(3, 501, 4))}
