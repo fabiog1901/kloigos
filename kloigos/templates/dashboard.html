@@ -513,7 +513,7 @@
             </div>
             <div class="topbar-right">
                 <div class="pill">
-                    Updated: {{ last_updated or "–" }}
+                    Updated: {{ last_updated or "-" }}
                 </div>
                 <div class="pill pill-accent">
                     {{ hosts|length }} Hosts
@@ -628,27 +628,21 @@
                                     <!-- cpu_count -->
                                     <td>
                                         <span class="service-pill">
-                                            {{ details.cpu_range.split(',') | length }}</span>
+                                            {{ details.cpu_count }}</span>
                                         </span>
                                     </td>
 
                                     <!-- cpu_range -->
                                     <td>
                                         <span class="service-pill">
-                                            <span>{{ details.cpu_range or "-" }}</span>
+                                            <span title="{{ details.cpu_list }}">{{ details.cpu_range or "-" }}</span>
                                         </span>
                                     </td>
 
                                     <!-- ports range -->
                                     <td>
                                         <span class="service-pill">
-                                            {% set upper = details.cpu_range.split(',')[-1] | trim %}
-                                            {% if upper in cpu_ports_map %}
-                                            {% set base = cpu_ports_map[upper] %}
-                                            {{ base }}-{{ base + range_size }}
-                                            {% else %}
-                                            ERROR
-                                            {% endif %}
+                                            {{ details.ports_range }}
                                         </span>
                                         </span>
                                     </td>

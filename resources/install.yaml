@@ -26,8 +26,8 @@
         public_hostname: "{{ item.hostname }}"
         ansible_host: "{{ item.ip }}"
         public_ip: "{{ item.ip }}"
-        cpu_range: "{{ item.cpu_range }}"
-        cpu_range_str: "{{ item.cpu_range.replace(',', '-') }}"
+        cpu_list: "{{ item.cpu_list }}"
+        cpu_range: "c{{ item.cpu_range.replace(':', '-') }}"
         ports_range: "{{ item.ports_range }}"
         groups: "{{ item.tags.groups + [item.tags.deployment_id] }}"
         cloud: "{{ item.region | default('k1') }}"
@@ -88,26 +88,26 @@
 
     - name: make sure compute_unit dir exists
       shell: |
-        mkdir -p c{{ cpu_range_str }}
+        mkdir -p {{ cpu_range }}
 
     - name: Check that the CockroachDB tarball exists locally
       stat:
-        path: "c{{ cpu_range_str }}/cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}.tgz"
+        path: "{{ cpu_range }}/cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}.tgz"
       register: _stat_result
 
     - name: Download CockroachDB binary
       shell: |
-        wget -q -P c{{ cpu_range_str }} {{ cockroachdb_repo_url }}/cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}.tgz
+        wget -q -P {{ cpu_range }} {{ cockroachdb_repo_url }}/cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}.tgz
       when: not _stat_result.stat.exists
 
     - name: Install CockroachDB binary
       shell: |
-        mkdir -p /opt/c{{ cpu_range_str }}
+        mkdir -p /opt/{{ cpu_range }}
 
-        cd c{{ cpu_range_str }}
+        cd {{ cpu_range }}
         tar xvf cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}.tgz
-        mv cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}/cockroach /opt/c{{ cpu_range_str }}
-        chmod 755 /opt/c{{ cpu_range_str }}/cockroach
+        mv cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}/cockroach /opt/{{ cpu_range }}
+        chmod 755 /opt/{{ cpu_range }}/cockroach
         mkdir /usr/local/lib/cockroach/
         mv cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}/lib/libgeos*.so /usr/local/lib/cockroach/
         rm -rf cockroach-{{ cockroachdb_version }}.linux-{{ bin_arch[ansible_architecture] }}
@@ -122,8 +122,8 @@
         chmod 755 {{ item }}
         chown cockroach:cockroach {{ item }}
       loop:
-        - /var/lib/cockroach/c{{ cpu_range_str }}
-        - /mnt/cockroach/c{{ cpu_range_str }}
+        - /var/lib/cockroach/{{ cpu_range }}
+        - /mnt/cockroach/{{ cpu_range }}
 
     - name: Group hosts dynamically based on region
       group_by:
@@ -137,14 +137,14 @@
           Requires=network.target
           [Service]
           Type=notify
-          WorkingDirectory=/var/lib/cockroach/c{{ cpu_range_str }}
+          WorkingDirectory=/var/lib/cockroach/{{ cpu_range }}
           {% for v in cockroachdb_env_vars %}
           Environment="{{ v }}"
           {% endfor %}
-          ExecStart=numactl --physcpubind={{ cpu_range }} \
-              /opt/c{{ cpu_range_str }}/cockroach start \
+          ExecStart=numactl --physcpubind={{ cpu_list }} \
+              /opt/{{ cpu_range }}/cockroach start \
               {{ (cockroachdb_secure) | ternary(cockroachdb_secure_flag, cockroachdb_insecure_flag) }} \
-              --store=/mnt/cockroach/c{{ cpu_range_str }} \
+              --store=/mnt/cockroach/{{ cpu_range }} \
               --listen-addr={{ cockroachdb_listen_addr }}:{{ ports_range.split('-')[0] | int + cockroachdb_rpc_port }} \
               --advertise-addr={{ cockroachdb_advertise_addr }}:{{ ports_range.split('-')[0] | int + cockroachdb_rpc_port }} \
               --sql-addr=:{{ ports_range.split('-')[0] | int + cockroachdb_sql_port }} \
@@ -168,11 +168,11 @@
           RestartSec=10
           StandardOutput=syslog
           StandardError=syslog
-          SyslogIdentifier=cockroach-c{{cpu_range_str}}
+          SyslogIdentifier=cockroach-{{cpu_range}}
           User=cockroach
           [Install]
           WantedBy=default.target
-        dest: /etc/systemd/system/cockroachdb-c{{ cpu_range_str }}.service
+        dest: /etc/systemd/system/cockroachdb-{{ cpu_range }}.service
         mode: 0644
         owner: root
         group: root
@@ -182,8 +182,8 @@
     - name: Ensure cockroachdb service is restarted
       shell: |
         systemctl daemon-reload
-        systemctl enable cockroachdb-c{{ cpu_range_str }}
-        systemctl restart cockroachdb-c{{ cpu_range_str }}
+        systemctl enable cockroachdb-{{ cpu_range }}
+        systemctl restart cockroachdb-{{ cpu_range }}
 
     - name: Find the first region host
       set_fact:
@@ -202,7 +202,7 @@
     - name: Init Cluster
       run_once: yes
       shell: |
-        /opt/c{{ cpu_range_str }}/cockroach init \
+        /opt/{{ cpu_range }}/cockroach init \
           {{ (cockroachdb_secure) | ternary(cockroachdb_secure_flag, cockroachdb_insecure_flag) }} \
           --host={{ hostvars[init_host].ansible_host }}:{{ hostvars[init_host].ports_range.split('-')[0] | int + cockroachdb_rpc_port }}
       register: result

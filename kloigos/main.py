@@ -12,7 +12,7 @@ from pydantic import BaseModel
 app = FastAPI(title="Κλοηγός")
 
 INVENTORY_FILE = "inventory.yaml"
-RANGE_SIZE=200
+RANGE_SIZE = 200
 CPU_PORTS_MAP = {f"{k}": 2000 + i * RANGE_SIZE for i, k in enumerate(range(256))}
 
 # Use a lock to prevent race conditions when multiple Ansible playbooks
@@ -25,6 +25,7 @@ class HostDetails(BaseModel):
     hostname: str
     ip: str
     cpu_range: str
+    cpu_list: str
     ports_range: str | None
     status: str
     started_at: dt.datetime | None
@@ -97,9 +98,19 @@ async def list_servers(
 
         inventory: list[HostDetails] = []
         for k, v in inventory_raw.items():
-            s = CPU_PORTS_MAP[v.get("cpu_range").split(",")[-1]]
+            cpu_list = cpu_range_to_list(v.get("cpu_range"))
+
+            s = CPU_PORTS_MAP[cpu_list[-1]]
             ports_range = f"{s}-{s + RANGE_SIZE}"
-            inventory.append(HostDetails(ansible_host=k, ports_range=ports_range, **v))
+
+            inventory.append(
+                HostDetails(
+                    ansible_host=k,
+                    cpu_list=cpu_list,
+                    ports_range=ports_range,
+                    **v,
+                )
+            )
 
     for x in inventory:
 
@@ -176,6 +187,38 @@ def manage_inventory_file(action: str, item: str):
             return "Host not found"
 
 
+def cpu_range_to_list(s: str):
+    """
+    Convert from cpu_short syntax to a comma separated list
+
+    Examples:
+    
+    "0-7:2" -> "0,2,4,6"
+
+    "1-7:2" -> "1,3,5,7"
+
+    "0-7"   -> "0,1,2,3,4,5,6,7"
+    """
+
+    # check whether the string is already a comma separated list
+    if s.find(",") > 0:
+        return s
+
+    # check to see if the step syntax is used:
+    if s.find(":") < 0:
+        step = 1
+        rng = s
+    else:
+        rng, step = s.split(":")
+        step = int(step)
+
+    start, end = rng.split("-")
+    start = int(start)
+    end = int(end)
+
+    return ",".join([str(x) for x in list(range(start, end + 1, step))])
+
+
 # Configure the templates
 templates = Jinja2Templates(directory="kloigos/templates")
 
@@ -187,13 +230,19 @@ async def inventory_dashboard(request: Request):
     with open(INVENTORY_FILE, "r") as f:
         inventory = yaml.safe_load(f)
 
+    for compute_id, v in inventory.items():
+        cpu_list = cpu_range_to_list(v.get("cpu_range"))
+        start_port = CPU_PORTS_MAP.get(cpu_list.split(",")[-1])
+
+        v["cpu_list"] = cpu_list
+        v["cpu_count"] = len(cpu_list.split(","))
+        v["ports_range"] = f"{start_port}-{start_port+RANGE_SIZE}"
+
     # 2. Prepare the context dictionary to pass data to the HTML template
     context = {
         "request": request,  # Required by Jinja2Templates
         "title": "κλοηγός: Data Center Inventory Dashboard",
         "hosts": inventory,
-        "cpu_ports_map": CPU_PORTS_MAP,
-        "range_size": RANGE_SIZE,
     }
 
     # 3. Render the HTML page
