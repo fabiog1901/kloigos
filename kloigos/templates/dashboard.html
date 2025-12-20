@@ -15,6 +15,7 @@
             --border-subtle: #1f2937;
             --text: #e5e7eb;
             --muted: #9ca3af;
+            --muted-soft: #bfc4cd1d;
             --danger: #f97373;
             --danger-soft: rgba(239, 68, 68, 0.15);
             --warn: #fbbf24;
@@ -193,6 +194,10 @@
 
         .dot-warning {
             background: var(--warn);
+        }
+        
+        .dot-muted {
+            background: var(--muted);
         }
 
         .dot-offline {
@@ -392,6 +397,15 @@
             background: var(--warn-soft);
             color: var(--warn);
         }
+        
+        .status-muted {
+            background: var(--muted-soft);
+            color: var(--muted);
+        }
+
+        .status-muted .status-dot {
+            background: var(--muted);
+        }
 
         .status-warning .status-dot {
             background: var(--warn);
@@ -552,13 +566,15 @@
                 <div>
                     <h2>Status</h2>
                     <div class="metric">
-                        <div class="metric-label">By health</div>
                         <div class="legend">
                             <div class="legend-pill">
                                 <span class="dot dot-online"></span> Free
                             </div>
                             <div class="legend-pill">
                                 <span class="dot dot-warning"></span> Allocated
+                            </div>
+                            <div class="legend-pill">
+                                <span class="dot dot-muted"></span> Terminating
                             </div>
                             <div class="legend-pill">
                                 <span class="dot dot-offline"></span> Unavailable
@@ -594,6 +610,7 @@
                             <thead>
                                 <tr>
                                     <th data-sort="string">Compute ID</th>
+                                    <th data-sort="string">Region</th>
                                     <th data-sort="string">Hostname</th>
                                     <th data-sort="ip">IP</th>
                                     <th data-sort="number">CPUs</th>
@@ -610,9 +627,15 @@
                                 {% for compute_id, details in hosts.items() %}
                                 {% set s = (details.status or "")|lower %}
                                 <tr>
-                                    <!-- hostname (key) -->
+                                    <!-- compute_id (key) -->
                                     <td>{{ compute_id }}</td>
 
+                                    <!-- region-zone -->
+                                    <td>
+                                        <span>{{ details.region }}-{{ details.zone }}</span>
+                                    </td>
+                                    
+                                    
                                     <!-- hostname -->
                                     <td>
                                         {% if details.hostname %}
@@ -696,6 +719,11 @@
                                         </span>
                                         {% elif "allocated" in s %}
                                         <span class="status status-warning">
+                                            <span class="status-dot"></span>
+                                            {{ details.status.upper() }}
+                                        </span>
+                                        {% elif "terminating" in s %}
+                                        <span class="status status-muted">
                                             <span class="status-dot"></span>
                                             {{ details.status.upper() }}
                                         </span>

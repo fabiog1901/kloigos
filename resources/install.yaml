@@ -21,7 +21,7 @@
 
     - name: Build ansible inventory dynamically
       add_host:
-        name: "{{ item.ansible_host }}"
+        name: "{{ item.compute_id }}"
         ansible_user: ubuntu
         public_hostname: "{{ item.hostname }}"
         ansible_host: "{{ item.ip }}"
