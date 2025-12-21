@@ -86,6 +86,26 @@ For local testing:
 
 Consult the FastAPI docs for the production deployment guide.
 
+### Stateful data
+
+Kloigos uses the lightweight yet powerful SQLite database to store stateful data, such as the
+list of compute units and their current status. While a simple text file might be sufficient today,
+using a proper relational database provides greater flexibility, richer querying capabilities,
+and helps future-proof Kloigos as it evolves.
+
+### Clean up after deprovisioning
+
+Most Kloigos operations involve serving and managing metadata about compute units.
+There is, however, one scenario that goes beyond simple metadata updates: the deprovisioning of a compute unit.
+
+When a compute unit is deprovisioned, it is best practice to remove any residual data so
+that the unit can be returned to a clean state and made ready for reuse.
+To perform this cleanup, Kloigos invokes an Ansible playbook (`clean_up.yaml`)
+against the compute unit being terminated.
+
+For this process to work, Ansible must be able to establish an SSH connection to the host.
+As a result, the appropriate SSH keys must be available and loaded on the Kloigos server.
+
 ---
 
 ## API
