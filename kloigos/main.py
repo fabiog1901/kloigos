@@ -112,7 +112,7 @@ async def deprovision_resources(
 
 
 def clean_up_compute_unit(compute_id: str) -> None:
-    job_status = MyRunner().launch_runner("clean_up.yaml", {})
+    job_status = MyRunner().launch_runner("examples/clean_up.yaml", {})
 
     status = "free" if job_status == "successful" else "unavailable"
 

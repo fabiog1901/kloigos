@@ -76,7 +76,7 @@ class MyRunner:
 
     def launch_runner(self, playbook_name: str, extra_vars: dict):
 
-        with open("resources/" + playbook_name, "r") as f:
+        with open(playbook_name, "r") as f:
             playbook = yaml.safe_load(f.read())
 
         # create a new working directory

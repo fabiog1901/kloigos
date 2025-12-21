@@ -1,4 +1,7 @@
 ---
+#
+# Playbook invoked by Kloigos after each `deprovision` call.
+#
 - name: GATHER COMPUTE UNITS TO CLEANUP
   hosts: localhost
   connection: local
