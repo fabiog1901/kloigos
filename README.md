@@ -20,7 +20,7 @@ This is where **Kloigos** offers an alternative approach.
 
 Kloigos lets you manage compute units directly on the host, without introducing an additional abstraction layer. Each compute unit is identified by a combination of the hostname and a specific CPU range, and is treated as an independent execution environment. You can install and run any software you like within each compute unit.
 
-Because Kloigos relies on native Linux primitives, it introduces no extra runtime overhead and requires no special software stack. Processes are launched using numactl to bind them to the designated CPUs.
+Because Kloigos relies on native Linux primitives, it introduces no extra runtime overhead and requires no special software stack. Processes are launched using `numactl` to bind them to the designated CPUs.
 
 This approach does impose some constraints. For example, services that expose network ports must avoid port collisions. To address this, each compute unit is assigned:
 
