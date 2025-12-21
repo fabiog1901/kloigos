@@ -1,7 +1,7 @@
-import datetime as dt
 import json
 import os
 import shutil
+import time
 
 import ansible_runner
 import yaml
@@ -74,16 +74,14 @@ class MyRunner:
             task_data,
         )
 
-    def launch_runner(
-        self, playbook_name: str, extra_vars: dict
-    ) -> tuple[str, dict, int]:
+    def launch_runner(self, playbook_name: str, extra_vars: dict):
 
         with open("resources/" + playbook_name, "r") as f:
             playbook = yaml.safe_load(f.read())
 
         # create a new working directory
 
-        job_id = int(dt.datetime.timestamp())
+        job_id = int(time.time())
         os.mkdir(path=f"/tmp/job-{job_id}")
 
         # Execute the playbook
@@ -92,7 +90,7 @@ class MyRunner:
                 quiet=False,
                 verbosity=1,
                 playbook=playbook,
-                private_data_dir=f"/tmp/job-{self.job_id}",
+                private_data_dir=f"/tmp/job-{job_id}",
                 extravars=extra_vars,
                 event_handler=self.my_event_handler,
                 status_handler=self.my_status_handler,

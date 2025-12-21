@@ -7,7 +7,7 @@
   vars:
     kloigos_server: "http://127.0.0.1:8000"
   tasks:
-    - name: gather instances with status set to terminating
+    - name: gather compute units with status set to terminating
       ansible.builtin.uri:
         url: "{{ kloigos_server }}/servers?status=terminating"
         method: GET

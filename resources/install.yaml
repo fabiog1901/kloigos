@@ -1,5 +1,5 @@
 ---
-- name: GATHER COMPUTE_IDS
+- name: GATHER COMPUTE_UNITS
   hosts: localhost
   connection: local
   gather_facts: no

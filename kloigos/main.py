@@ -3,7 +3,7 @@ import json
 import sqlite3
 from typing import Any
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, status
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -36,10 +36,10 @@ class ComputeUnitResponse(ComputeUnit):
 
 
 class ComputeUnitRequest(BaseModel):
-    cpu_count: int
-    region: str
-    zone: str
-    tags: str
+    cpu_count: int | None = 4
+    region: str | None = None
+    zone: str | None = None
+    tags: dict[str, str | int] | None
 
 
 @app.post(
@@ -57,11 +57,11 @@ async def provision_resources(
         limit=1,
     )
 
-    if cu_list is not None:
+    if cu_list:
         cu = cu_list[0]
     else:
-        return HTTPException(status.HTTP_416_RANGE_NOT_SATISFIABLE)
-    
+        raise HTTPException(status.HTTP_416_RANGE_NOT_SATISFIABLE)
+
     cpu_list = cpu_range_to_list(cu.cpu_range)
 
     s = CPU_PORTS_MAP[cpu_list[-1]]
@@ -72,7 +72,7 @@ async def provision_resources(
         cur.execute(
             """
             UPDATE compute_units
-            SET status='allocated'
+            SET status='allocated',
                 tags = ?
             WHERE compute_id = ?
             """,
@@ -99,17 +99,20 @@ async def deprovision_resources(
         cur.execute(
             """
             UPDATE compute_units
-            SET status='terminating'
+            SET status='terminating',
+                tags = '{}'
             WHERE compute_id = ?
             """,
-            (),
+            (compute_id,),
         )
 
     bg_task.add_task(clean_up_compute_unit, compute_id)
 
+    return Response(status_code=status.HTTP_200_OK)
+
 
 def clean_up_compute_unit(compute_id: str) -> None:
-    job_status = MyRunner().launch_runner("clean_up.yaml")
+    job_status = MyRunner().launch_runner("clean_up.yaml", {})
 
     status = "free" if job_status == "successful" else "unavailable"
 
