@@ -10,7 +10,7 @@
   tasks:
     - name: provision 3 local instances
       ansible.builtin.uri:
-        url: "{{ kloigos_server }}/provision?deployment_id={{ deployment_id }}"
+        url: "{{ kloigos_server }}/provision"
         method: POST
         body_format: json
         headers:
