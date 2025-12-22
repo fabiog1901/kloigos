@@ -11,13 +11,28 @@ from util import MyRunner
 
 app = FastAPI(title="Κλοηγός")
 
+# range_size dictates how many ports are allocated per each compute_unit
 RANGE_SIZE = 200
+
+# the last CPU ID of the compute unit dictates what ports_range the unit receives.
+# For example, if the cpus are 0,2, we look up 2 in the map to find the start port range is 2400
+# then the range is 2400-(2400 + RANGE_SIZE).
+# This ensure that there are no ports overlapping even on very large servers
+# This is what the mapping looks like:
+# {
+#     '0': 2000,
+#     '1': 2200,
+#     '2': 2400,
+#     ...,
+#     '254': 52800,
+#     '255': 53000
+# }
 CPU_PORTS_MAP = {f"{k}": 2000 + i * RANGE_SIZE for i, k in enumerate(range(256))}
 
-SQLITE = "kloigos.sqlite"
+SQLITE_DB = "kloigos.sqlite"
 
 
-class ComputeUnit(BaseModel):
+class ComputeUnitInDB(BaseModel):
     compute_id: str
     hostname: str
     ip: str
@@ -30,7 +45,7 @@ class ComputeUnit(BaseModel):
     tags: dict[str, Any] | None
 
 
-class ComputeUnitResponse(ComputeUnit):
+class ComputeUnitResponse(ComputeUnitInDB):
     cpu_list: str
     ports_range: str | None
 
@@ -39,7 +54,7 @@ class ComputeUnitRequest(BaseModel):
     cpu_count: int | None = 4
     region: str | None = None
     zone: str | None = None
-    tags: dict[str, str | int] | None
+    tags: dict[str, str | int | list[str]] | None
 
 
 @app.post(
@@ -49,25 +64,30 @@ async def provision_resources(
     req: ComputeUnitRequest,
 ) -> ComputeUnitResponse:
 
-    cu_list = get_compute_units(
+    # find and return a free instance that matches the provision request
+    cu_list: list[ComputeUnitInDB] = get_compute_units(
         region=req.region,
         zone=req.zone,
-        status="free",
         cpu_count=req.cpu_count,
+        status="free",
         limit=1,
     )
 
+    # if the list is empty, raise an HTTPException
     if cu_list:
         cu = cu_list[0]
     else:
-        raise HTTPException(status.HTTP_416_RANGE_NOT_SATISFIABLE)
+        raise HTTPException(
+            status_code=460, detail="No free Compute Unit found to match your request"
+        )
 
     cpu_list = cpu_range_to_list(cu.cpu_range)
 
     s = CPU_PORTS_MAP[cpu_list[-1]]
     ports_range = f"{s}-{s + RANGE_SIZE}"
 
-    with sqlite3.connect(SQLITE) as conn:
+    # mark the compute_unit to allocated
+    with sqlite3.connect(SQLITE_DB) as conn:
         cur = conn.cursor()
         cur.execute(
             """
@@ -79,10 +99,12 @@ async def provision_resources(
             (json.dumps(req.tags), cu.compute_id),
         )
 
+    # return the details of the compute_unit
     return ComputeUnitResponse(
         cpu_list=cpu_list,
         ports_range=ports_range,
-        **cu.model_dump(),
+        tags=req.tags,
+        **cu.model_dump(exclude="tags"),
     )
 
 
@@ -94,7 +116,8 @@ async def deprovision_resources(
     bg_task: BackgroundTasks,
 ) -> None:
 
-    with sqlite3.connect(SQLITE) as conn:
+    # mark the compute_id as terminating
+    with sqlite3.connect(SQLITE_DB) as conn:
         cur = conn.cursor()
         cur.execute(
             """
@@ -106,17 +129,25 @@ async def deprovision_resources(
             (compute_id,),
         )
 
+    # async, run the cleanup task
     bg_task.add_task(clean_up_compute_unit, compute_id)
 
+    # returns immediately
     return Response(status_code=status.HTTP_200_OK)
 
 
 def clean_up_compute_unit(compute_id: str) -> None:
+    """
+    Execute Ansible Playbook `clean_up.yaml`
+    The goal is to return the compute unit to a clean state
+    so that it can be available for being re-provisioned.
+    """
+
     job_status = MyRunner().launch_runner("examples/clean_up.yaml", {})
 
     status = "free" if job_status == "successful" else "unavailable"
 
-    with sqlite3.connect(SQLITE) as conn:
+    with sqlite3.connect(SQLITE_DB) as conn:
         cur = conn.cursor()
         cur.execute(
             """
@@ -147,7 +178,7 @@ async def list_servers(
     - /servers?status=free
     """
 
-    cu = get_compute_units(
+    cu_list: list[ComputeUnitInDB] = get_compute_units(
         compute_id,
         region,
         zone,
@@ -158,7 +189,7 @@ async def list_servers(
 
     inventory: list[ComputeUnitResponse] = []
 
-    for x in cu:
+    for x in cu_list:
         cpu_list = cpu_range_to_list(x.cpu_range)
 
         s = CPU_PORTS_MAP[cpu_list[-1]]
@@ -215,8 +246,9 @@ def get_compute_units(
     deployment_id: str = None,
     status: str = None,
     limit: int = None,
-) -> list[ComputeUnit]:
+) -> list[ComputeUnitInDB]:
 
+    # Prepare the WHERE clause
     conditions = []
     params = []
 
@@ -252,14 +284,14 @@ def get_compute_units(
     if limit:
         sql += f" LIMIT {limit}"
 
-    with sqlite3.connect(SQLITE) as conn:
+    with sqlite3.connect(SQLITE_DB) as conn:
         conn.row_factory = sqlite3.Row  # enables dict-like access
 
         cur = conn.cursor()
 
         rs = cur.execute(sql, params).fetchall()
 
-        response = []
+        cu_list: list[ComputeUnitInDB] = []
 
         for row in rs:
             data = dict(row)
@@ -273,9 +305,9 @@ def get_compute_units(
             else:
                 data["started_at"] = None
 
-            response.append(ComputeUnit(**data))
+            cu_list.append(ComputeUnitInDB(**data))
 
-        return response
+        return cu_list
 
 
 # Configure the templates
@@ -285,8 +317,10 @@ templates = Jinja2Templates(directory="kloigos/templates")
 @app.get("/", response_class=HTMLResponse)
 async def inventory_dashboard(request: Request):
 
+    # fetch all compute units and dump them into a dict
     inventory = {x.compute_id: x.model_dump() for x in get_compute_units()}
 
+    # enrich the data with the computed cpu_list and ports_range values
     for _, v in inventory.items():
         cpu_list = cpu_range_to_list(v.get("cpu_range"))
         start_port = CPU_PORTS_MAP.get(cpu_list.split(",")[-1])
@@ -294,11 +328,12 @@ async def inventory_dashboard(request: Request):
         v["cpu_list"] = cpu_list
         v["ports_range"] = f"{start_port}-{start_port+RANGE_SIZE}"
 
-    # 2. Prepare the context dictionary to pass data to the HTML template
+    # Prepare the context dictionary to pass data to the HTML template
     context = {
         "request": request,  # Required by Jinja2Templates
         "title": "κλοηγός: Data Center Inventory Dashboard",
         "hosts": inventory,
     }
 
+    # return the HTML page
     return templates.TemplateResponse("dashboard.html", context)

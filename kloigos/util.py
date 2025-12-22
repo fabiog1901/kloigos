@@ -81,7 +81,7 @@ class MyRunner:
 
         # create a new working directory
 
-        job_id = int(time.time())
+        job_id = time.time()
         os.mkdir(path=f"/tmp/job-{job_id}")
 
         # Execute the playbook

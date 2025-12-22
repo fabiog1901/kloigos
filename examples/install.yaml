@@ -1,5 +1,5 @@
 ---
-- name: GATHER COMPUTE_UNITS
+- name: PROVISION COMPUTE UNITS
   hosts: localhost
   connection: local
   gather_facts: no
@@ -8,43 +8,73 @@
     deployment_id: cluster555
     kloigos_server: "http://127.0.0.1:8000"
   tasks:
-    - name: provision local instance
+    - name: deprovision 3 local instances
       ansible.builtin.uri:
-        url: "{{ kloigos_server }}/servers?deployment_id={{ deployment_id }}"
-        method: GET
+        url: "{{ kloigos_server }}/deprovision/{{ item }}"
+        method: DELETE
         status_code: 200
+      loop: 
+        - ec2-3-250-173-37_c0-3
+        - ec2-34-247-86-193_c0-7-2
+        - ec2-3-250-173-37_c4-7
+      register: instances
+    
+    - pause:
+        seconds: 5
+   
+    - name: provision 3 local instances
+      ansible.builtin.uri:
+        url: "{{ kloigos_server }}/provision?deployment_id={{ deployment_id }}"
+        method: POST
+        body_format: json
+        headers:
+          Content-Type: application/json
+        body:
+          cpu_count: 4
+          tags:
+            deployment_id: "{{ deployment_id }}"
+            owner: fabio
+            groups:
+              - cockroachdb
+              - dev
+        status_code: 200
+      loop: "{{ range(3) }}"
       register: instances
 
     - name: print list of instances
       debug:
-        var: instances.json
+        msg: "{{ item.json }}"
+      loop: "{{ instances.results }}"
+
 
     - name: Build ansible inventory dynamically
       add_host:
-        name: "{{ item.compute_id }}"
+        name: "{{ item.json.compute_id }}"
         ansible_user: ubuntu
-        public_hostname: "{{ item.hostname }}"
-        ansible_host: "{{ item.ip }}"
-        public_ip: "{{ item.ip }}"
-        cpu_list: "{{ item.cpu_list }}"
-        cpu_range: "c{{ item.cpu_range.replace(':', '-') }}"
-        ports_range: "{{ item.ports_range }}"
-        groups: "{{ item.tags.groups + [item.tags.deployment_id] }}"
-        cloud: "{{ item.region | default('k1') }}"
-        region: "{{ item.region | default('r1') }}"
-        zone: "{{ item.zone | default('a') }}"
+        public_hostname: "{{ item.json.hostname }}"
+        ansible_host: "{{ item.json.ip }}"
+        public_ip: "{{ item.json.ip }}"
+        cpu_list: "{{ item.json.cpu_list }}"
+        cpu_range: "c{{ item.json.cpu_range.replace(':', '-') }}"
+        ports_range: "{{ item.json.ports_range }}"
+        groups: "{{ item.json.tags.groups + [item.json.tags.deployment_id] }}"
+        cloud: "{{ item.json.cloud | default('KLO') }}"
+        region: "{{ item.json.region | default('r1') }}"
+        zone: "{{ item.json.zone | default('a') }}"
 
-      loop: "{{ instances.json }}"
+      loop: "{{ instances.results }}"
 
     - name: save simplified list of hosts
       copy:
         content: |
           {% for item in groups %}
+          {% if item not in ['all', 'ungrouped'] %}
           [{{item}}]
           {% for entry in groups[item] %}
-          {{ entry }}  {{hostvars[entry].ansible_host }} {{hostvars[entry].cpu_range }} {{hostvars[entry].ports_range }}
+          {{ entry }}  {{hostvars[entry].ansible_host }} {{hostvars[entry].cpu_range }} {{hostvars[entry].ports_range }} {{hostvars[entry].cloud }}::{{hostvars[entry].region }}-{{hostvars[entry].zone }} 
           {% endfor %}
 
+          {% endif %}
           {% endfor %}
         dest: "{{ deployment_id }}.simple.ini"
 

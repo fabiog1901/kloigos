@@ -57,7 +57,7 @@ using `numactl --physcpubind 16-31 /opt/c16-31/serviceA -p 2247 ...`.
 You can decide to allocate dedicated disks for the data of a service.
 The same idea remains, namely, prepending each path with the unit identifier, example `/mnt/c0-15/data`.
 
-Kloigos lets you manage compute units in much the same way that AWS lets you manage EC2 instances-only at a far smaller, more granular scale.
+Kloigos lets you manage compute units in much the same way that AWS lets you manage EC2 instances - only at a far smaller, more granular scale.
 
 While Kloigos provides a web dashboard for visibility and monitoring, the dashboard is informational only.
 All provisioning and deprovisioning of compute units is performed programmatically through the Kloigos APIs.
@@ -110,6 +110,6 @@ As a result, the appropriate SSH keys must be available and loaded on the Kloigo
 
 ## API
 
-Consult the API Swagger UI page at </docs> for info on all endpoints
+Consult the API Swagger UI page at </docs> for info on all endpoints.
 
 ![api](media/api.png)
