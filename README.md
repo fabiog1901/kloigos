@@ -8,7 +8,7 @@ The name comes from the Greek word **πλοηγός** (ploigos), which means "na
 
 ## What problem it solves
 
-Imagine you manage a fleet of large servers-machines with 64 or 128 CPUs, spread across 1, 2, or even 4 NUMA nodes.
+Imagine you manage a fleet of large servers - machines with 64 or 128 CPUs, spread across 1, 2, or even 4 NUMA nodes.
 
 You can use each server to run a single application that consumes all available CPUs, or you can partition the CPUs into smaller _compute units_ so that multiple applications can share the same machine.
 
@@ -110,6 +110,6 @@ As a result, the appropriate SSH keys must be available and loaded on the Kloigo
 
 ## API
 
-Consult the API Swagger UI page at </docs> for info on all endpoints.
+Consult the API Swagger UI page at `/docs` for info on all endpoints.
 
 ![api](media/api.png)
