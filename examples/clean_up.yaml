@@ -28,13 +28,8 @@
         public_hostname: "{{ item.hostname }}"
         ansible_host: "{{ item.ip }}"
         public_ip: "{{ item.ip }}"
-        cpu_list: "{{ item.cpu_list }}"
         cpu_range: "c{{ item.cpu_range.replace(':', '-') }}"
-        ports_range: "{{ item.ports_range }}"
         groups: cleanup
-        cloud: "{{ item.region | default('k1') }}"
-        region: "{{ item.region | default('r1') }}"
-        zone: "{{ item.zone | default('a') }}"
 
       loop: "{{ instances.json }}"
 
@@ -47,7 +42,7 @@
       shell: |
         rm -rf {{ cpu_range }}/*
         rm -rf /opt/{{ cpu_range }}/*
-        rm -rf /var/lib/cockroach/{{ cpu_range }}/*
-        rm -rf /mnt/cockroach/{{ cpu_range }}/*
-        rm -rf /etc/systemd/system/cockroachdb-{{ cpu_range }}.service
+        rm -rf /var/lib/{{ cpu_range }}/*
+        rm -rf /mnt/{{ cpu_range }}/*
+        rm -rf /etc/systemd/system/{{ cpu_range }}-*.service
       

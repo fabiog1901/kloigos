@@ -8,20 +8,6 @@
     deployment_id: cluster555
     kloigos_server: "http://127.0.0.1:8000"
   tasks:
-    - name: deprovision 3 local instances
-      ansible.builtin.uri:
-        url: "{{ kloigos_server }}/deprovision/{{ item }}"
-        method: DELETE
-        status_code: 200
-      loop: 
-        - ec2-3-250-173-37_c0-3
-        - ec2-34-247-86-193_c0-7-2
-        - ec2-3-250-173-37_c4-7
-      register: instances
-    
-    - pause:
-        seconds: 5
-   
     - name: provision 3 local instances
       ansible.builtin.uri:
         url: "{{ kloigos_server }}/provision?deployment_id={{ deployment_id }}"
@@ -152,8 +138,8 @@
         chmod 755 {{ item }}
         chown cockroach:cockroach {{ item }}
       loop:
-        - /var/lib/cockroach/{{ cpu_range }}
-        - /mnt/cockroach/{{ cpu_range }}
+        - /var/lib/{{ cpu_range }}/cockroach
+        - /mnt/{{ cpu_range }}/cockroach
 
     - name: Group hosts dynamically based on region
       group_by:
@@ -174,7 +160,7 @@
           ExecStart=numactl --physcpubind={{ cpu_list }} \
               /opt/{{ cpu_range }}/cockroach start \
               {{ (cockroachdb_secure) | ternary(cockroachdb_secure_flag, cockroachdb_insecure_flag) }} \
-              --store=/mnt/cockroach/{{ cpu_range }} \
+              --store=/mnt/{{ cpu_range }}/cockroach/ \
               --listen-addr={{ cockroachdb_listen_addr }}:{{ ports_range.split('-')[0] | int + cockroachdb_rpc_port }} \
               --advertise-addr={{ cockroachdb_advertise_addr }}:{{ ports_range.split('-')[0] | int + cockroachdb_rpc_port }} \
               --sql-addr=:{{ ports_range.split('-')[0] | int + cockroachdb_sql_port }} \
@@ -198,11 +184,11 @@
           RestartSec=10
           StandardOutput=syslog
           StandardError=syslog
-          SyslogIdentifier=cockroach-{{cpu_range}}
+          SyslogIdentifier={{cpu_range}}-cockroach
           User=cockroach
           [Install]
           WantedBy=default.target
-        dest: /etc/systemd/system/cockroachdb-{{ cpu_range }}.service
+        dest: /etc/systemd/system/{{ cpu_range }}-cockroachdb.service
         mode: 0644
         owner: root
         group: root
@@ -212,8 +198,8 @@
     - name: Ensure cockroachdb service is restarted
       shell: |
         systemctl daemon-reload
-        systemctl enable cockroachdb-{{ cpu_range }}
-        systemctl restart cockroachdb-{{ cpu_range }}
+        systemctl enable {{ cpu_range }}-cockroachdb
+        systemctl restart {{ cpu_range }}-cockroachdb
 
     - name: Find the first region host
       set_fact:

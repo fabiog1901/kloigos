@@ -40,11 +40,13 @@
       copy:
         content: |
           {% for item in groups %}
+          {% if item not in ['all', 'ungrouped'] %}
           [{{item}}]
           {% for entry in groups[item] %}
-          {{ entry }}  {{hostvars[entry].ansible_host }} {{hostvars[entry].cpu_range }} {{hostvars[entry].ports_range }}
+          {{ entry }}  {{hostvars[entry].ansible_host }} {{hostvars[entry].cpu_range }} {{hostvars[entry].ports_range }} {{hostvars[entry].cloud }}::{{hostvars[entry].region }}-{{hostvars[entry].zone }} 
           {% endfor %}
 
+          {% endif %}
           {% endfor %}
         dest: "{{ deployment_id }}.simple.ini"
 
@@ -134,8 +136,8 @@
     - name: Ensure cockroachdb service is restarted
       shell: |
         systemctl daemon-reload
-        systemctl enable cockroachdb-{{ cpu_range }}
-        systemctl restart cockroachdb-{{ cpu_range }}
+        systemctl enable {{ cpu_range }}-cockroachdb
+        systemctl restart {{ cpu_range }}-cockroachdb
 
     - name: pause between restarts
       pause:
