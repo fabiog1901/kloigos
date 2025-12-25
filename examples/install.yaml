@@ -1,3 +1,8 @@
+#
+# Example Playbook showing how to use Kloigos 
+# to provision compute units and use them to 
+# deploy a CockroachDB cluster.
+#
 ---
 - name: PROVISION COMPUTE UNITS
   hosts: localhost

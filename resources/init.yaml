@@ -1,0 +1,143 @@
+---
+#
+# Playbook invoked by Kloigos after each `new_server_init` call.
+#
+# The following extra-vars are passed:
+#   compute_id
+#   cpu_ranges
+#   cpu_ranges_list
+#
+- name: GATHER NEW SERVER TO INIT
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: no
+  vars:
+    kloigos_server: "http://127.0.0.1:8000"
+  tasks:
+    - name: gather new server details
+      ansible.builtin.uri:
+        url: "{{ kloigos_server }}/servers?compute_id={{ compute_id }}"
+        method: GET
+        status_code: 200
+      register: instances
+
+    - name: print list of instances
+      debug:
+        var: instances.json
+
+    - name: Build ansible inventory dynamically
+      add_host:
+        name: "{{ item.compute_id }}"
+        ansible_user: ubuntu
+        public_hostname: "{{ item.hostname }}"
+        ansible_host: "{{ item.ip }}"
+        public_ip: "{{ item.ip }}"
+        groups: init_server
+
+      loop: "{{ instances.json }}"
+
+- name: INIT NEW SERVER
+  hosts: init_server
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: create users
+      shell: |
+        id c{{ item }} || useradd --create-home --home-dir /home/c{{ item }} --shell /bin/bash c{{ item }} 
+      loop: "{{ cpu_ranges }}"
+
+    - name: Find attached disks bigger than 100GB
+      shell: |
+        lsblk -o NAME,TYPE,SIZE -p -n -b -s | \
+          awk '$NF ~ /[1-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/' | \
+          grep -v '└─' | \
+          grep disk | \
+          awk '{print $1}'
+      args:
+        executable: /bin/bash
+      register: disks
+
+    - name: Create a ext4 filesystem
+      shell: |
+        blkid {{ item }} -t TYPE="ext4" || mkfs.ext4 {{ item }}
+      loop: "{{ disks.stdout_lines }}"
+
+    - name: add disks to /etc/fstab
+      shell: |
+        mkdir -p /mnt/c{{ item.1 }}
+        DISKUUID=`lsblk -no UUID {{ item.0 }}`
+        grep -q $DISKUUID /etc/fstab || echo "UUID=$DISKUUID /mnt/c{{ item.1 }} ext4 defaults 0 2" >> /etc/fstab
+      loop: "{{ disks.stdout_lines | zip(cpu_ranges) | list }}"
+
+    - name: reload systemct and mount disks
+      shell: |
+        systemctl daemon-reload
+        mount --all
+
+    - name: create directories and setting ownership
+      shell: |
+        mkdir -p /opt/c{{ item.1 }}
+        mkdir -p /mnt/c{{ item.1 }}
+        mkdir -p /home/c{{ item.1 }}
+        chown -R c{{ item.1}}:c{{ item.1 }} /opt/c{{ item.1 }}
+        chown -R c{{ item.1}}:c{{ item.1 }} /mnt/c{{ item.1 }}
+        chown -R c{{ item.1}}:c{{ item.1 }} /home/c{{ item.1 }}
+        chmod 0750 /opt/c{{ item.1 }}
+        chmod 0750 /mnt/c{{ item.1 }}
+        chmod 0750 /home/c{{ item.1 }}
+      loop: "{{ disks.stdout_lines | zip(cpu_ranges) | list }}"
+
+    - name: finding id for each user
+      shell: |
+        id -u c{{ item }}
+      loop: "{{ cpu_ranges }}"
+      register: user_ids
+
+
+    - name: configuring systemd user slices
+      shell: |
+        mkdir -p /etc/systemd/system/user-{{ item.stdout }}.slice.d
+      loop: "{{ user_ids.results }}"
+        
+    - name: write user slice override
+      copy: 
+        content: |
+          [Slice]
+          # CPU pinning (cpuset)
+          AllowedCPUs={{ item.1 }}
+
+          # Keep services running after logout (set separately via loginctl enable-linger)
+          # Resource controls (tune as needed)
+          CPUAccounting=yes
+          MemoryAccounting=yes
+          IOAccounting=yes
+
+          # Example defaults (adjust to your host)
+          TasksMax=2048
+          # MemoryMax=100G
+          # MemoryHigh=90G
+          # IOWeight=100
+
+        dest: /etc/systemd/system/user-{{ item.0.stdout }}.slice.d/50-kloigos.conf
+      loop: "{{ user_ids.results | zip(cpu_ranges_list) | list }}"
+
+    - name: restart user slice and enable linger
+      shell: |
+        systemctl restart user-{{ item.0.stdout }}.slice
+        loginctl enable-linger c{{ item.1 }}
+      loop: "{{ user_ids.results | zip(cpu_ranges) | list }}"
+      
+    - name: reload systemd
+      shell: |
+        systemctl daemon-reload
+
+        # Optional: enforce 100GB caps on /home and /opt subtrees via ext4 project quotas
+        # This requires /home and /opt filesystems to be mounted with prjquota.
+        # Choose stable project IDs (example scheme: 11003/21003 for CU1, 11007/21007 for CU2)
+        # echo "[*] optional: setting 100GB directory quotas (requires prjquota + quota tools)"
+
+        # maybe_setup_dir_quota "11003" "home_u0_3" "$HOME1" "/home"
+        # maybe_setup_dir_quota "11007" "home_u4_7" "$HOME2" "/home"
+        # maybe_setup_dir_quota "21003" "opt_c0_3"  "$OPT1"  "/opt"
+        # maybe_setup_dir_quota "21007" "opt_c4_7"  "$OPT2"  "/opt"
