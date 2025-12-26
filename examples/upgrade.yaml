@@ -10,7 +10,7 @@
   tasks:
     - name: fetch local instances
       ansible.builtin.uri:
-        url: "{{ kloigos_server }}/servers?deployment_id={{ deployment_id }}"
+        url: "{{ kloigos_server }}/compute_units?deployment_id={{ deployment_id }}"
         method: GET
         status_code: 200
       register: instances

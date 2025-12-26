@@ -12,7 +12,7 @@
   tasks:
     - name: gather compute units with status set to terminating
       ansible.builtin.uri:
-        url: "{{ kloigos_server }}/servers?status=terminating"
+        url: "{{ kloigos_server }}/compute_units?status=terminating"
         method: GET
         status_code: 200
       register: instances

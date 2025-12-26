@@ -1,6 +1,6 @@
 ---
 #
-# Playbook invoked by Kloigos after each `new_server_init` call.
+# Playbook invoked by Kloigos after each `init_server` call.
 #
 # The following extra-vars are passed:
 #   compute_id
@@ -17,7 +17,7 @@
   tasks:
     - name: gather new server details
       ansible.builtin.uri:
-        url: "{{ kloigos_server }}/servers?compute_id={{ compute_id }}"
+        url: "{{ kloigos_server }}/compute_units?compute_id={{ compute_id }}"
         method: GET
         status_code: 200
       register: instances
@@ -128,9 +128,9 @@
         loginctl enable-linger c{{ item.1 }}
       loop: "{{ user_ids.results | zip(cpu_ranges) | list }}"
       
-    - name: reload systemd
+    - name: reboot
       shell: |
-        systemctl daemon-reload
+        shutdown -r +1
 
         # Optional: enforce 100GB caps on /home and /opt subtrees via ext4 project quotas
         # This requires /home and /opt filesystems to be mounted with prjquota.

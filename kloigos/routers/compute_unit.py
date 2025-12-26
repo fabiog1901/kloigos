@@ -93,7 +93,7 @@ async def deprovision_resources(
     return Response(status_code=status.HTTP_200_OK)
 
 
-@router.get("/servers")
+@router.get("/")
 async def list_servers(
     compute_id: str | None = None,
     region: str | None = None,
