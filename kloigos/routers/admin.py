@@ -3,8 +3,8 @@ import sqlite3
 from fastapi import APIRouter, BackgroundTasks, Response, status
 
 from .. import SQLITE_DB
-from ..models import NewServerInit
-from ..services.admin import init_new_server
+from ..models import InitServerRequest
+from ..util import MyRunner, cpu_range_to_list
 
 router = APIRouter(
     prefix="/admin",
@@ -13,10 +13,10 @@ router = APIRouter(
 
 
 @router.post(
-    "/new_server_init",
+    "/init_server",
 )
-async def new_server_init(
-    nsi: NewServerInit,
+async def init_server(
+    isr: InitServerRequest,
     bg_task: BackgroundTasks,
 ) -> None:
 
@@ -37,13 +37,13 @@ async def new_server_init(
             ON CONFLICT DO NOTHING
             """,
             (
-                nsi.hostname,
+                isr.hostname,
                 0,
                 "0-0",
-                nsi.hostname,
-                nsi.ip,
-                nsi.region,
-                nsi.zone,
+                isr.hostname,
+                isr.ip,
+                isr.region,
+                isr.zone,
                 "init",
                 None,
                 "{}",
@@ -51,7 +51,96 @@ async def new_server_init(
         )
 
     # async, run the cleanup task
-    bg_task.add_task(init_new_server, nsi)
+    bg_task.add_task(run_init_server, isr)
 
     # returns immediately
     return Response(status_code=status.HTTP_200_OK)
+
+
+def run_init_server(isr: InitServerRequest) -> None:
+    """
+    Execute Ansible Playbook `init.yaml`
+    The playbook setups the server with the requested
+    compute_units.
+    """
+
+    cpu_ranges_list = [cpu_range_to_list(x) for x in isr.cpu_ranges]
+    cpu_ranges = [x.replace(":", "-") for x in isr.cpu_ranges]
+
+    job_status = MyRunner().launch_runner(
+        "examples/init.yaml",
+        {
+            "compute_id": isr.hostname,
+            "cpu_ranges": cpu_ranges,
+            "cpu_ranges_list": cpu_ranges_list,
+        },
+    )
+
+    # add the created compute units if the job was successfull
+    if job_status == "successful":
+        for x in isr.cpu_ranges:
+
+            cpu_count = len(cpu_range_to_list(x).split(","))
+            compute_id = f"{isr.hostname}_c{x.replace(':', '-')}"
+
+            with sqlite3.connect(SQLITE_DB) as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    INSERT INTO compute_units (
+                        compute_id, cpu_count, cpu_range, hostname, ip, 
+                        region, zone, status, started_at, tags
+                    ) 
+                    VALUES (
+                        ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?
+                    ) 
+                    ON CONFLICT DO UPDATE SET 
+                        compute_id = excluded.compute_id, 
+                        cpu_count = excluded.cpu_count,
+                        cpu_range = excluded.cpu_range,
+                        hostname = excluded.hostname,
+                        ip = excluded.ip,
+                        region = excluded.region,
+                        zone = excluded.zone,
+                        status = excluded.status,
+                        started_at = excluded.started_at,
+                        tags = excluded.tags
+                    """,
+                    (
+                        compute_id,
+                        cpu_count,
+                        x,
+                        isr.hostname,
+                        isr.ip,
+                        isr.region,
+                        isr.zone,
+                        "free",
+                        None,
+                        "{}",
+                    ),
+                )
+
+        # remove the row with the details of the server in init status
+        with sqlite3.connect(SQLITE_DB) as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                DELETE 
+                FROM compute_units
+                WHERE compute_id = ?
+                """,
+                (isr.hostname,),
+            )
+
+    else:
+        with sqlite3.connect(SQLITE_DB) as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE compute_units 
+                SET status = 'init-failed'
+                WHERE compute_id = ?
+                """,
+                (isr.hostname,),
+            )

@@ -7,6 +7,38 @@ import ansible_runner
 import yaml
 
 
+def cpu_range_to_list(s: str):
+    """
+    Convert from cpu_short syntax to a comma separated list
+
+    Examples:
+
+    "0-7:2" -> "0,2,4,6"
+
+    "1-7:2" -> "1,3,5,7"
+
+    "0-7"   -> "0,1,2,3,4,5,6,7"
+    """
+
+    # check whether the string is already a comma separated list
+    if s.find(",") > 0:
+        return s
+
+    # check to see if the step syntax is used:
+    if s.find(":") < 0:
+        step = 1
+        rng = s
+    else:
+        rng, step = s.split(":")
+        step = int(step)
+
+    start, end = rng.split("-")
+    start = int(start)
+    end = int(end)
+
+    return ",".join([str(x) for x in list(range(start, end + 1, step))])
+
+
 class MyRunner:
 
     data = {}

@@ -29,7 +29,7 @@ class ComputeUnitRequest(BaseModel):
     tags: dict[str, str | int | list[str]] | None
 
 
-class NewServerInit(BaseModel):
+class InitServerRequest(BaseModel):
     ip: str
     region: str
     zone: str

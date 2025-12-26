@@ -5,7 +5,8 @@ from fastapi.templating import Jinja2Templates
 
 from . import CPU_PORTS_MAP, RANGE_SIZE
 from .routers import admin, compute_unit
-from .services.compute_unit import cpu_range_to_list, get_compute_units
+from .routers.compute_unit import get_compute_units
+from .util import cpu_range_to_list
 
 app = FastAPI(
     title="Κλοηγός / Kloigos",
@@ -21,6 +22,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Configure the templates
 templates = Jinja2Templates(directory="kloigos/templates")
+
 
 # the main app is only configured to serve the Dashboard
 @app.get(
