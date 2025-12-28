@@ -3,7 +3,7 @@ import sqlite3
 from fastapi import APIRouter, BackgroundTasks, Response, status
 
 from .. import SQLITE_DB
-from ..models import InitServerRequest
+from ..models import InitServerRequest, Status
 from ..util import MyRunner, cpu_range_to_list
 
 router = APIRouter(
@@ -20,7 +20,7 @@ async def init_server(
     bg_task: BackgroundTasks,
 ) -> None:
 
-    # add the server to the compute_units with
+    # add the server to the compute_units table with
     # status='init'
     with sqlite3.connect(SQLITE_DB) as conn:
         cur = conn.cursor()
@@ -44,7 +44,7 @@ async def init_server(
                 isr.ip,
                 isr.region,
                 isr.zone,
-                "init",
+                Status.INITIALIZING,
                 None,
                 "{}",
             ),
@@ -52,6 +52,35 @@ async def init_server(
 
     # async, run the cleanup task
     bg_task.add_task(run_init_server, isr)
+
+    # returns immediately
+    return Response(status_code=status.HTTP_200_OK)
+
+
+@router.delete(
+    "/decommission_server/{hostname}",
+)
+async def decommission_server(
+    hostname: str,
+    bg_task: BackgroundTasks,
+) -> None:
+
+    with sqlite3.connect(SQLITE_DB) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE compute_units
+            SET status = ?
+            WHERE hostname = ?
+            """,
+            (
+                Status.DECOMMISSIONING,
+                hostname,
+            ),
+        )
+
+    # async, run the decomm task
+    bg_task.add_task(run_decommission_server, hostname)
 
     # returns immediately
     return Response(status_code=status.HTTP_200_OK)
@@ -67,8 +96,8 @@ def run_init_server(isr: InitServerRequest) -> None:
     cpu_ranges_list = [cpu_range_to_list(x) for x in isr.cpu_ranges]
     cpu_ranges = [x.replace(":", "-") for x in isr.cpu_ranges]
 
-    job_status = MyRunner().launch_runner(
-        "examples/init.yaml",
+    job_ok = MyRunner().launch_runner(
+        "resources/init.yaml",
         {
             "compute_id": isr.hostname,
             "cpu_ranges": cpu_ranges,
@@ -77,7 +106,7 @@ def run_init_server(isr: InitServerRequest) -> None:
     )
 
     # add the created compute units if the job was successfull
-    if job_status == "successful":
+    if job_ok:
         for x in isr.cpu_ranges:
 
             cpu_count = len(cpu_range_to_list(x).split(","))
@@ -115,7 +144,7 @@ def run_init_server(isr: InitServerRequest) -> None:
                         isr.ip,
                         isr.region,
                         isr.zone,
-                        "free",
+                        Status.FREE,
                         None,
                         "{}",
                     ),
@@ -139,8 +168,39 @@ def run_init_server(isr: InitServerRequest) -> None:
             cur.execute(
                 """
                 UPDATE compute_units 
-                SET status = 'init-failed'
+                SET status = ?
                 WHERE compute_id = ?
                 """,
-                (isr.hostname,),
+                (Status.INIT_FAIL, isr.hostname),
             )
+
+
+def run_decommission_server(hostname: str) -> None:
+    """
+    Execute Ansible Playbook `decommission.yaml`
+    The playbook decomm the server with the requested
+    hostname.
+    """
+
+    job_ok = MyRunner().launch_runner(
+        "resources/decommission.yaml",
+        {
+            "decomm_hostname": hostname,
+        },
+    )
+
+    # don't delete any metadata, instead mark the compute units as
+    # status = 'DECOMMISSIONED'
+    with sqlite3.connect(SQLITE_DB) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE compute_units 
+            SET status = ?
+            WHERE hostname = ?
+            """,
+            (
+                Status.DECOMMISSIONED if job_ok else Status.DECOMMISSION_FAIL,
+                hostname,
+            ),
+        )

@@ -1,0 +1,45 @@
+---
+#
+# Playbook invoked by Kloigos after each `allocate` call.
+#
+# The following extra-vars are passed:
+#   compute_id
+#
+- name: GATHER COMPUTE UNIT TO ALLOCATE
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: no
+  vars:
+    kloigos_server: "http://127.0.0.1:8000"
+  tasks:
+    - name: gather new server details
+      ansible.builtin.uri:
+        url: "{{ kloigos_server }}/compute_units?compute_id={{ compute_id }}"
+        method: GET
+        status_code: 200
+      register: instances
+
+    - name: print list of instances
+      debug:
+        var: instances.json
+
+    - name: Build ansible inventory dynamically
+      add_host:
+        name: "{{ item.compute_id }}"
+        ansible_user: ubuntu
+        public_hostname: "{{ item.hostname }}"
+        ansible_host: "{{ item.ip }}"
+        public_ip: "{{ item.ip }}"
+        groups: new_alloc
+
+      loop: "{{ instances.json }}"
+
+- name: ALLOCATE COMPUTE UNIT
+  hosts: new_alloc
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: setup SSH key so user can connect
+      shell: |
+        echo hello

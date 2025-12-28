@@ -5,7 +5,7 @@ import sqlite3
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
 
 from .. import CPU_PORTS_MAP, RANGE_SIZE, SQLITE_DB
-from ..models import ComputeUnitInDB, ComputeUnitRequest, ComputeUnitResponse
+from ..models import ComputeUnitInDB, ComputeUnitRequest, ComputeUnitResponse, Status
 from ..util import MyRunner, cpu_range_to_list
 
 router = APIRouter(
@@ -15,18 +15,18 @@ router = APIRouter(
 
 
 @router.post(
-    "/provision",
+    "/allocate",
 )
-async def provision_resources(
+async def allocate(
     req: ComputeUnitRequest,
 ) -> ComputeUnitResponse:
 
-    # find and return a free instance that matches the provision request
+    # find and return a free instance that matches the allocate request
     cu_list: list[ComputeUnitInDB] = get_compute_units(
         region=req.region,
         zone=req.zone,
         cpu_count=req.cpu_count,
-        status="free",
+        status=Status.FREE,
         limit=1,
     )
 
@@ -43,32 +43,60 @@ async def provision_resources(
     s = CPU_PORTS_MAP[cpu_list[-1]]
     ports_range = f"{s}-{s + RANGE_SIZE}"
 
-    # mark the compute_unit to allocated
+    # mark the compute_unit to allocating
     with sqlite3.connect(SQLITE_DB) as conn:
         cur = conn.cursor()
         cur.execute(
             """
             UPDATE compute_units
-            SET status='allocated',
+            SET status = ?,
                 tags = ?
             WHERE compute_id = ?
             """,
-            (json.dumps(req.tags), cu.compute_id),
+            (Status.ALLOCATING, json.dumps(req.tags), cu.compute_id),
         )
 
-    # return the details of the compute_unit
-    return ComputeUnitResponse(
-        cpu_list=cpu_list,
-        ports_range=ports_range,
-        tags=req.tags,
-        **cu.model_dump(exclude="tags"),
-    )
+    # blocking task - this is not async
+    job_ok = run_allocate(cu.compute_id)
+
+    if job_ok:
+        with sqlite3.connect(SQLITE_DB) as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE compute_units
+                SET status = ?
+                WHERE compute_id = ?
+                """,
+                (Status.ALLOCATED, cu.compute_id),
+            )
+
+        # return the details of the compute_unit
+        return ComputeUnitResponse(
+            cpu_list=cpu_list,
+            ports_range=ports_range,
+            tags=req.tags,
+            **cu.model_dump(exclude="tags"),
+        )
+    else:
+        with sqlite3.connect(SQLITE_DB) as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE compute_units
+                SET status = ?,
+                    tags = {}
+                WHERE compute_id = ?
+                """,
+                (Status.ALLOCATION_FAIL, cu.compute_id),
+            )
+        raise HTTPException(status_code=470, detail="Error running allocating playbook")
 
 
 @router.delete(
-    "/deprovision/{compute_id}",
+    "/deallocate/{compute_id}",
 )
-async def deprovision_resources(
+async def deallocate(
     compute_id: str,
     bg_task: BackgroundTasks,
 ) -> None:
@@ -79,15 +107,18 @@ async def deprovision_resources(
         cur.execute(
             """
             UPDATE compute_units
-            SET status='terminating',
+            SET status = ?,
                 tags = '{}'
             WHERE compute_id = ?
             """,
-            (compute_id,),
+            (
+                Status.DEALLOCATING,
+                compute_id,
+            ),
         )
 
     # async, run the cleanup task
-    bg_task.add_task(run_clean_up, compute_id)
+    bg_task.add_task(run_deallocate, compute_id)
 
     # returns immediately
     return Response(status_code=status.HTTP_200_OK)
@@ -96,6 +127,7 @@ async def deprovision_resources(
 @router.get("/")
 async def list_servers(
     compute_id: str | None = None,
+    hostname: str | None = None,
     region: str | None = None,
     zone: str | None = None,
     cpu_count: int | None = None,
@@ -114,6 +146,7 @@ async def list_servers(
 
     cu_list: list[ComputeUnitInDB] = get_compute_units(
         compute_id,
+        hostname,
         region,
         zone,
         cpu_count,
@@ -140,16 +173,27 @@ async def list_servers(
     return inventory
 
 
-def run_clean_up(compute_id: str) -> None:
+def run_allocate(compute_id: str) -> bool:
     """
-    Execute Ansible Playbook `clean_up.yaml`
+    Execute Ansible Playbook `allocate.yaml`
+    """
+
+    return MyRunner().launch_runner(
+        "resources/allocate.yaml",
+        {
+            "compute_id": compute_id,
+        },
+    )
+
+
+def run_deallocate(compute_id: str) -> None:
+    """
+    Execute Ansible Playbook `deallocate.yaml`
     The goal is to return the compute unit to a clean state
-    so that it can be available for being re-provisioned.
+    so that it can be available for being re-allocateed.
     """
 
-    job_status = MyRunner().launch_runner("resources/clean_up.yaml", {})
-
-    status = "free" if job_status == "successful" else "unavailable"
+    job_ok = MyRunner().launch_runner("resources/deallocate.yaml", {})
 
     with sqlite3.connect(SQLITE_DB) as conn:
         cur = conn.cursor()
@@ -159,12 +203,16 @@ def run_clean_up(compute_id: str) -> None:
             SET status = ?
             WHERE compute_id = ?
             """,
-            (status, compute_id),
+            (
+                Status.FREE if job_ok else Status.DEALLOCATION_FAIL,
+                compute_id,
+            ),
         )
 
 
 def get_compute_units(
     compute_id: str = None,
+    hostname: str = None,
     region: str = None,
     zone: str = None,
     cpu_count: int = None,
@@ -180,6 +228,10 @@ def get_compute_units(
     if compute_id is not None:
         conditions.append("compute_id = ?")
         params.append(compute_id)
+
+    if hostname is not None:
+        conditions.append("hostname = ?")
+        params.append(hostname)
 
     if region is not None:
         conditions.append("region = ?")

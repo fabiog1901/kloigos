@@ -1,0 +1,46 @@
+---
+#
+# Playbook invoked by Kloigos after each `decommission` call.
+#
+# The following extra-vars are passed:
+#   decomm_hostname
+#
+- name: GATHER SERVER TO DECOMMISSION
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: no
+  vars:
+    kloigos_server: "http://127.0.0.1:8000"
+  tasks:
+    - name: gather decomm server details
+      ansible.builtin.uri:
+        url: "{{ kloigos_server }}/compute_units?hostname={{ decomm_hostname }}"
+        method: GET
+        status_code: 200
+      register: instances
+
+    - name: print list of instances
+      debug:
+        var: instances.json
+
+    - name: Build ansible inventory dynamically
+      add_host:
+        name: "{{ item.compute_id }}"
+        ansible_user: ubuntu
+        public_hostname: "{{ item.hostname }}"
+        ansible_host: "{{ item.ip }}"
+        public_ip: "{{ item.ip }}"
+        groups: decomm
+
+      loop: "{{ instances.json }}"
+
+- name: DECOMMISSION SERVER
+  hosts: decomm
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: do something here
+      debug:
+        msg: "This is just a placeholder"
+        

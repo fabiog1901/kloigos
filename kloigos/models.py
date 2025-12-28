@@ -1,7 +1,30 @@
 import datetime as dt
+from enum import StrEnum, auto
 from typing import Any
 
 from pydantic import BaseModel
+
+
+class AutoNameStrEnum(StrEnum):
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+
+class Status(AutoNameStrEnum):
+    # compute unit level statuses
+    FREE = auto()
+    ALLOCATING = auto()
+    ALLOCATED = auto()
+    ALLOCATION_FAIL = auto()
+    DEALLOCATING = auto()
+    DEALLOCATION_FAIL = auto()
+    UNAVAILABLE = auto()
+    # Server level statuses
+    INITIALIZING = auto()
+    INIT_FAIL = auto()
+    DECOMMISSIONING = auto()
+    DECOMMISSIONED = auto()
+    DECOMMISSION_FAIL = auto()
 
 
 class ComputeUnitInDB(BaseModel):

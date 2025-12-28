@@ -106,7 +106,11 @@ class MyRunner:
             task_data,
         )
 
-    def launch_runner(self, playbook_name: str, extra_vars: dict):
+    def launch_runner(
+        self,
+        playbook_name: str,
+        extra_vars: dict,
+    ) -> bool:
 
         with open(playbook_name, "r") as f:
             playbook = yaml.safe_load(f.read())
@@ -133,4 +137,4 @@ class MyRunner:
         # rm -rf job-directory
         shutil.rmtree(f"/tmp/job-{job_id}", ignore_errors=True)
 
-        return runner.status
+        return runner.status == "successful"

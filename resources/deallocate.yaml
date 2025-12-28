@@ -1,8 +1,8 @@
 ---
 #
-# Playbook invoked by Kloigos after each `deprovision` call.
+# Playbook invoked by Kloigos after each `deallocate` call.
 #
-- name: GATHER COMPUTE UNITS TO CLEANUP
+- name: GATHER COMPUTE UNITS TO DEALLOCATE
   hosts: localhost
   connection: local
   gather_facts: no
@@ -29,12 +29,12 @@
         ansible_host: "{{ item.ip }}"
         public_ip: "{{ item.ip }}"
         cpu_range: "c{{ item.cpu_range.replace(':', '-') }}"
-        groups: cleanup
+        groups: dealloc
 
       loop: "{{ instances.json }}"
 
 - name: CLEANUP COMPUTE UNIT
-  hosts: cleanup
+  hosts: dealloc
   gather_facts: no
   become: yes
   tasks:
