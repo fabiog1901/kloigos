@@ -16,10 +16,10 @@ api = FastAPI(
 api.include_router(compute_unit.router)
 api.include_router(admin.router)
 
-SPA_DIR = Path("webapp")  # e.g. Vite build output
+WEBAPP = Path("webapp")  # e.g. Vite build output
 
 app.mount("/api", api)
-app.mount("/static", StaticFiles(directory=SPA_DIR / "static"), name="static")
+app.mount("/static", StaticFiles(directory=WEBAPP / "static"), name="static")
 
 
 # SPA fallback: any non-/api path returns index.html
@@ -32,5 +32,4 @@ def webapp_fallback(request: Request, full_path: str):
     if full_path.startswith("api/"):
         return {"detail": "Not Found"}
 
-    index = SPA_DIR / "index.html"
-    return FileResponse(index)
+    return FileResponse(WEBAPP / "index.html")

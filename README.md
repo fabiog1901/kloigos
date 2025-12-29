@@ -18,26 +18,44 @@ The most common way to achieve this today is by introducing a virtualization lay
 
 This is where **Kloigos** offers an alternative approach.
 
-Kloigos lets you manage compute units directly on the host, without introducing an additional abstraction layer. Each compute unit is identified by a combination of the hostname and a specific CPU range, and is treated as an independent execution environment. You can install and run any software you like within each compute unit.
+Kloigos lets you manage compute units directly on the host, without introducing an additional abstraction layer. Each compute unit is identified by a combination of the hostname and a specific CPU range, and is treated as an independent execution environment. You can install and run any software you like within each compute unit, much like you would on a lightweight virtual machine.
 
-Because Kloigos relies on native Linux primitives, it introduces no extra runtime overhead and requires no special software stack. Processes are launched using `numactl` to bind them to the designated CPUs.
+Kloigos relies exclusively on native Linux primitives and systemd facilities, introducing no additional runtime overhead and requiring no special software stack such as hypervisors or container orchestrators.
 
-This approach does impose some constraints. For example, services that expose network ports must avoid port collisions. To address this, each compute unit is assigned:
+### Resource isolation and control
 
-- a dedicated CPU range,
-- a reserved port range,
-- a dedicated directory in the filesystem.
+Each compute unit is mapped to a dedicated Unix user and a corresponding systemd user slice. This slice is used to enforce hard resource boundaries, including:
 
-For example, imagine you have a 32 CPUs server, `host1`, and decide you want to make 2x 16 CPUs compute units out of it, using CPUs 0-15 for one, and 16-31 for the other.
+- a fixed set of CPUs assigned via `AllowedCPUs`,
+- optional limits on memory usage, process count, and I/O bandwidth,
+- persistent enforcement across all processes and services started by the user.
 
-These compute units will be identified as:
+This ensures that workloads running in one compute unit cannot consume resources allocated to another.
+
+### Network isolation
+
+To prevent port conflicts and enforce clear network boundaries, Kloigos assigns each compute unit a dedicated port range. Port usage is enforced at the host level using **nftables**, restricting each compute unit’s user to bind only to its allocated range. This guarantees isolation even for ad-hoc processes and user-managed services.
+
+### Filesystem isolation
+
+Each compute unit is also assigned a set of dedicated filesystem paths, owned exclusively by its Unix user:
+
+- `/opt/<unit>` for binaries and application code,
+- `/mnt/<unit>` for data volumes, backed by a dedicated disk,
+- `/home/<user>` for user data and configuration.
+
+These paths are writable only by the compute unit’s user and can be size-limited using filesystem quotas, ensuring predictable disk usage and clean separation between units.
+
+### Example
+
+For example, consider a 32-CPU server `host1`, split into two 16-CPU compute units:
 
 ```yaml
 compute_id: host1_0-15
 hostname: host1
 cpu_range: 0-15
 ports_range: 2000-2200
-dir: c0-15
+user: u0-15
 ```
 
 ```yaml
@@ -45,22 +63,26 @@ compute_id: host1_16-31
 hostname: host1
 cpu_range: 16-31
 ports_range: 2200-2400
-dir: c16-31
+user: u16-31
 ```
 
-So if you deploy `serviceA` on `host1_0-15`, you will install any binaries at `/opt/c0-15/` and make that service available at port, say, `2047`.
-The service will be started using `numactl --physcpubind 0-15 /opt/c0-15/serviceA -p 2047 ....`.
+A service deployed on `host1_0-15` would:
 
-Conversely, another instance of `serviceA` running on `host1_16-31` will install binaries at `/opt/c16-31/` and use port `2247`, and start the service
-using `numactl --physcpubind 16-31 /opt/c16-31/serviceA -p 2247 ...`.
+- install binaries under `/opt/c0-15/`,
+- store data under `/mnt/c0-15/`,
+- run as user `u0-15`,
+- bind only to ports in the `2000-2200` range,
+- execute exclusively on CPUs `0-15` via the compute unit’s systemd slice.
 
-You can decide to allocate dedicated disks for the data of a service.
-The same idea remains, namely, prepending each path with the unit identifier, example `/mnt/c0-15/data`.
+The same service deployed on `host1_16-31` would run independently under its own user, filesystem paths, CPU set, and port range.
 
-Kloigos lets you manage compute units in much the same way that AWS lets you manage EC2 instances - only at a far smaller, more granular scale.
+### Operational model
 
-While Kloigos provides a web dashboard for visibility and monitoring, the dashboard is informational only.
-All provisioning and deprovisioning of compute units is performed programmatically through the Kloigos APIs.
+Compute units are managed in a way similar to AWS EC2 instances, but at a far smaller and more granular scale. Users can SSH into their assigned compute unit, manage files, and run long-lived background services using `systemd --user`, just as they would on a traditional VM.
+
+Kloigos supports full lifecycle management of compute units via its APIs. Provisioning and deprovisioning handle SSH access, process termination, and filesystem cleanup, ensuring that each allocation starts from a clean state.
+
+In addition to the API, Kloigos now provides a web application that allows users to perform all supported API operations directly from the browser, offering a convenient interface for managing compute units while keeping the control plane fully API-driven.
 
 Check in the `examples` folder in this repo for how I use Ansible Playbooks to manage installations and software upgrades.
 
