@@ -47,39 +47,40 @@
         id c{{ item }} || useradd --create-home --home-dir /home/c{{ item }} --shell /bin/bash c{{ item }}
       loop: "{{ cpu_ranges }}"
 
-    # - name: Find attached disks bigger than 100GB
-    #   shell: |
-    #     lsblk -o NAME,TYPE,SIZE -p -n -b -s | \
-    #       awk '$NF ~ /[1-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/' | \
-    #       grep -v '└─' | \
-    #       grep disk | \
-    #       awk '{print $1}'
-    #   args:
-    #     executable: /bin/bash
-    #   register: disks
+    - name: Find attached disks bigger than 100GB
+      shell: |
+        lsblk -o NAME,TYPE,SIZE -p -n -b -s | \
+          awk '$NF ~ /[1-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/' | \
+          grep -v '└─' | \
+          grep disk | \
+          awk '{print $1}'
+      args:
+        executable: /bin/bash
+      register: disks
 
-    # - name: Create a ext4 filesystem
-    #   shell: |
-    #     blkid {{ item }} -t TYPE="ext4" || mkfs.ext4 {{ item }}
-    #   loop: "{{ disks.stdout_lines }}"
+    - name: Create a ext4 filesystem
+      shell: |
+        blkid {{ item }} -t TYPE="ext4" || mkfs.ext4 {{ item }}
+      loop: "{{ disks.stdout_lines }}"
 
-    # - name: add disks to /etc/fstab
-    #   shell: |
-    #     mkdir -p /mnt/c{{ item.1 }}
-    #     DISKUUID=`lsblk -no UUID {{ item.0 }}`
-    #     grep -q $DISKUUID /etc/fstab || echo "UUID=$DISKUUID /mnt/c{{ item.1 }} ext4 defaults 0 2" >> /etc/fstab
-    #   loop: "{{ disks.stdout_lines | zip(cpu_ranges) | list }}"
+    - name: add disks to /etc/fstab
+      shell: |
+        mkdir -p /mnt/c{{ item.1 }}
+        DISKUUID=`lsblk -no UUID {{ item.0 }}`
+        grep -q $DISKUUID /etc/fstab || echo "UUID=$DISKUUID /mnt/c{{ item.1 }} ext4 defaults 0 2" >> /etc/fstab
+      loop: "{{ disks.stdout_lines | zip(cpu_ranges) | list }}"
 
-    # - name: reload systemct and mount disks
-    #   shell: |
-    #     systemctl daemon-reload
-    #     mount --all
+    - name: reload systemct and mount disks
+      shell: |
+        systemctl daemon-reload
+        mount --all
 
     - name: create directories and setting ownership
       shell: |
         mkdir -p /opt/c{{ item }}
         mkdir -p /mnt/c{{ item }}
         mkdir -p /home/c{{ item }}
+        mkdir -p /home/c{{ item }}/.ssh
         chown -R c{{ item }}:c{{ item }} /opt/c{{ item }}
         chown -R c{{ item }}:c{{ item }} /mnt/c{{ item }}
         chown -R c{{ item }}:c{{ item  }} /home/c{{ item }}
@@ -133,7 +134,7 @@
     - name: restart logind
       shell: |
         systemctl daemon-reload
-        systemctl restart systemd-logind  
+        systemctl restart systemd-logind
 
     - name: restart user slice and user service and enable linger
       shell: |
@@ -143,7 +144,7 @@
       loop: "{{ user_ids.results | zip(cpu_ranges) | list }}"
 
     - name: enforce disk util
-      shell: |    
+      shell: |
         # Optional: enforce 100GB caps on /home and /opt subtrees via ext4 project quotas
         # This requires /home and /opt filesystems to be mounted with prjquota.
         # Choose stable project IDs (example scheme: 11003/21003 for CU1, 11007/21007 for CU2)

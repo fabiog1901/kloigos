@@ -28,7 +28,7 @@
         public_hostname: "{{ item.hostname }}"
         ansible_host: "{{ item.ip }}"
         public_ip: "{{ item.ip }}"
-        cpu_range: "c{{ item.cpu_range.replace(':', '-') }}"
+        cu_user: "c{{ item.cpu_range.replace(':', '-') }}"
         groups: dealloc
 
       loop: "{{ instances.json }}"

@@ -57,7 +57,7 @@ async def allocate(
         )
 
     # blocking task - this is not async
-    job_ok = run_allocate(cu.compute_id)
+    job_ok = run_allocate(cu.compute_id, req.ssh_public_key)
 
     if job_ok:
         with sqlite3.connect(SQLITE_DB) as conn:
@@ -173,7 +173,7 @@ async def list_servers(
     return inventory
 
 
-def run_allocate(compute_id: str) -> bool:
+def run_allocate(compute_id: str, ssh_public_key: str) -> bool:
     """
     Execute Ansible Playbook `allocate.yaml`
     """
@@ -182,6 +182,7 @@ def run_allocate(compute_id: str) -> bool:
         "resources/allocate.yaml",
         {
             "compute_id": compute_id,
+            "ssh_public_key": ssh_public_key,
         },
     )
 

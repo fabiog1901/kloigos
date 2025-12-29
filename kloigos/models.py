@@ -50,6 +50,7 @@ class ComputeUnitRequest(BaseModel):
     region: str | None = None
     zone: str | None = None
     tags: dict[str, str | int | list[str]] | None
+    ssh_public_key: str
 
 
 class InitServerRequest(BaseModel):

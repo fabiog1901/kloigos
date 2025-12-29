@@ -4,6 +4,7 @@
 #
 # The following extra-vars are passed:
 #   compute_id
+#.  ssh_public_key
 #
 - name: GATHER COMPUTE UNIT TO ALLOCATE
   hosts: localhost
@@ -31,6 +32,7 @@
         public_hostname: "{{ item.hostname }}"
         ansible_host: "{{ item.ip }}"
         public_ip: "{{ item.ip }}"
+        cu_user: "c{{ item.cpu_range.replace(':', '-') }}"
         groups: new_alloc
 
       loop: "{{ instances.json }}"
@@ -40,6 +42,8 @@
   gather_facts: no
   become: yes
   tasks:
-    - name: setup SSH key so user can connect
-      shell: |
-        echo hello
+    - name: setup SSH key so user can login
+      copy:
+        content: |
+          {{ ssh_public_key }}
+        dest: /home/{{ cu_user }}/.ssh/authorized_keys
