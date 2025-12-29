@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="static/favicon.png">
+    <title>Kloigos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #020617;
+            --bg-elevated: #020617;
+            --card: #020617;
+            --accent: #38bdf8;
+            --accent-soft: rgba(56, 189, 248, 0.15);
+            --border-subtle: #1f2937;
+            --text: #e5e7eb;
+            --muted: #9ca3af;
+            --muted-soft: #bfc4cd1d;
+            --danger: #f97373;
+            --danger-soft: rgba(239, 68, 68, 0.15);
+            --warn: #fbbf24;
+            --warn-soft: rgba(251, 191, 36, 0.15);
+            --success: #34d399;
+            --success-soft: rgba(52, 211, 153, 0.15);
+            --radius-lg: 14px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top left, #1f2933 0, #020617 50%, #020617 100%);
+            color: var(--text);
+            font-size: 16px;
+        }
+
+        .page {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .topbar {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 32px;
+            background: rgba(15, 23, 42, 0.95);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            backdrop-filter: blur(16px);
+        }
+
+        .topbar-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-pill {
+            width: 40px;
+            height: 40px;
+            border-radius: 999px;
+            background: radial-gradient(circle at 30% 30%, #38bdf8, #0ea5e9 45%, #020617 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.35),
+                0 18px 35px rgba(15, 23, 42, 0.9);
+            font-size: 20px;
+            font-weight: 700;
+            color: #e5f4ff;
+        }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 600;
+        }
+
+        .topbar-sub {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .topbar-right {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .pill {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            color: var(--muted);
+            user-select: none;
+        }
+
+        .pill-accent {
+            border-color: rgba(56, 189, 248, 0.7);
+            background: linear-gradient(120deg, rgba(56, 189, 248, 0.12), rgba(129, 140, 248, 0.16));
+            color: #e0f2fe;
+        }
+
+        .layout {
+            flex: 1 1 auto;
+            display: flex;
+            padding: 20px 32px 16px;
+            gap: 20px;
+            min-height: 0;
+        }
+
+        .sidebar {
+            width: 260px;
+            max-width: 100%;
+            background: var(--card);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            padding: 16px 16px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            flex-shrink: 0;
+        }
+
+        .sidebar h2 {
+            margin: 0 0 6px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--muted);
+        }
+
+        .metric {
+            background: radial-gradient(circle at 10% 0, rgba(148, 163, 184, 0.25) 0, transparent 55%),
+                radial-gradient(circle at 100% 120%, rgba(37, 99, 235, 0.4) 0, transparent 55%);
+            border-radius: 10px;
+            padding: 12px 12px 10px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            font-size: 22px;
+            font-weight: 600;
+        }
+
+        .metric-sub {
+            margin-top: 2px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .legend-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.45);
+        }
+
+        .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 999px;
+        }
+
+        .dot-online {
+            background: var(--success);
+        }
+
+        .dot-warning {
+            background: var(--warn);
+        }
+
+        .dot-muted {
+            background: var(--muted);
+        }
+
+        .dot-offline {
+            background: var(--danger);
+        }
+
+        .main {
+            flex: 1 1 auto;
+            min-width: 0;
+            background: var(--card);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            padding: 16px 18px 10px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .main-header {
+            flex-shrink: 0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .main-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .main-title {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .main-subtitle {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .main-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 14px;
+            color: var(--text);
+            min-width: 220px;
+        }
+
+        .search-input::placeholder {
+            color: rgba(148, 163, 184, 0.8);
+        }
+
+        .btn {
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.45);
+            background: radial-gradient(circle at 30% 0, rgba(56, 189, 248, 0.16) 0, transparent 50%);
+            padding: 8px 14px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: #e5f4ff;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .btn:hover {
+            border-color: rgba(56, 189, 248, 0.9);
+        }
+
+        .btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: radial-gradient(circle at 30% 0, rgba(239, 68, 68, 0.20) 0, transparent 55%);
+        }
+
+        .btn-warn {
+            background: radial-gradient(circle at 30% 0, rgba(251, 191, 36, 0.18) 0, transparent 55%);
+        }
+
+        .icon-btn {
+            width: 34px;
+            height: 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.45);
+            background: rgba(15, 23, 42, 0.55);
+            cursor: pointer;
+            color: #e5f4ff;
+            user-select: none;
+        }
+
+        .icon-btn:hover {
+            border-color: rgba(56, 189, 248, 0.9);
+        }
+
+        .icon-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .table-container {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+            border-radius: 11px;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            background: rgba(15, 23, 42, 0.95);
+            box-shadow: 0 26px 60px rgba(15, 23, 42, 0.9);
+            overflow: hidden;
+        }
+
+        .table-scroll {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: linear-gradient(to bottom, #020617, #020617);
+        }
+
+        th,
+        td {
+            padding: 10px 12px;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.13em;
+            color: #9ca3af;
+            border-bottom: 1px solid rgba(55, 65, 81, 0.9);
+            cursor: default;
+            user-select: none;
+        }
+
+        th[data-sort] {
+            cursor: pointer;
+        }
+
+        th[data-sort]::after {
+            content: "⇅";
+            margin-left: 6px;
+            font-size: 11px;
+            opacity: 0.4;
+        }
+
+        th[data-sort].sort-asc::after {
+            content: "↑";
+            opacity: 0.9;
+        }
+
+        th[data-sort].sort-desc::after {
+            content: "↓";
+            opacity: 0.9;
+        }
+
+        tbody tr:nth-child(even) {
+            background: rgba(23, 34, 60, 0.85);
+        }
+
+        tbody tr:nth-child(odd) {
+            background: rgba(15, 23, 42, 0.45);
+        }
+
+        tbody tr:hover {
+            background: rgba(30, 64, 175, 0.5);
+        }
+
+        td:first-child {
+            font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 13px;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+        }
+
+        .status-online {
+            background: var(--success-soft);
+            color: var(--success);
+        }
+
+        .status-online .status-dot {
+            background: var(--success);
+        }
+
+        .status-warning {
+            background: var(--warn-soft);
+            color: var(--warn);
+        }
+
+        .status-warning .status-dot {
+            background: var(--warn);
+        }
+
+        .status-muted {
+            background: var(--muted-soft);
+            color: var(--muted);
+        }
+
+        .status-muted .status-dot {
+            background: var(--muted);
+        }
+
+        .status-offline {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+
+        .status-offline .status-dot {
+            background: var(--danger);
+        }
+
+        .status-default {
+            background: rgba(148, 163, 184, 0.15);
+            color: var(--muted);
+        }
+
+        .status-default .status-dot {
+            background: var(--muted);
+        }
+
+        .ip-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.45);
+        }
+
+        .owner-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 12px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+        }
+
+        .service-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            font-size: 12px;
+        }
+
+        .tag-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .footer {
+            flex-shrink: 0;
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--muted);
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .footer span {
+            opacity: 0.8;
+        }
+
+        .inspector-panel {
+            margin: 0 32px 28px;
+            background: var(--card);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            padding: 16px 16px 12px;
+        }
+
+        .inspector-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .inspector-title {
+            margin: 0;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--muted);
+        }
+
+        .inspector-pre {
+            border-radius: 11px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(15, 23, 42, 0.95);
+            padding: 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            color: #dbeafe;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 260px;
+            overflow: auto;
+        }
+
+        .toggle {
+            display: inline-flex;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.45);
+            overflow: hidden;
+            background: rgba(15, 23, 42, 0.55);
+        }
+
+        .toggle button {
+            padding: 7px 12px;
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            cursor: pointer;
+        }
+
+        .toggle button.active {
+            color: #e5f4ff;
+            background: rgba(56, 189, 248, 0.12);
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.50);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 50;
+        }
+
+        .modal {
+            width: 100%;
+            max-width: 760px;
+            background: rgba(15, 23, 42, 0.98);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.65);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+            background: rgba(2, 6, 23, 0.75);
+        }
+
+        .modal-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: #e0f2fe;
+            margin: 0;
+        }
+
+        .modal-body {
+            padding: 16px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .label {
+            font-size: 12px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        .input,
+        .textarea {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 14px;
+            color: var(--text);
+            outline: none;
+        }
+
+        .textarea {
+            min-height: 110px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+            border-radius: 14px;
+        }
+
+        .input::placeholder,
+        .textarea::placeholder {
+            color: rgba(148, 163, 184, 0.75);
+        }
+
+        .modal-footer {
+            padding: 14px 16px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+            background: rgba(2, 6, 23, 0.75);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                flex-direction: column;
+                padding: 16px;
+            }
+
+            .sidebar {
+                width: 100%;
+                order: 2;
+            }
+
+            .main {
+                order: 1;
+            }
+
+            .topbar {
+                padding: 12px 16px;
+            }
+
+            .inspector-panel {
+                margin: 0 16px 22px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page" x-data="kloigosApp()" x-init="init()">
+        <header class="topbar">
+            <div class="topbar-title">
+                <div class="logo-pill">Κ</div>
+                <div>
+                    <h1>Kloigos</h1>
+                    <div class="topbar-sub">Compute units &amp; service status overview</div>
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                <div class="pill">Updated (UTC): <span x-text="lastUpdatedUtc || '-'"></span></div>
+                <div class="pill pill-accent"><span x-text="computeUnits.length"></span> Hosts</div>
+
+                <a href="https://github.com/fabiog1901/kloigos" target="_blank" aria-label="GitHub Repository"
+                    title="fabiog1901/kloigos">
+                    <svg height="32" width="32" viewBox="0 0 16 16" aria-hidden="true">
+                        <path fill="white" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29
+            6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49
+            -2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52
+            -.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87
+            .51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02
+            .08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 2-.27c.68 0 1.36.09
+            2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82
+            1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+            0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16
+            8c0-4.42-3.58-8-8-8z" />
+                    </svg>
+                    <a href="/api/docs" target="_blank" rel="noopener" aria-label="API Docs"
+                        title="API Docs (/api/docs)">
+                        <!-- "code brackets" icon -->
+                        <svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="white"
+                                d="M8.7 16.3a1 1 0 0 1-1.4 0L3.99 13a1.5 1.5 0 0 1 0-2.12L7.3 7.7a1 1 0 1 1 1.4 1.42L5.83 12l2.87 2.88a1 
+                            1 0 0 1 0 1.42Zm6.6 0a1 1 0 0 0 1.4 0L20.01 13a1.5 1.5 0 0 0 0-2.12L16.7 7.7a1 1 0 1 0-1.4 1.42L18.17 
+                            12l-2.87 2.88a1 1 0 0 0 0 1.42ZM13.2 5.6a1 1 0 0 0-1.25.69l-3 10a1 1 0 1 0 1.92.56l3-10a1 1 0 0 0-.67-1.25Z" />
+                        </svg>
+                    </a>
+            </div>
+        </header>
+
+        <main class="layout">
+            <aside class="sidebar">
+                <div>
+                    <h2>Summary</h2>
+                    <div class="metric">
+                        <div class="metric-label">Total Hosts</div>
+                        <div class="metric-value" x-text="computeUnits.length"></div>
+                        <div class="metric-sub">Across all registered services</div>
+                    </div>
+                </div>
+
+                <div>
+                    <h2>Status</h2>
+                    <div class="metric">
+                        <div class="legend">
+                            <div class="legend-pill"><span class="dot dot-online"></span> Free</div>
+                            <div class="legend-pill"><span class="dot dot-warning"></span> Allocated</div>
+                            <div class="legend-pill"><span class="dot dot-muted"></span> Terminating</div>
+                            <div class="legend-pill"><span class="dot dot-offline"></span> Unavailable</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h2>Actions</h2>
+                    <div class="metric" style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="btn" @click="refresh()" :disabled="loading.list">Refresh</button>
+                        <button class="btn" @click="openAllocateModal()">Allocate…</button>
+                        <button class="btn btn-warn" @click="openInitModal()">Init server…</button>
+                        <button class="btn btn-danger" @click="openDecommissionModal()">Decommission…</button>
+
+                        <label
+                            style="display:flex; align-items:center; gap:10px; font-size:12px; color: var(--muted); margin-top: 4px;">
+                            <input type="checkbox" x-model="autoRefreshEnabled" />
+                            Auto-refresh (10s)
+                        </label>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="main">
+                <div class="main-header">
+                    <div class="main-header-left">
+                        <div class="main-title">Compute Units</div>
+                        <div class="main-subtitle">Live view of host allocation and status.</div>
+                    </div>
+
+                    <div class="main-actions">
+                        <input type="search" class="search-input" placeholder="Filter by hostname, owner, or service…"
+                            x-model="filterQuery" @input="persistFilter(); applyFilterSort();" />
+
+                        <button class="btn" type="button" @click="refresh()" :disabled="loading.list">
+                            <span x-show="!loading.list">REFRESH</span>
+                            <span x-show="loading.list">LOADING…</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th data-sort="string" :class="sortClass(0)" @click="toggleSort(0)">Compute ID</th>
+                                    <th data-sort="string" :class="sortClass(1)" @click="toggleSort(1)">Region</th>
+                                    <th data-sort="string" :class="sortClass(2)" @click="toggleSort(2)">Hostname</th>
+                                    <th data-sort="ip" :class="sortClass(3)" @click="toggleSort(3)">IP</th>
+                                    <th data-sort="number" :class="sortClass(4)" @click="toggleSort(4)">CPUs</th>
+                                    <th data-sort="string" :class="sortClass(5)" @click="toggleSort(5)">CPU Range</th>
+                                    <th data-sort="string" :class="sortClass(6)" @click="toggleSort(6)">Ports Range</th>
+                                    <th data-sort="date" :class="sortClass(7)" @click="toggleSort(7)">Started At (UTC)
+                                    </th>
+                                    <th data-sort="string" :class="sortClass(8)" @click="toggleSort(8)">Deployment ID
+                                    </th>
+                                    <th data-sort="string" :class="sortClass(9)" @click="toggleSort(9)">Owner</th>
+                                    <th data-sort="string" :class="sortClass(10)" @click="toggleSort(10)">Tags</th>
+                                    <th data-sort="string" :class="sortClass(11)" @click="toggleSort(11)">Status</th>
+                                    <th>Act</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                <template x-for="row in visibleRows" :key="row.compute_id">
+                                    <tr>
+                                        <td x-text="row.compute_id"></td>
+
+                                        <td><span x-text="(row.region || '-') + '-' + (row.zone || '-')"></span></td>
+
+                                        <td>
+                                            <template x-if="row.hostname">
+                                                <span class="ip-pill" x-text="row.hostname"></span>
+                                            </template>
+                                            <template x-if="!row.hostname"><span>-</span></template>
+                                        </td>
+
+                                        <td><span class="ip-pill" x-text="row.ip || '-'"></span></td>
+
+                                        <td><span class="service-pill" x-text="row.cpu_count"></span></td>
+
+                                        <td>
+                                            <span class="service-pill">
+                                                <span :title="row.cpu_list || ''" x-text="row.cpu_range || '-'"></span>
+                                            </span>
+                                        </td>
+
+                                        <td><span class="service-pill" x-text="row.ports_range || '-'"></span></td>
+
+                                        <td x-text="toUtcStringMaybe(row.started_at)"></td>
+
+                                        <td>
+                                            <template x-if="tagValue(row, 'deployment_id')">
+                                                <span class="owner-pill" x-text="tagValue(row,'deployment_id')"></span>
+                                            </template>
+                                            <template x-if="!tagValue(row,'deployment_id')"><span>-</span></template>
+                                        </td>
+
+                                        <td>
+                                            <template x-if="tagValue(row, 'owner')">
+                                                <span class="owner-pill" x-text="tagValue(row,'owner')"></span>
+                                            </template>
+                                            <template x-if="!tagValue(row,'owner')"><span>-</span></template>
+                                        </td>
+
+                                        <td>
+                                            <div class="tag-list">
+                                                <template x-for="[k,v] in extraTags(row)" :key="k">
+                                                    <span class="owner-pill" x-text="formatTag(k,v)"></span>
+                                                </template>
+                                                <template x-if="extraTags(row).length === 0">
+                                                    <span class="owner-pill" style="opacity:0.6;">(none)</span>
+                                                </template>
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            <span class="status" :class="statusClass(row.status)">
+                                                <span class="status-dot"></span>
+                                                <span x-text="String(row.status || 'unknown').toUpperCase()"></span>
+                                            </span>
+                                        </td>
+
+                                        <td>
+                                            <!-- Deallocate icon button with tooltip + confirm modal -->
+                                            <button class="icon-btn" :disabled="busyKey === row.compute_id"
+                                                title="Deallocate compute unit (releases the host back to the pool)"
+                                                @click="openDeallocateConfirm(row)">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                                    aria-hidden="true">
+                                                    <path d="M8 3v7m8-7v7" stroke="currentColor" stroke-width="2"
+                                                        stroke-linecap="round" />
+                                                    <path d="M7 10h10v3a5 5 0 0 1-10 0v-3Z" stroke="currentColor"
+                                                        stroke-width="2" stroke-linejoin="round" />
+                                                    <path d="M12 18v3" stroke="currentColor" stroke-width="2"
+                                                        stroke-linecap="round" />
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+
+                                <template x-if="!loading.list && visibleRows.length === 0">
+                                    <tr>
+                                        <td colspan="13" style="padding: 18px; color: var(--muted);">No results.</td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+
+            </section>
+        </main>
+
+        <!-- Bottom Inspector -->
+        <section class="inspector-panel">
+            <div class="inspector-header">
+                <h2 class="inspector-title">API Inspector</h2>
+
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <div class="pill" style="margin:0;">
+                        Base:
+                        <span
+                            style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"
+                            x-text="apiBase"></span>
+                    </div>
+
+                    <div class="toggle">
+                        <button :class="inspectorFormat==='yaml' ? 'active' : ''"
+                            @click="inspectorFormat='yaml'">YAML</button>
+                        <button :class="inspectorFormat==='json' ? 'active' : ''"
+                            @click="inspectorFormat='json'">JSON</button>
+                    </div>
+
+                    <button class="btn" style="padding:7px 12px;" @click="inspector=null">CLEAR</button>
+                </div>
+            </div>
+
+            <pre class="inspector-pre" x-text="inspectorText()"></pre>
+        </section>
+
+        <!-- Allocate Modal -->
+        <div class="modal-backdrop" x-show="modal.allocate.open" x-transition
+            @keydown.escape.window="closeAllocateModal()">
+            <div class="modal" @click.outside="closeAllocateModal()">
+                <div class="modal-header">
+                    <h3 class="modal-title">Allocate Compute Unit</h3>
+                    <button class="btn" style="padding:7px 12px;" @click="closeAllocateModal()">CLOSE</button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-row">
+                            <div class="label">cpu_count (optional)</div>
+                            <input class="input" type="number" min="1" x-model.number="modal.allocate.cpu_count"
+                                placeholder="default 4" />
+                        </div>
+                        <div class="form-row">
+                            <div class="label">region (optional)</div>
+                            <input class="input" x-model="modal.allocate.region" placeholder="e.g. us-east-1" />
+                        </div>
+                        <div class="form-row">
+                            <div class="label">zone (optional)</div>
+                            <input class="input" x-model="modal.allocate.zone" placeholder="e.g. us-east-1a" />
+                        </div>
+                        <div class="form-row" style="grid-column: 1 / -1;">
+                            <div class="label">ssh_public_key (required)</div>
+                            <textarea class="textarea" x-model="modal.allocate.ssh_public_key"
+                                placeholder="ssh-ed25519 AAAA... user@host"></textarea>
+                        </div>
+                        <div class="form-row" style="grid-column: 1 / -1;">
+                            <div class="label">tags (required, JSON object)</div>
+                            <textarea class="textarea" x-model="modal.allocate.tagsText" spellcheck="false"
+                                placeholder='{"deployment_id":"web_app_v1","owner":"fabio","roles":["db","worker"]}'></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn" @click="closeAllocateModal()">CANCEL</button>
+                    <button class="btn" :disabled="loading.allocate" @click="allocate()">
+                        <span x-show="!loading.allocate">ALLOCATE</span>
+                        <span x-show="loading.allocate">WORKING…</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Init Modal -->
+        <div class="modal-backdrop" x-show="modal.init.open" x-transition @keydown.escape.window="closeInitModal()">
+            <div class="modal" @click.outside="closeInitModal()">
+                <div class="modal-header">
+                    <h3 class="modal-title">Init Server</h3>
+                    <button class="btn" style="padding:7px 12px;" @click="closeInitModal()">CLOSE</button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-row">
+                            <div class="label">ip</div>
+                            <input class="input" x-model="modal.init.ip" placeholder="10.0.0.12" />
+                        </div>
+                        <div class="form-row">
+                            <div class="label">hostname</div>
+                            <input class="input" x-model="modal.init.hostname" placeholder="server-123" />
+                        </div>
+                        <div class="form-row">
+                            <div class="label">region</div>
+                            <input class="input" x-model="modal.init.region" placeholder="us-east-1" />
+                        </div>
+                        <div class="form-row">
+                            <div class="label">zone</div>
+                            <input class="input" x-model="modal.init.zone" placeholder="us-east-1a" />
+                        </div>
+                        <div class="form-row" style="grid-column: 1 / -1;">
+                            <div class="label">cpu_ranges (JSON array of strings)</div>
+                            <textarea class="textarea" x-model="modal.init.cpuRangesText" spellcheck="false"
+                                placeholder='["0-3","4-7"]'></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn" @click="closeInitModal()">CANCEL</button>
+                    <button class="btn btn-warn" :disabled="loading.init" @click="initServer()">
+                        <span x-show="!loading.init">RUN INIT</span>
+                        <span x-show="loading.init">WORKING…</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Decommission Modal -->
+        <div class="modal-backdrop" x-show="modal.decommission.open" x-transition
+            @keydown.escape.window="closeDecommissionModal()">
+            <div class="modal" @click.outside="closeDecommissionModal()">
+                <div class="modal-header">
+                    <h3 class="modal-title">Decommission Server</h3>
+                    <button class="btn" style="padding:7px 12px;" @click="closeDecommissionModal()">CLOSE</button>
+                </div>
+
+                <div class="modal-body">
+                    <div style="color: var(--muted); font-size: 13px;">
+                        Calls <span class="ip-pill">DELETE /api/admin/decommission_server/{hostname}</span>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-row" style="grid-column: 1 / -1;">
+                            <div class="label">hostname</div>
+                            <input class="input" x-model="modal.decommission.hostname" placeholder="server-123" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn" @click="closeDecommissionModal()">CANCEL</button>
+                    <button class="btn btn-danger" :disabled="loading.decommission" @click="decommissionByHostname()">
+                        <span x-show="!loading.decommission">DECOMMISSION</span>
+                        <span x-show="loading.decommission">WORKING…</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deallocate Confirm Modal -->
+        <div class="modal-backdrop" x-show="modal.deallocateConfirm.open" x-transition
+            @keydown.escape.window="closeDeallocateConfirm()">
+            <div class="modal" @click.outside="closeDeallocateConfirm()">
+                <div class="modal-header">
+                    <h3 class="modal-title">Confirm Deallocate</h3>
+                    <button class="btn" style="padding:7px 12px;" @click="closeDeallocateConfirm()">CLOSE</button>
+                </div>
+
+                <div class="modal-body">
+                    <div style="color: var(--muted); font-size: 13px; line-height: 1.5;">
+                        This will <span style="color:#e5f4ff;">release the compute unit back to the pool</span>.
+                        Any workload depending on it may be disrupted.
+                    </div>
+
+                    <div class="metric" style="display:grid; gap:8px;">
+                        <div class="metric-label">Request</div>
+                        <div>
+                            <span class="ip-pill">DELETE /api/compute_units/deallocate/<span
+                                    x-text="modal.deallocateConfirm.compute_id"></span></span>
+                        </div>
+
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <div class="pill" style="margin:0;">compute_id: <span
+                                    x-text="modal.deallocateConfirm.compute_id"></span></div>
+                            <div class="pill" style="margin:0;">hostname: <span
+                                    x-text="modal.deallocateConfirm.hostname || '-'"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn" @click="closeDeallocateConfirm()">CANCEL</button>
+                    <button class="btn btn-warn" :disabled="loading.deallocateConfirm" @click="confirmDeallocate()">
+                        <span x-show="!loading.deallocateConfirm">YES, DEALLOCATE</span>
+                        <span x-show="loading.deallocateConfirm">WORKING…</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function kloigosApp() {
+                return {
+                    apiBase: "/api",
+
+                    computeUnits: [],
+                    visibleRows: [],
+
+                    // UTC timestamps
+                    lastUpdatedUtc: null,
+                    renderedAtUtc: "now",
+
+                    filterQuery: "",
+                    inspector: null,
+                    inspectorFormat: "yaml", // default to YAML as requested
+
+                    sortIndex: null,
+                    sortDir: "asc",
+                    sortTypeByIndex: {
+                        0: "string", 1: "string", 2: "string", 3: "ip", 4: "number", 5: "string", 6: "string", 7: "date",
+                        8: "string", 9: "string", 10: "string", 11: "string"
+                    },
+
+                    loading: { list: false, allocate: false, init: false, decommission: false, deallocateConfirm: false },
+                    busyKey: null,
+
+                    autoRefreshEnabled: true,
+                    _autoTimer: null,
+
+                    modal: {
+                        allocate: { open: false, cpu_count: 4, region: "", zone: "", tagsText: "{}", ssh_public_key: "" },
+                        init: { open: false, ip: "", region: "", zone: "", hostname: "", cpuRangesText: '["0-3"]' },
+                        decommission: { open: false, hostname: "" },
+                        deallocateConfirm: { open: false, compute_id: "", hostname: "" }
+                    },
+
+                    // ---------- UTC helpers ----------
+                    utcNowString() {
+                        // 2025-12-28 14:03:22Z
+                        return new Date().toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "Z");
+                    },
+
+                    toUtcStringMaybe(value) {
+                        if (!value) return "-";
+                        const d = new Date(value);
+                        if (isNaN(d.getTime())) return String(value);
+                        return d.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "Z");
+                    },
+
+                    async init() {
+                        const sIdx = localStorage.getItem("kloigos_sort_index");
+                        const sDir = localStorage.getItem("kloigos_sort_dir");
+                        const sFilter = localStorage.getItem("kloigos_filter");
+                        const sFmt = localStorage.getItem("kloigos_inspector_format");
+
+                        if (sIdx !== null && !Number.isNaN(+sIdx)) this.sortIndex = +sIdx;
+                        if (sDir === "desc") this.sortDir = "desc";
+                        if (sFilter !== null) this.filterQuery = sFilter;
+                        if (sFmt === "json" || sFmt === "yaml") this.inspectorFormat = sFmt;
+
+                        await this.refresh();
+
+                        this.renderedAtUtc = this.utcNowString();
+                        this.setupAutoRefresh();
+                    },
+
+                    setupAutoRefresh() {
+                        if (this._autoTimer) clearInterval(this._autoTimer);
+                        this._autoTimer = setInterval(() => {
+                            if (this.autoRefreshEnabled) this.refresh();
+                        }, 10_000);
+                    },
+
+                    persistFilter() {
+                        localStorage.setItem("kloigos_filter", this.filterQuery || "");
+                    },
+
+                    persistInspectorFormat() {
+                        localStorage.setItem("kloigos_inspector_format", this.inspectorFormat);
+                    },
+
+                    // ---------- API ----------
+                    async apiFetch(path, { method = "GET", body = null } = {}) {
+                        const url = this.apiBase + path;
+                        const startedAtUtc = this.utcNowString();
+
+                        const opts = { method, headers: {} };
+                        if (body !== null && body !== undefined) {
+                            opts.headers["Content-Type"] = "application/json";
+                            opts.body = JSON.stringify(body);
+                        }
+
+                        const res = await fetch(url, opts);
+                        const ct = res.headers.get("content-type") || "";
+                        const isJson = ct.includes("application/json");
+                        const data = isJson ? await res.json().catch(() => null) : await res.text().catch(() => null);
+
+                        this.inspector = { startedAtUtc, url, method, status: res.status, ok: res.ok, response: data };
+
+                        if (!res.ok) {
+                            const msg =
+                                (data && (data.detail || data.message)) ||
+                                (typeof data === "string" && data) ||
+                                `Request failed (${res.status})`;
+                            throw new Error(msg);
+                        }
+
+                        return data;
+                    },
+
+                    async refresh() {
+                        this.loading.list = true;
+                        try {
+                            const data = await this.apiFetch("/compute_units/");
+                            this.computeUnits = Array.isArray(data) ? data : [];
+                            this.lastUpdatedUtc = this.utcNowString();
+                            this.applyFilterSort();
+                        } catch (e) {
+                            console.error(e);
+                            this.lastUpdatedUtc = this.utcNowString();
+                        } finally {
+                            this.loading.list = false;
+                        }
+                    },
+
+                    // ---------- inspector rendering ----------
+                    inspectorText() {
+                        if (!this.inspector) return "No requests yet.";
+                        if (this.inspectorFormat === "json") return JSON.stringify(this.inspector, null, 2);
+                        return this.toYaml(this.inspector);
+                    },
+
+                    // Minimal JSON -> YAML (covers objects/arrays/primitives, basic quoting)
+                    toYaml(value) {
+                        const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+                        const needsQuotes = (s) =>
+                            s === "" ||
+                            /[:\-\?\[\]\{\},#&\*!|>'"%@`]/.test(s) ||
+                            /^\s|\s$/.test(s) ||
+                            /^(true|false|null|~|-?\d+(\.\d+)?)$/i.test(s);
+
+                        const quote = (s) => `"${String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+
+                        const scalar = (v) => {
+                            if (v === null) return "null";
+                            if (v === true) return "true";
+                            if (v === false) return "false";
+                            if (typeof v === "number") return Number.isFinite(v) ? String(v) : quote(String(v));
+                            if (typeof v === "string") return needsQuotes(v) ? quote(v) : v;
+                            return quote(String(v));
+                        };
+
+                        const indent = (n) => "  ".repeat(n);
+
+                        const render = (v, depth) => {
+                            if (Array.isArray(v)) {
+                                if (v.length === 0) return "[]";
+                                return v.map(item => {
+                                    if (isObj(item) || Array.isArray(item)) {
+                                        return `${indent(depth)}- ${render(item, depth + 1).trimStart()}`;
+                                    }
+                                    return `${indent(depth)}- ${scalar(item)}`;
+                                }).join("\n");
+                            }
+
+                            if (isObj(v)) {
+                                const keys = Object.keys(v);
+                                if (keys.length === 0) return "{}";
+                                return keys.map(k => {
+                                    const val = v[k];
+                                    const keyStr = needsQuotes(k) ? quote(k) : k;
+                                    if (isObj(val) || Array.isArray(val)) {
+                                        return `${indent(depth)}${keyStr}:\n${render(val, depth + 1)}`;
+                                    }
+                                    return `${indent(depth)}${keyStr}: ${scalar(val)}`;
+                                }).join("\n");
+                            }
+
+                            return scalar(v);
+                        };
+
+                        return render(value, 0);
+                    },
+
+                    // ---------- table utils ----------
+                    rowText(row) {
+                        const parts = [
+                            row.compute_id, row.hostname, row.ip, row.region, row.zone, row.status,
+                            this.tagValue(row, "owner"), this.tagValue(row, "deployment_id")
+                        ];
+                        const tags = row.tags && typeof row.tags === "object"
+                            ? Object.entries(row.tags).map(([k, v]) => `${k}:${Array.isArray(v) ? v.join(",") : v}`)
+                            : [];
+                        return (parts.concat(tags)).filter(Boolean).join(" ").toLowerCase();
+                    },
+
+                    parseValue(type, value) {
+                        const v = (value ?? "").toString().trim();
+                        if (type === "number") {
+                            const n = parseFloat(v);
+                            return Number.isFinite(n) ? n : Number.NEGATIVE_INFINITY;
+                        }
+                        if (type === "date") {
+                            const d = new Date(v);
+                            return isNaN(d.getTime()) ? 0 : d.getTime();
+                        }
+                        if (type === "ip") {
+                            return v.split(".").map(o => o.padStart(3, "0")).join(".");
+                        }
+                        return v.toLowerCase();
+                    },
+
+                    cellText(row, colIndex) {
+                        switch (colIndex) {
+                            case 0: return row.compute_id;
+                            case 1: return `${row.region || "-"}-${row.zone || "-"}`;
+                            case 2: return row.hostname || "";
+                            case 3: return row.ip || "";
+                            case 4: return row.cpu_count;
+                            case 5: return row.cpu_range || "";
+                            case 6: return row.ports_range || "";
+                            case 7: return row.started_at || "";
+                            case 8: return this.tagValue(row, "deployment_id") || "";
+                            case 9: return this.tagValue(row, "owner") || "";
+                            case 10:
+                                return row.tags && typeof row.tags === "object"
+                                    ? Object.entries(row.tags).map(([k, v]) => `${k}:${Array.isArray(v) ? v.join(",") : v}`).join(" ")
+                                    : "";
+                            case 11: return row.status || "";
+                            default: return "";
+                        }
+                    },
+
+                    applyFilterSort() {
+                        const q = (this.filterQuery || "").toLowerCase().trim();
+                        let rows = this.computeUnits.slice();
+                        if (q) rows = rows.filter(r => this.rowText(r).includes(q));
+
+                        if (this.sortIndex !== null) {
+                            const type = this.sortTypeByIndex[this.sortIndex] || "string";
+                            const idx = this.sortIndex;
+                            const dir = this.sortDir;
+
+                            rows.sort((a, b) => {
+                                const av = this.parseValue(type, this.cellText(a, idx));
+                                const bv = this.parseValue(type, this.cellText(b, idx));
+                                if (av < bv) return dir === "asc" ? -1 : 1;
+                                if (av > bv) return dir === "asc" ? 1 : -1;
+                                return 0;
+                            });
+                        }
+
+                        this.visibleRows = rows;
+                        this.updateHeaderSortClasses();
+                    },
+
+                    updateHeaderSortClasses() {
+                        const ths = document.querySelectorAll("thead th[data-sort]");
+                        ths.forEach((th, i) => {
+                            th.classList.remove("sort-asc", "sort-desc");
+                            if (this.sortIndex === i) th.classList.add(this.sortDir === "asc" ? "sort-asc" : "sort-desc");
+                        });
+                    },
+
+                    toggleSort(index) {
+                        if (this.sortIndex === index) this.sortDir = this.sortDir === "asc" ? "desc" : "asc";
+                        else { this.sortIndex = index; this.sortDir = "asc"; }
+
+                        localStorage.setItem("kloigos_sort_index", String(this.sortIndex));
+                        localStorage.setItem("kloigos_sort_dir", this.sortDir);
+                        this.applyFilterSort();
+                    },
+
+                    sortClass(index) {
+                        if (this.sortIndex !== index) return "";
+                        return this.sortDir === "asc" ? "sort-asc" : "sort-desc";
+                    },
+
+                    tagValue(row, key) {
+                        const t = row.tags;
+                        if (!t || typeof t !== "object") return null;
+                        const v = t[key];
+                        if (v === undefined || v === null) return null;
+                        return Array.isArray(v) ? v.join(",") : String(v);
+                    },
+
+                    extraTags(row) {
+                        const t = row.tags;
+                        if (!t || typeof t !== "object") return [];
+                        return Object.entries(t).filter(([k, _]) => !["deployment_id", "owner"].includes(k));
+                    },
+
+                    formatTag(k, v) {
+                        if (Array.isArray(v)) return `${k}:[${v.join(",")}]`;
+                        return `${k}:${v}`;
+                    },
+
+                    statusClass(status) {
+                        const s = String(status || "").toLowerCase();
+                        if (s.includes("free")) return "status-online";
+                        if (s.includes("allocated")) return "status-warning";
+                        if (s.includes("terminating")) return "status-muted";
+                        if (!s || s === "unknown") return "status-default";
+                        return "status-offline";
+                    },
+
+                    // ---------- disruptive action: confirm modal ----------
+                    openDeallocateConfirm(row) {
+                        this.modal.deallocateConfirm.compute_id = row.compute_id;
+                        this.modal.deallocateConfirm.hostname = row.hostname || "";
+                        this.modal.deallocateConfirm.open = true;
+                    },
+                    closeDeallocateConfirm() { this.modal.deallocateConfirm.open = false; },
+
+                    async confirmDeallocate() {
+                        const computeId = this.modal.deallocateConfirm.compute_id;
+                        this.loading.deallocateConfirm = true;
+                        this.busyKey = computeId;
+                        try {
+                            await this.apiFetch(`/compute_units/deallocate/${encodeURIComponent(computeId)}`, { method: "DELETE" });
+                            this.closeDeallocateConfirm();
+                            await this.refresh();
+                        } finally {
+                            this.loading.deallocateConfirm = false;
+                            this.busyKey = null;
+                        }
+                    },
+
+                    // ---------- other modals ----------
+                    openAllocateModal() { this.modal.allocate.open = true; },
+                    closeAllocateModal() { this.modal.allocate.open = false; },
+
+                    async allocate() {
+                        this.loading.allocate = true;
+                        try {
+                            const tags = JSON.parse((this.modal.allocate.tagsText || "{}").trim() || "{}");
+                            const payload = {
+                                cpu_count: this.modal.allocate.cpu_count ?? 4,
+                                region: this.modal.allocate.region || null,
+                                zone: this.modal.allocate.zone || null,
+                                tags,
+                                ssh_public_key: (this.modal.allocate.ssh_public_key || "").trim(),
+                            };
+                            if (!payload.ssh_public_key) throw new Error("ssh_public_key is required.");
+                            if (tags === null || typeof tags !== "object" || Array.isArray(tags)) throw new Error("tags must be a JSON object.");
+                            await this.apiFetch("/compute_units/allocate", { method: "POST", body: payload });
+                            this.closeAllocateModal();
+                            await this.refresh();
+                        } finally {
+                            this.loading.allocate = false;
+                        }
+                    },
+
+                    openInitModal() { this.modal.init.open = true; },
+                    closeInitModal() { this.modal.init.open = false; },
+
+                    async initServer() {
+                        this.loading.init = true;
+                        try {
+                            const cpu_ranges = JSON.parse((this.modal.init.cpuRangesText || "[]").trim() || "[]");
+                            if (!Array.isArray(cpu_ranges) || cpu_ranges.some(x => typeof x !== "string")) throw new Error("cpu_ranges must be a JSON array of strings.");
+
+                            const payload = {
+                                ip: (this.modal.init.ip || "").trim(),
+                                region: (this.modal.init.region || "").trim(),
+                                zone: (this.modal.init.zone || "").trim(),
+                                hostname: (this.modal.init.hostname || "").trim(),
+                                cpu_ranges,
+                            };
+                            for (const [k, v] of Object.entries(payload)) {
+                                if ((typeof v === "string" && !v) || v == null) throw new Error(`${k} is required.`);
+                            }
+
+                            await this.apiFetch("/admin/init_server", { method: "POST", body: payload });
+                            this.closeInitModal();
+                            await this.refresh();
+                        } finally {
+                            this.loading.init = false;
+                        }
+                    },
+
+                    openDecommissionModal() {
+                        this.modal.decommission.hostname = "";
+                        this.modal.decommission.open = true;
+                    },
+                    closeDecommissionModal() { this.modal.decommission.open = false; },
+
+                    async decommissionByHostname() {
+                        this.loading.decommission = true;
+                        try {
+                            const hostname = (this.modal.decommission.hostname || "").trim();
+                            if (!hostname) throw new Error("hostname is required.");
+                            await this.apiFetch(`/admin/decommission_server/${encodeURIComponent(hostname)}`, { method: "DELETE" });
+                            this.closeDecommissionModal();
+                            await this.refresh();
+                        } finally {
+                            this.loading.decommission = false;
+                        }
+                    },
+                };
+            }
+
+            // Persist inspector toggle changes
+            document.addEventListener("alpine:init", () => {
+                // no-op; kept simple
+            });
+        </script>
+    </div>
+
+    <script>
+        // Persist the YAML/JSON toggle whenever it changes (small helper)
+        document.addEventListener("DOMContentLoaded", () => {
+            document.addEventListener("click", (e) => {
+                // handled inside Alpine; state persisted via localStorage in methods
+            });
+        });
+    </script>
+</body>
+
+</html>

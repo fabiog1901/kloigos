@@ -1,54 +1,36 @@
+from pathlib import Path
+
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
-from . import CPU_PORTS_MAP, RANGE_SIZE
 from .routers import admin, compute_unit
-from .routers.compute_unit import get_compute_units
-from .util import cpu_range_to_list
 
-app = FastAPI(
+app = FastAPI()
+api = FastAPI(
     title="Κλοηγός / Kloigos",
     version="0.2.0",
 )
 
 # all API endpoints are grouped in dedicated routers
-app.include_router(compute_unit.router)
-app.include_router(admin.router)
+api.include_router(compute_unit.router)
+api.include_router(admin.router)
 
-# needed to serve the static/favicon.png image
-app.mount("/static", StaticFiles(directory="static"), name="static")
+SPA_DIR = Path("webapp")  # e.g. Vite build output
 
-# Configure the templates
-templates = Jinja2Templates(directory="kloigos/templates")
+app.mount("/api", api)
+app.mount("/static", StaticFiles(directory=SPA_DIR / "static"), name="static")
 
 
-# the main app is only configured to serve the Dashboard
+# SPA fallback: any non-/api path returns index.html
 @app.get(
-    "/",
-    response_class=HTMLResponse,
+    "/{full_path:path}",
     include_in_schema=False,
 )
-async def inventory_dashboard(request: Request):
+def webapp_fallback(request: Request, full_path: str):
+    # don't intercept API paths (mounted apps usually handle this, but keep it explicit if needed)
+    if full_path.startswith("api/"):
+        return {"detail": "Not Found"}
 
-    # fetch all compute units and dump them into a dict
-    inventory = {x.compute_id: x.model_dump() for x in get_compute_units()}
-
-    # enrich the data with the computed cpu_list and ports_range values
-    for _, v in inventory.items():
-        cpu_list = cpu_range_to_list(v.get("cpu_range"))
-        start_port = CPU_PORTS_MAP.get(cpu_list.split(",")[-1])
-
-        v["cpu_list"] = cpu_list
-        v["ports_range"] = f"{start_port}-{start_port+RANGE_SIZE}"
-
-    # Prepare the context dictionary to pass data to the HTML template
-    context = {
-        "request": request,  # Required by Jinja2Templates
-        "title": "κλοηγός: Data Center Inventory Dashboard",
-        "hosts": inventory,
-    }
-
-    # return the HTML page
-    return templates.TemplateResponse("dashboard.html", context)
+    index = SPA_DIR / "index.html"
+    return FileResponse(index)
