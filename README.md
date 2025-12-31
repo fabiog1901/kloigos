@@ -339,92 +339,90 @@ We present Kloigos clearly as:
 ## Κλοηγός / Kloigos API (v0.2.0)
 
 **Base URL:** `/api`
-**OpenAPI:** 3.1.0
 
-## Overview
+## 🗂️ compute_units
 
-This API manages **compute units (servers)** and provides **admin endpoints** to initialize and decommission servers.
+### 🟩 `POST /compute_units/allocate`
 
-## Endpoints
-
-### Compute Units
-
-#### Allocate a compute unit
-
-`POST /compute_units/allocate`
+Allocate
 
 **Request body (JSON):** `ComputeUnitRequest`
-**Responses:**
-
-- `200` → `ComputeUnitResponse`
-- `422` → Validation error
-
----
-
-#### Deallocate a compute unit
-
-`DELETE /compute_units/deallocate/{compute_id}`
-
-**Path params:**
-
-- `compute_id` (string, required)
 
 **Responses:**
 
-- `200` → empty JSON schema
-- `422` → Validation error
+- ✅ `200` → `ComputeUnitResponse`
 
----
+- ❌ `422` → `HTTPValidationError`
 
-#### List compute units (servers)
+### 🟥 `DELETE /compute_units/deallocate/{compute_id}`
 
-`GET /compute_units/`
+Deallocate
 
-Returns all servers. Supports optional query filtering by things like deployment/status/etc.
+**Parameters:**
 
-**Query params (all optional):**
-
-- `compute_id` (string | null)
-- `hostname` (string | null)
-- `region` (string | null)
-- `zone` (string | null)
-- `cpu_count` (integer | null)
-- `deployment_id` (string | null)
-- `status` (string | null)
+- ❗ `compute_id` 🔤
 
 **Responses:**
 
-- `200` → array of `ComputeUnitResponse`
-- `422` → Validation error
+- ✅ `200` → `{}`
 
----
+- ❌ `422` → `HTTPValidationError`
 
-### Admin
+### 🟦 `GET /compute_units/`
 
-#### Initialize a server
+List Servers
 
-`POST /admin/init_server`
+Returns a list of all servers.
+Optionally filter the results by 'deployment_id' or 'status' query parameters.
+
+Example:
+- /servers
+- /servers?deployment_id=web_app_v1
+- /servers?status=free
+
+**Parameters:**
+
+- ➖ `compute_id` 🔤 🚫
+- ➖ `hostname` 🔤 🚫
+- ➖ `region` 🔤 🚫
+- ➖ `zone` 🔤 🚫
+- ➖ `cpu_count` 🔢 🚫
+- ➖ `deployment_id` 🔤 🚫
+- ➖ `status` 🔤 🚫
+
+**Responses:**
+
+- ✅ `200` → `array[ComputeUnitResponse]`
+
+- ❌ `422` → `HTTPValidationError`
+
+## 🗂️ admin
+
+### 🟩 `POST /admin/init_server`
+
+Init Server
 
 **Request body (JSON):** `InitServerRequest`
-**Responses:**
-
-- `200` → empty JSON schema
-- `422` → Validation error
-
----
-
-#### Decommission a server
-
-`DELETE /admin/decommission_server/{hostname}`
-
-**Path params:**
-
-- `hostname` (string, required)
 
 **Responses:**
 
-- `200` → empty JSON schema
-- `422` → Validation error
+- ✅ `200` → `{}`
+
+- ❌ `422` → `HTTPValidationError`
+
+### 🟥 `DELETE /admin/decommission_server/{hostname}`
+
+Decommission Server
+
+**Parameters:**
+
+- ❗ `hostname` 🔤
+
+**Responses:**
+
+- ✅ `200` → `{}`
+
+- ❌ `422` → `HTTPValidationError`
 
 ---
 
@@ -432,68 +430,54 @@ Returns all servers. Supports optional query filtering by things like deployment
 
 ### ComputeUnitRequest
 
-Required:
+**Required:**
 
-- `tags` (object | null)
-- `ssh_public_key` (string)
+- `tags 📦 🚫`
+- `ssh_public_key 🔤`
 
-Optional:
+**Optional:**
 
-- `cpu_count` (integer | null, default: `4`)
-- `region` (string | null)
-- `zone` (string | null)
-
-**tags object values** can be:
-
-- string
-- integer
-- array of strings
-
----
+- `cpu_count` 🔢 🚫 default: `4`
+- `region` 🔤 🚫
+- `zone` 🔤 🚫
 
 ### ComputeUnitResponse
 
-Required:
+**Required:**
 
-- `compute_id` (string)
-- `hostname` (string)
-- `ip` (string)
-- `cpu_count` (integer)
-- `cpu_range` (string)
-- `region` (string)
-- `zone` (string)
-- `status` (string)
-- `started_at` (date-time string | null)
-- `tags` (object | null)
-- `cpu_list` (string)
-- `ports_range` (string | null)
+- `ports_range 🔤 🚫`
+- `ip 🔤`
+- `zone 🔤`
+- `compute_id 🔤`
+- `started_at 🔤 🚫`
+- `region 🔤`
+- `hostname 🔤`
+- `cpu_count 🔢`
+- `status 🔤`
+- `tags 📦 🚫`
+- `cpu_range 🔤`
+- `cpu_list 🔤`
 
----
+### HTTPValidationError
+
+**Optional:**
+
+- `detail` array[ValidationError]
 
 ### InitServerRequest
 
-Required:
+**Required:**
 
-- `ip` (string)
-- `region` (string)
-- `zone` (string)
-- `hostname` (string)
-- `cpu_ranges` (array of strings)
+- `ip 🔤`
+- `zone 🔤`
+- `region 🔤`
+- `hostname 🔤`
+- `cpu_ranges array[🔤]`
 
----
+### ValidationError
 
-### Validation Errors
+**Required:**
 
-#### HTTPValidationError
-
-- `detail` (array of `ValidationError`)
-
-#### ValidationError
-
-- `loc` (array of string | integer)
-- `msg` (string)
-- `type` (string)
-
----
-
-If you want, I can also generate a **more “API reference”-style** Markdown (tables for params + example JSON payloads for each endpoint).
+- `type 🔤`
+- `msg 🔤`
+- `loc array[🔤 🔢]`
