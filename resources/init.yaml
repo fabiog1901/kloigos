@@ -154,3 +154,29 @@
         # maybe_setup_dir_quota "11007" "home_u4_7" "$HOME2" "/home"
         # maybe_setup_dir_quota "21003" "opt_c0_3"  "$OPT1"  "/opt"
         # maybe_setup_dir_quota "21007" "opt_c4_7"  "$OPT2"  "/opt"
+
+    - name: setup nft tables to assign ports to each user
+      copy:
+        content: |
+          table inet kloigos {
+              chain output {
+                  type filter hook output priority 0;
+
+                  {% for item in user_ids.results | zip(ports_range) | list %}
+                  # Allow {{ item.0 }} only {{ item.1 }}
+                  meta skuid {{ item.0 }} tcp dport {{ item.1 }} accept
+                  meta skuid {{ item.0 }} udp dport {{ item.1 }} accept
+                  meta skuid {{ item.0 }} drop
+                  
+                  {% endfor %}
+              }
+          }
+        dest: /etc/nftables.d/kloigos.nft
+
+    - name: add kloigos.nft to nft config file for inclusion
+      shell: |
+        echo "include "/etc/nftables.d/*.nft" >> /etc/nftables.conf
+
+    - name: apply nft tables
+      shell: |
+        nft -f /etc/nftables.conf

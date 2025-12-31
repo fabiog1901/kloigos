@@ -33,6 +33,8 @@
         ansible_host: "{{ item.ip }}"
         public_ip: "{{ item.ip }}"
         cu_user: "c{{ item.cpu_range.replace(':', '-') }}"
+        ports_range: "{{ item.ports_range }}"
+        cpu_count: "{{ item.cpu_count }}"
         groups: new_alloc
 
       loop: "{{ instances.json }}"
@@ -47,3 +49,32 @@
         content: |
           {{ ssh_public_key }}
         dest: /home/{{ cu_user }}/.ssh/authorized_keys
+
+    - name: create welcome file
+      copy:
+        content: |
+          WELCOME TO COMPUTE UNIT `{{ name }}`!
+
+          This compute unit features:
+            - CPU count: {{ cpu_count }}
+            - Memory:
+            - Max running processes: 
+            - Ports assigned: {{ ports_range }}
+            - Network bandwidth:
+            - Disk volume at /mnt/{{ cu_user }}
+            - IOPS/MBPS:
+
+          
+          You're not root, but you can still use systemd
+          to run your services.
+          Make sure you save your .service files at directory
+
+          ~/.config/systemd/user/
+
+          and you manage the service using the `--user` flag, Example:  
+
+          systemctl --user daemon-reload
+          systemctl --user enable myservice
+          systemctl --user start myservice
+
+        dest: /home/{{ cu_user }}/WELCOME.txt

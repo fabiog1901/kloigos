@@ -115,23 +115,385 @@ list of compute units and their current status. While a simple text file might b
 using a proper relational database provides greater flexibility, richer querying capabilities,
 and helps future-proof Kloigos as it evolves.
 
-### Clean up after deprovisioning
+---
 
-Most Kloigos operations involve serving and managing metadata about compute units.
-There is, however, one scenario that goes beyond simple metadata updates: the deprovisioning of a compute unit.
+## Use case for Kloigos
 
-When a compute unit is deprovisioned, it is best practice to remove any residual data so
-that the unit can be returned to a clean state and made ready for reuse.
-To perform this cleanup, Kloigos invokes an Ansible playbook (`clean_up.yaml`)
-against the compute unit being terminated.
+Kloigos can be broadly useful - but only for a specific class of users and environments.
+It’s not a universal replacement for VMs, containers, or Kubernetes, and that’s actually a strength, not a weakness.
 
-For this process to work, Ansible must be able to establish an SSH connection to the host.
-As a result, the appropriate SSH keys must be available and loaded on the Kloigos server.
+Let’s frame this clearly.
+
+## 1. What problem Kloigos _really_ solves
+
+At its core, Kloigos solves this problem:
+
+> “How do I safely and efficiently subdivide a large Linux server into multiple _VM-like_ environments **without** a hypervisor or container stack, while keeping a familiar SSH + systemd user experience?”
+
+That problem exists **far more often than people realize**, especially outside hyperscale cloud-native teams.
+
+Kloigos is most compelling where people want:
+
+- **strong isolation**
+- **very low overhead**
+- **standard Linux tooling**
+- **no Kubernetes**
+- **no hypervisor**
+- **no image pipelines**
 
 ---
 
-## API
+## 2. Who would find Kloigos immediately useful
 
-Consult the API Swagger UI page at `/docs` for info on all endpoints.
+### 1) Infrastructure / platform teams with large bare-metal servers
 
-![api](media/api.png)
+Common in:
+
+- finance / trading
+- telco
+- research labs
+- enterprise data centers
+- on-prem AI / ML clusters
+
+These teams often have:
+
+- 64-256 core machines
+- predictable workloads
+- strong isolation requirements
+- skepticism toward Kubernetes overhead
+
+Kloigos lets them:
+
+- slice machines deterministically
+- assign ownership cleanly
+- avoid VM sprawl
+- keep performance predictable
+
+---
+
+### 2) Teams running “pet services” rather than cattle
+
+Not every workload fits the container model.
+
+Examples:
+
+- stateful services
+- legacy daemons
+- services that expect a writable filesystem
+- software that assumes SSH access
+- systemd-managed services
+- licensed software bound to host identity
+
+Kloigos gives them:
+
+- isolation without rewriting deployment models
+- an EC2-like mental model
+- predictable CPU and IO placement
+
+---
+
+### 3) Multi-tenant environments with _trusted but isolated_ users
+
+Examples:
+
+- internal developer platforms
+- shared build servers
+- CI runners
+- academic compute clusters
+- training environments
+
+These environments need:
+
+- real isolation
+- fair resource usage
+- simple cleanup
+- minimal ops burden
+
+Kloigos fits perfectly here.
+
+---
+
+### 4) Performance-sensitive workloads
+
+Kloigos avoids:
+
+- VM exits
+- container overlay filesystems
+- network overlays
+- extra scheduler layers
+
+This matters for:
+
+- low-latency services
+- HPC-style workloads
+- NUMA-sensitive applications
+- IO-heavy pipelines
+
+---
+
+## 3. Where Kloigos is _not_ a good fit
+
+Kloigos is _not_ ideal for:
+
+- untrusted internet-facing tenants (shared kernel risk)
+- workloads needing strong kernel isolation guarantees
+- ephemeral, stateless, image-based microservices
+- teams deeply invested in Kubernetes
+- workloads that rely on container ecosystems (sidecars, service mesh, etc.)
+
+Those users should stick with:
+
+- Kubernetes
+- microVMs (Firecracker)
+- traditional VMs
+
+---
+
+## 4. How wide is the adaptability?
+
+### Conceptually
+
+Kloigos is adaptable to **any environment that already runs Linux and systemd**.
+
+It does not require:
+
+- special kernels
+- special hardware
+- custom runtimes
+- vendor lock-in
+
+That makes it _portable_ and _incrementally adoptable_.
+
+---
+
+### Practically
+
+Kloigos is best described as:
+
+> **“A Linux-native, VM-like abstraction layer for subdividing large machines.”**
+
+That’s a niche - but it’s a **real and recurring niche**, and it’s underserved by existing tools.
+
+---
+
+## 5. Why this niche exists (and persists)
+
+Many teams are stuck between:
+
+- **VMs** → too heavy, too expensive
+- **Containers** → too opinionated, too complex, too ephemeral
+
+Kloigos occupies the missing middle ground:
+
+- stronger isolation than “just users”
+- simpler than Kubernetes
+- lighter than VMs
+- more flexible than containers
+
+This “middle ground” is surprisingly common in real-world ops.
+
+---
+
+## 6. The strongest argument for Kloigos
+
+The strongest argument isn’t technical—it’s experiential:
+
+> “Give a developer SSH access, systemd, predictable resources, and no surprises.”
+
+That’s an incredibly powerful value proposition.
+
+Many engineers **want**:
+
+- a small VM
+- with guaranteed CPU and IO
+- without having to understand Kubernetes internals
+
+Kloigos delivers exactly that.
+
+---
+
+## 7. Final honest assessment
+
+Kloigos is not for everyone - and that’s okay.
+
+It is:
+
+- ❌ not a general-purpose cloud platform
+- ❌ not a Kubernetes replacement
+- ❌ not a security boundary for hostile tenants
+
+But it _is_:
+
+- ✅ a compelling alternative for a real, underserved segment
+- ✅ technically sound
+- ✅ operationally elegant
+- ✅ easy to reason about
+- ✅ easy to adopt incrementally
+
+We present Kloigos clearly as:
+
+> **“VM-like compute units without VMs, built from native Linux primitives”**
+
+---
+
+## Κλοηγός / Kloigos API (v0.2.0)
+
+**Base URL:** `/api`
+**OpenAPI:** 3.1.0
+
+## Overview
+
+This API manages **compute units (servers)** and provides **admin endpoints** to initialize and decommission servers.
+
+## Endpoints
+
+### Compute Units
+
+#### Allocate a compute unit
+
+`POST /compute_units/allocate`
+
+**Request body (JSON):** `ComputeUnitRequest`
+**Responses:**
+
+- `200` → `ComputeUnitResponse`
+- `422` → Validation error
+
+---
+
+#### Deallocate a compute unit
+
+`DELETE /compute_units/deallocate/{compute_id}`
+
+**Path params:**
+
+- `compute_id` (string, required)
+
+**Responses:**
+
+- `200` → empty JSON schema
+- `422` → Validation error
+
+---
+
+#### List compute units (servers)
+
+`GET /compute_units/`
+
+Returns all servers. Supports optional query filtering by things like deployment/status/etc.
+
+**Query params (all optional):**
+
+- `compute_id` (string | null)
+- `hostname` (string | null)
+- `region` (string | null)
+- `zone` (string | null)
+- `cpu_count` (integer | null)
+- `deployment_id` (string | null)
+- `status` (string | null)
+
+**Responses:**
+
+- `200` → array of `ComputeUnitResponse`
+- `422` → Validation error
+
+---
+
+### Admin
+
+#### Initialize a server
+
+`POST /admin/init_server`
+
+**Request body (JSON):** `InitServerRequest`
+**Responses:**
+
+- `200` → empty JSON schema
+- `422` → Validation error
+
+---
+
+#### Decommission a server
+
+`DELETE /admin/decommission_server/{hostname}`
+
+**Path params:**
+
+- `hostname` (string, required)
+
+**Responses:**
+
+- `200` → empty JSON schema
+- `422` → Validation error
+
+---
+
+## Schemas
+
+### ComputeUnitRequest
+
+Required:
+
+- `tags` (object | null)
+- `ssh_public_key` (string)
+
+Optional:
+
+- `cpu_count` (integer | null, default: `4`)
+- `region` (string | null)
+- `zone` (string | null)
+
+**tags object values** can be:
+
+- string
+- integer
+- array of strings
+
+---
+
+### ComputeUnitResponse
+
+Required:
+
+- `compute_id` (string)
+- `hostname` (string)
+- `ip` (string)
+- `cpu_count` (integer)
+- `cpu_range` (string)
+- `region` (string)
+- `zone` (string)
+- `status` (string)
+- `started_at` (date-time string | null)
+- `tags` (object | null)
+- `cpu_list` (string)
+- `ports_range` (string | null)
+
+---
+
+### InitServerRequest
+
+Required:
+
+- `ip` (string)
+- `region` (string)
+- `zone` (string)
+- `hostname` (string)
+- `cpu_ranges` (array of strings)
+
+---
+
+### Validation Errors
+
+#### HTTPValidationError
+
+- `detail` (array of `ValidationError`)
+
+#### ValidationError
+
+- `loc` (array of string | integer)
+- `msg` (string)
+- `type` (string)
+
+---
+
+If you want, I can also generate a **more “API reference”-style** Markdown (tables for params + example JSON payloads for each endpoint).
