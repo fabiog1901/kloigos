@@ -71,8 +71,7 @@ extra:
 nav:
   - Home: 
     - index.md
-  - Getting Started:
-    - getting_started/index.md
+  - use-case.md
   - Docs:
     - docs/installation.md
   - API: api.md

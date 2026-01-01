@@ -103,8 +103,6 @@ Decommission Server
 
 ---
 
----
-
 ## 🧱 Schemas
 
 ### ComputeUnitRequest
