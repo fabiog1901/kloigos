@@ -8,6 +8,8 @@ hide:
 
 ## Kloigos lets you split a powerful server into multiple independent compute environments - without virtual machines or containers
 
+![dashboard](assets/dashboard.png)
+
 ---
 
 Kloigos is a Linux-native control plane for managing **compute units**: lightweight, VM-like
