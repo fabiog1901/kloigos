@@ -10,6 +10,14 @@ class AutoNameStrEnum(StrEnum):
         return name
 
 
+class Playbook(AutoNameStrEnum):
+    # compute unit level statuses
+    cu_allocate = auto()
+    cu_deallocate = auto()
+    server_init = auto()
+    server_decomm = auto()
+
+
 class Status(AutoNameStrEnum):
     # compute unit level statuses
     FREE = auto()

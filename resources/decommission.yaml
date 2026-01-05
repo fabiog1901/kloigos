@@ -11,7 +11,7 @@
   gather_facts: no
   become: no
   vars:
-    kloigos_server: "http://127.0.0.1:8000"
+    kloigos_server: "http://127.0.0.1:8000/api"
   tasks:
     - name: gather decomm server details
       ansible.builtin.uri:

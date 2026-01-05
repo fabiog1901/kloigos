@@ -2,17 +2,19 @@
 #
 # Playbook invoked by Kloigos after each `deallocate` call.
 #
+#     compute_id
+#
 - name: GATHER COMPUTE UNITS TO DEALLOCATE
   hosts: localhost
   connection: local
   gather_facts: no
   become: no
   vars:
-    kloigos_server: "http://127.0.0.1:8000"
+    kloigos_server: "http://127.0.0.1:8000/api"
   tasks:
-    - name: gather compute units with status set to terminating
+    - name: gather compute unit to deallocate
       ansible.builtin.uri:
-        url: "{{ kloigos_server }}/compute_units?status=terminating"
+        url: "{{ kloigos_server }}/compute_units?compute_id={{ compute_id }}"
         method: GET
         status_code: 200
       register: instance

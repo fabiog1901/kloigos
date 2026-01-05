@@ -5,7 +5,13 @@ import sqlite3
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
 
 from .. import CPU_PORTS_MAP, RANGE_SIZE, SQLITE_DB
-from ..models import ComputeUnitInDB, ComputeUnitRequest, ComputeUnitResponse, Status
+from ..models import (
+    ComputeUnitInDB,
+    ComputeUnitRequest,
+    ComputeUnitResponse,
+    Playbook,
+    Status,
+)
 from ..util import MyRunner, cpu_range_to_list
 
 router = APIRouter(
@@ -85,7 +91,7 @@ async def allocate(
                 """
                 UPDATE compute_units
                 SET status = ?,
-                    tags = {}
+                    tags = '{}'
                 WHERE compute_id = ?
                 """,
                 (Status.ALLOCATION_FAIL, cu.compute_id),
@@ -179,7 +185,7 @@ def run_allocate(compute_id: str, ssh_public_key: str) -> bool:
     """
 
     return MyRunner().launch_runner(
-        "resources/allocate.yaml",
+        Playbook.cu_allocate,
         {
             "compute_id": compute_id,
             "ssh_public_key": ssh_public_key,
@@ -194,7 +200,12 @@ def run_deallocate(compute_id: str) -> None:
     so that it can be available for being re-allocateed.
     """
 
-    job_ok = MyRunner().launch_runner("resources/deallocate.yaml", {})
+    job_ok = MyRunner().launch_runner(
+        Playbook.cu_deallocate,
+        {
+            "compute_id": compute_id,
+        },
+    )
 
     with sqlite3.connect(SQLITE_DB) as conn:
         cur = conn.cursor()

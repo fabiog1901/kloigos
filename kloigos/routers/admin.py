@@ -1,15 +1,61 @@
 import sqlite3
+from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Response, status
+from fastapi import APIRouter, BackgroundTasks, Body, Response, status
 
 from .. import SQLITE_DB
-from ..models import InitServerRequest, Status
+from ..models import InitServerRequest, Playbook, Status
 from ..util import MyRunner, cpu_range_to_list
 
 router = APIRouter(
     prefix="/admin",
     tags=["admin"],
 )
+
+
+@router.patch("/playbooks/{playbook}")
+async def update_playbooks(
+    playbook: Playbook,
+    # Annotated tells FastAPI this MUST come from the Body
+    b64: Annotated[str, Body(description="The base64 encoded string")],
+):
+
+    with sqlite3.connect(SQLITE_DB) as conn:
+
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE playbooks
+            SET content = ?
+            WHERE id = ?
+            """,
+            (
+                b64,
+                playbook,
+            ),
+        )
+
+    return Response(status_code=status.HTTP_200_OK)
+
+
+@router.get("/playbooks/{playbook}")
+async def fetch_playbook(
+    playbook: Playbook,
+) -> str:
+
+    with sqlite3.connect(SQLITE_DB) as conn:
+
+        cur = conn.cursor()
+        rs = cur.execute(
+            """
+            SELECT content
+            FROM playbooks
+            WHERE id = ?
+            """,
+            (playbook,),
+        ).fetchone()
+
+    return rs[0]
 
 
 @router.post(
@@ -97,7 +143,7 @@ def run_init_server(isr: InitServerRequest) -> None:
     cpu_ranges = [x.replace(":", "-") for x in isr.cpu_ranges]
 
     job_ok = MyRunner().launch_runner(
-        "resources/init.yaml",
+        Playbook.server_init,
         {
             "compute_id": isr.hostname,
             "cpu_ranges": cpu_ranges,
@@ -183,7 +229,7 @@ def run_decommission_server(hostname: str) -> None:
     """
 
     job_ok = MyRunner().launch_runner(
-        "resources/decommission.yaml",
+        Playbook.server_decomm,
         {
             "decomm_hostname": hostname,
         },

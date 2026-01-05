@@ -1,10 +1,16 @@
+import base64
 import json
 import os
 import shutil
+import sqlite3
 import time
 
 import ansible_runner
 import yaml
+
+from kloigos.models import Playbook
+
+from . import SQLITE_DB
 
 
 def cpu_range_to_list(s: str):
@@ -108,12 +114,24 @@ class MyRunner:
 
     def launch_runner(
         self,
-        playbook_name: str,
+        playbook: Playbook,
         extra_vars: dict,
     ) -> bool:
 
-        with open(playbook_name, "r") as f:
-            playbook = yaml.safe_load(f.read())
+        with sqlite3.connect(SQLITE_DB) as conn:
+
+            cur = conn.cursor()
+            rs = cur.execute(
+                """
+                SELECT content
+                FROM playbooks
+                WHERE id = ?
+                """,
+                (playbook,),
+            ).fetchone()
+
+        # Decode the base64 string back to original YAML
+        pb: dict = yaml.safe_load(base64.b64decode(rs[0]).decode())
 
         # create a new working directory
 
@@ -125,7 +143,7 @@ class MyRunner:
             runner = ansible_runner.run(
                 quiet=False,
                 verbosity=1,
-                playbook=playbook,
+                playbook=pb,
                 private_data_dir=f"/tmp/job-{job_id}",
                 extravars=extra_vars,
                 event_handler=self.my_event_handler,

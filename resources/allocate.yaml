@@ -4,7 +4,7 @@
 #
 # The following extra-vars are passed:
 #   compute_id
-#.  ssh_public_key
+#   ssh_public_key
 #
 - name: GATHER COMPUTE UNIT TO ALLOCATE
   hosts: localhost
