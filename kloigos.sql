@@ -1,27 +1,29 @@
-BEGIN TRANSACTION;
-DROP TABLE IF EXISTS "compute_units";
-CREATE TABLE "compute_units" (
-	"compute_id"	TEXT,
-	"cpu_count"	INTEGER NOT NULL,
-	"cpu_range"	TEXT NOT NULL,
-	"hostname"	TEXT NOT NULL,
-	"ip"	TEXT NOT NULL,
-	"region"	TEXT NOT NULL,
-	"zone"	TEXT NOT NULL,
-	"status"	TEXT NOT NULL,
-	"started_at"	TIMESTAMP,
-	"tags"	TEXT NOT NULL DEFAULT '{}',
-	PRIMARY KEY("compute_id")
+-- cockroachdb schema
+
+USE defaultdb;
+
+DROP DATABASE IF EXISTS kloigos;
+
+CREATE DATABASE kloigos;
+
+USE kloigos;
+
+CREATE TABLE compute_units (
+    compute_id STRING NOT NULL,
+    cpu_count INT2 NOT NULL,
+    cpu_range STRING NOT NULL,
+    hostname STRING NOT NULL,
+    ip STRING NOT NULL,
+    region STRING NOT NULL,
+    zone STRING NOT NULL,
+    status STRING NOT NULL,
+    started_at TIMESTAMPTZ NULL,
+    tags JSONB NOT NULL DEFAULT '{}':::JSONB,
+    CONSTRAINT pk PRIMARY KEY (compute_id ASC)
 );
-DROP TABLE IF EXISTS "playbooks";
+
 CREATE TABLE playbooks (
-	id string not null PRIMARY key,
-	content string
+    id STRING NOT NULL,
+    content BYTES NULL,
+    CONSTRAINT pk PRIMARY KEY (id ASC)
 );
-DROP INDEX IF EXISTS "idx_compute_slots_hostname";
-CREATE INDEX idx_compute_slots_hostname ON "compute_units"(hostname);
-DROP INDEX IF EXISTS "idx_compute_slots_region";
-CREATE INDEX idx_compute_slots_region ON "compute_units"(region);
-DROP INDEX IF EXISTS "idx_compute_slots_status";
-CREATE INDEX idx_compute_slots_status ON "compute_units"(status);
-COMMIT;

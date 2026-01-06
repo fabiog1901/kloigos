@@ -1,11 +1,10 @@
-import sqlite3
+import gzip
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Body, Response, status
 
-from .. import SQLITE_DB
 from ..models import InitServerRequest, Playbook, Status
-from ..util import MyRunner, cpu_range_to_list_str
+from ..util import MyRunner, cpu_range_to_list_str, pool
 
 router = APIRouter(
     prefix="/admin",
@@ -20,17 +19,17 @@ async def update_playbooks(
     b64: Annotated[str, Body(description="The base64 encoded string")],
 ):
 
-    with sqlite3.connect(SQLITE_DB) as conn:
+    with pool.connection() as conn:
 
         cur = conn.cursor()
         cur.execute(
             """
             UPDATE playbooks
-            SET content = ?
-            WHERE id = ?
+            SET content = %s
+            WHERE id = %s
             """,
             (
-                b64,
+                gzip.compress(b64.encode()),
                 playbook,
             ),
         )
@@ -43,19 +42,19 @@ async def fetch_playbook(
     playbook: Playbook,
 ) -> str:
 
-    with sqlite3.connect(SQLITE_DB) as conn:
+    with pool.connection() as conn:
 
         cur = conn.cursor()
         rs = cur.execute(
             """
             SELECT content
             FROM playbooks
-            WHERE id = ?
+            WHERE id = %s
             """,
             (playbook,),
         ).fetchone()
 
-    return rs[0]
+    return gzip.decompress(rs[0]).decode()
 
 
 @router.post(
@@ -68,7 +67,7 @@ async def init_server(
 
     # add the server to the compute_units table with
     # status='init'
-    with sqlite3.connect(SQLITE_DB) as conn:
+    with pool.connection() as conn:
         cur = conn.cursor()
         cur.execute(
             """
@@ -77,8 +76,8 @@ async def init_server(
                 region, zone, status, started_at, tags
             )
             VALUES (
-                ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s
             )
             ON CONFLICT DO NOTHING
             """,
@@ -111,13 +110,13 @@ async def decommission_server(
     bg_task: BackgroundTasks,
 ) -> None:
 
-    with sqlite3.connect(SQLITE_DB) as conn:
+    with pool.connection() as conn:
         cur = conn.cursor()
         cur.execute(
             """
             UPDATE compute_units
-            SET status = ?
-            WHERE hostname = ?
+            SET status = %s
+            WHERE hostname = %s
             """,
             (
                 Status.DECOMMISSIONING,
@@ -158,29 +157,18 @@ def run_init_server(isr: InitServerRequest) -> None:
             cpu_count = len(cpu_range_to_list_str(x).split(","))
             compute_id = f"{isr.hostname}_c{x.replace(':', '-')}"
 
-            with sqlite3.connect(SQLITE_DB) as conn:
+            with pool.connection() as conn:
                 cur = conn.cursor()
                 cur.execute(
                     """
-                    INSERT INTO compute_units (
+                    UPSERT INTO compute_units (
                         compute_id, cpu_count, cpu_range, hostname, ip, 
                         region, zone, status, started_at, tags
                     ) 
                     VALUES (
-                        ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?
-                    ) 
-                    ON CONFLICT DO UPDATE SET 
-                        compute_id = excluded.compute_id, 
-                        cpu_count = excluded.cpu_count,
-                        cpu_range = excluded.cpu_range,
-                        hostname = excluded.hostname,
-                        ip = excluded.ip,
-                        region = excluded.region,
-                        zone = excluded.zone,
-                        status = excluded.status,
-                        started_at = excluded.started_at,
-                        tags = excluded.tags
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s
+                    )
                     """,
                     (
                         compute_id,
@@ -197,25 +185,25 @@ def run_init_server(isr: InitServerRequest) -> None:
                 )
 
         # remove the row with the details of the server in init status
-        with sqlite3.connect(SQLITE_DB) as conn:
+        with pool.connection() as conn:
             cur = conn.cursor()
             cur.execute(
                 """
                 DELETE 
                 FROM compute_units
-                WHERE compute_id = ?
+                WHERE compute_id = %s
                 """,
                 (isr.hostname,),
             )
 
     else:
-        with sqlite3.connect(SQLITE_DB) as conn:
+        with pool.connection() as conn:
             cur = conn.cursor()
             cur.execute(
                 """
                 UPDATE compute_units 
-                SET status = ?
-                WHERE compute_id = ?
+                SET status = %s
+                WHERE compute_id = %s
                 """,
                 (Status.INIT_FAIL, isr.hostname),
             )
@@ -237,13 +225,13 @@ def run_decommission_server(hostname: str) -> None:
 
     # don't delete any metadata, instead mark the compute units as
     # status = 'DECOMMISSIONED'
-    with sqlite3.connect(SQLITE_DB) as conn:
+    with pool.connection() as conn:
         cur = conn.cursor()
         cur.execute(
             """
             UPDATE compute_units 
-            SET status = ?
-            WHERE hostname = ?
+            SET status = %s
+            WHERE hostname = %s
             """,
             (
                 Status.DECOMMISSIONED if job_ok else Status.DECOMMISSION_FAIL,

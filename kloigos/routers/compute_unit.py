@@ -1,10 +1,8 @@
 import datetime as dt
 import json
-import sqlite3
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
 
-from .. import SQLITE_DB
 from ..models import (
     ComputeUnitInDB,
     ComputeUnitRequest,
@@ -12,7 +10,7 @@ from ..models import (
     Playbook,
     Status,
 )
-from ..util import MyRunner, cpu_range_to_list_str, ports_for_cpu_range
+from ..util import MyRunner, class_row, cpu_range_to_list_str, pool, ports_for_cpu_range
 
 router = APIRouter(
     prefix="/compute_units",
@@ -50,14 +48,14 @@ async def allocate(
     ports_range = f"{pr.start}-{pr.end}"
 
     # mark the compute_unit to allocating
-    with sqlite3.connect(SQLITE_DB) as conn:
+    with pool.connection() as conn:
         cur = conn.cursor()
         cur.execute(
             """
             UPDATE compute_units
-            SET status = ?,
-                tags = ?
-            WHERE compute_id = ?
+            SET status = %s,
+                tags = %s
+            WHERE compute_id = %s
             """,
             (Status.ALLOCATING, json.dumps(req.tags), cu.compute_id),
         )
@@ -66,13 +64,13 @@ async def allocate(
     job_ok = run_allocate(cu.compute_id, req.ssh_public_key)
 
     if job_ok:
-        with sqlite3.connect(SQLITE_DB) as conn:
+        with pool.connection() as conn:
             cur = conn.cursor()
             cur.execute(
                 """
                 UPDATE compute_units
-                SET status = ?
-                WHERE compute_id = ?
+                SET status = %s
+                WHERE compute_id = %s
                 """,
                 (Status.ALLOCATED, cu.compute_id),
             )
@@ -85,14 +83,14 @@ async def allocate(
             **cu.model_dump(exclude="tags"),
         )
     else:
-        with sqlite3.connect(SQLITE_DB) as conn:
+        with pool.connection() as conn:
             cur = conn.cursor()
             cur.execute(
                 """
                 UPDATE compute_units
-                SET status = ?,
+                SET status = %s,
                     tags = '{}'
-                WHERE compute_id = ?
+                WHERE compute_id = %s
                 """,
                 (Status.ALLOCATION_FAIL, cu.compute_id),
             )
@@ -108,14 +106,14 @@ async def deallocate(
 ) -> None:
 
     # mark the compute_id as terminating
-    with sqlite3.connect(SQLITE_DB) as conn:
+    with pool.connection() as conn:
         cur = conn.cursor()
         cur.execute(
             """
             UPDATE compute_units
-            SET status = ?,
+            SET status = %s,
                 tags = '{}'
-            WHERE compute_id = ?
+            WHERE compute_id = %s
             """,
             (
                 Status.DEALLOCATING,
@@ -207,13 +205,13 @@ def run_deallocate(compute_id: str) -> None:
         },
     )
 
-    with sqlite3.connect(SQLITE_DB) as conn:
+    with pool.connection() as conn:
         cur = conn.cursor()
         cur.execute(
             """
             UPDATE compute_units
-            SET status = ?
-            WHERE compute_id = ?
+            SET status = %s
+            WHERE compute_id = %s
             """,
             (
                 Status.FREE if job_ok else Status.DEALLOCATION_FAIL,
@@ -238,31 +236,31 @@ def get_compute_units(
     params = []
 
     if compute_id is not None:
-        conditions.append("compute_id = ?")
+        conditions.append("compute_id = %s")
         params.append(compute_id)
 
     if hostname is not None:
-        conditions.append("hostname = ?")
+        conditions.append("hostname = %s")
         params.append(hostname)
 
     if region is not None:
-        conditions.append("region = ?")
+        conditions.append("region = %s")
         params.append(region)
 
     if zone is not None:
-        conditions.append("zone = ?")
+        conditions.append("zone = %s")
         params.append(zone)
 
     if cpu_count is not None:
-        conditions.append("cpu_count = ?")
+        conditions.append("cpu_count = %s")
         params.append(cpu_count)
 
     if deployment_id is not None:
-        conditions.append("json_extract(tags, '$.deployment_id') = ?")
+        conditions.append("json_extract(tags, '$.deployment_id') = %s")
         params.append(status)
 
     if status is not None:
-        conditions.append("status = ?")
+        conditions.append("status = %s")
         params.append(status)
 
     sql = "SELECT * FROM compute_units"
@@ -273,27 +271,12 @@ def get_compute_units(
     if limit:
         sql += f" LIMIT {limit}"
 
-    with sqlite3.connect(SQLITE_DB) as conn:
-        conn.row_factory = sqlite3.Row  # enables dict-like access
+    with pool.connection() as conn:
 
-        cur = conn.cursor()
+        with conn.cursor(
+            row_factory=class_row(ComputeUnitInDB),
+        ) as cur:
 
-        rs = cur.execute(sql, params).fetchall()
+            rs = cur.execute(sql, params).fetchall()
 
-        cu_list: list[ComputeUnitInDB] = []
-
-        for row in rs:
-            data = dict(row)
-
-            # Parse tags JSON
-            data["tags"] = json.loads(data["tags"]) if data.get("tags") else None
-
-            # Parse started_at timestamp
-            if data.get("started_at"):
-                data["started_at"] = dt.datetime.fromisoformat(data["started_at"])
-            else:
-                data["started_at"] = None
-
-            cu_list.append(ComputeUnitInDB(**data))
-
-        return cu_list
+            return rs

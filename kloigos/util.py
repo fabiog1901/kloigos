@@ -2,15 +2,28 @@ import base64
 import json
 import os
 import shutil
-import sqlite3
 import time
 
 import ansible_runner
+import psycopg
 import yaml
+from psycopg.rows import class_row
+from psycopg.types.json import Jsonb, JsonbDumper
+from psycopg_pool import ConnectionPool
 
 from kloigos.models import Playbook, PortRange
 
-from . import BASE_PORT, MAX_CPUS_PER_SERVER, PORTS_PER_CPU, SQLITE_DB
+from . import BASE_PORT, DB_URL, MAX_CPUS_PER_SERVER, PORTS_PER_CPU
+
+
+class Dict2JsonbDumper(JsonbDumper):
+    def dump(self, obj):
+        return super().dump(Jsonb(obj))
+
+
+# the pool starts connecting immediately.
+psycopg.adapters.register_dumper(dict, Dict2JsonbDumper)
+pool = ConnectionPool(DB_URL, kwargs={"autocommit": True})
 
 
 def cpu_range_to_list_str(cpu_range: str):
@@ -152,7 +165,7 @@ class MyRunner:
         extra_vars: dict,
     ) -> bool:
 
-        with sqlite3.connect(SQLITE_DB) as conn:
+        with pool.connection() as conn:
 
             cur = conn.cursor()
             rs = cur.execute(
