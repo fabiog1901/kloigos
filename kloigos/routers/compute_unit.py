@@ -57,7 +57,11 @@ async def allocate(
                 tags = %s
             WHERE compute_id = %s
             """,
-            (Status.ALLOCATING, json.dumps(req.tags), cu.compute_id),
+            (
+                Status.ALLOCATING,
+                json.dumps(req.tags),
+                cu.compute_id,
+            ),
         )
 
     # blocking task - this is not async

@@ -1,4 +1,5 @@
 import base64
+import gzip
 import json
 import os
 import shutil
@@ -172,13 +173,16 @@ class MyRunner:
                 """
                 SELECT content
                 FROM playbooks
-                WHERE id = ?
+                WHERE id = %s
                 """,
                 (playbook,),
             ).fetchone()
 
         # Decode the base64 string back to original YAML
-        pb: dict = yaml.safe_load(base64.b64decode(rs[0]).decode())
+        gzip.decompress(rs[0]).decode()
+        pb: dict = yaml.safe_load(
+            base64.b64decode(gzip.decompress(rs[0]).decode()).decode()
+        )
 
         # create a new working directory
 
