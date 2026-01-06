@@ -74,6 +74,7 @@ nav:
   - use-case.md
   - Docs:
     - docs/installation.md
+    - docs/architecture.md
   - API: api.md
   - about.md
 
