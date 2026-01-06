@@ -1,18 +1,10 @@
 SQLITE_DB = "kloigos.sqlite"
-# range_size dictates how many ports are allocated per each compute_unit
-RANGE_SIZE = 200
 
-# the last CPU ID of the compute unit dictates what ports_range the unit receives.
-# For example, if the cpus are 0,2, we look up 2 in the map to find the start port range is 2400
-# then the range is 2400-(2400 + RANGE_SIZE).
-# This ensure that there are no ports overlapping even on very large servers
-# This is what the mapping looks like:
-# {
-#     '0': 2000,
-#     '1': 2200,
-#     '2': 2400,
-#     ...,
-#     '254': 52800,
-#     '255': 53000
-# }
-CPU_PORTS_MAP = {f"{k}": 2000 + i * RANGE_SIZE for i, k in enumerate(range(256))}
+# count of ports assigned for each allocated cpu.
+#
+# 64000 total avilable ports per server / 512 max_cpus_per_server = 125 ports_per_cpu
+PORTS_PER_CPU = 125
+# We assign ports to compute units starting from base_port
+BASE_PORT = 1500
+# Kloigos supports server up to these many CPUs
+MAX_CPUS_PER_SERVER = 512

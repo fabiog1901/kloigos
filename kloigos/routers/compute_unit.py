@@ -4,7 +4,7 @@ import sqlite3
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
 
-from .. import CPU_PORTS_MAP, RANGE_SIZE, SQLITE_DB
+from .. import SQLITE_DB
 from ..models import (
     ComputeUnitInDB,
     ComputeUnitRequest,
@@ -12,7 +12,7 @@ from ..models import (
     Playbook,
     Status,
 )
-from ..util import MyRunner, cpu_range_to_list
+from ..util import MyRunner, cpu_range_to_list_str, ports_for_cpu_range
 
 router = APIRouter(
     prefix="/compute_units",
@@ -44,10 +44,10 @@ async def allocate(
             status_code=460, detail="No free Compute Unit found to match your request"
         )
 
-    cpu_list = cpu_range_to_list(cu.cpu_range)
+    cpu_list = cpu_range_to_list_str(cu.cpu_range)
 
-    s = CPU_PORTS_MAP[cpu_list[-1]]
-    ports_range = f"{s}-{s + RANGE_SIZE}"
+    pr = ports_for_cpu_range(cu.cpu_range)
+    ports_range = f"{pr.start}-{pr.end}"
 
     # mark the compute_unit to allocating
     with sqlite3.connect(SQLITE_DB) as conn:
@@ -163,10 +163,10 @@ async def list_servers(
     inventory: list[ComputeUnitResponse] = []
 
     for x in cu_list:
-        cpu_list = cpu_range_to_list(x.cpu_range)
+        cpu_list = cpu_range_to_list_str(x.cpu_range)
 
-        s = CPU_PORTS_MAP[cpu_list[-1]]
-        ports_range = f"{s}-{s + RANGE_SIZE}"
+        pr = ports_for_cpu_range(x.cpu_range)
+        ports_range = f"{pr.start}-{pr.end}"
 
         inventory.append(
             ComputeUnitResponse(

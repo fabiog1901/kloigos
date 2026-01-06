@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Body, Response, status
 
 from .. import SQLITE_DB
 from ..models import InitServerRequest, Playbook, Status
-from ..util import MyRunner, cpu_range_to_list
+from ..util import MyRunner, cpu_range_to_list_str
 
 router = APIRouter(
     prefix="/admin",
@@ -139,7 +139,7 @@ def run_init_server(isr: InitServerRequest) -> None:
     compute_units.
     """
 
-    cpu_ranges_list = [cpu_range_to_list(x) for x in isr.cpu_ranges]
+    cpu_ranges_list = [cpu_range_to_list_str(x) for x in isr.cpu_ranges]
     cpu_ranges = [x.replace(":", "-") for x in isr.cpu_ranges]
 
     job_ok = MyRunner().launch_runner(
@@ -155,7 +155,7 @@ def run_init_server(isr: InitServerRequest) -> None:
     if job_ok:
         for x in isr.cpu_ranges:
 
-            cpu_count = len(cpu_range_to_list(x).split(","))
+            cpu_count = len(cpu_range_to_list_str(x).split(","))
             compute_id = f"{isr.hostname}_c{x.replace(':', '-')}"
 
             with sqlite3.connect(SQLITE_DB) as conn:

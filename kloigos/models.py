@@ -18,6 +18,11 @@ class Playbook(AutoNameStrEnum):
     server_decomm = auto()
 
 
+class PortRange(BaseModel):
+    start: int
+    end: int
+
+
 class Status(AutoNameStrEnum):
     # compute unit level statuses
     FREE = auto()

@@ -8,41 +8,75 @@ import time
 import ansible_runner
 import yaml
 
-from kloigos.models import Playbook
+from kloigos.models import Playbook, PortRange
 
-from . import SQLITE_DB
+from . import BASE_PORT, MAX_CPUS_PER_SERVER, PORTS_PER_CPU, SQLITE_DB
 
 
-def cpu_range_to_list(s: str):
-    """
-    Convert from cpu_short syntax to a comma separated list
-
-    Examples:
-
-    "0-7:2" -> "0,2,4,6"
-
-    "1-7:2" -> "1,3,5,7"
-
-    "0-7"   -> "0,1,2,3,4,5,6,7"
-    """
-
-    # check whether the string is already a comma separated list
-    if s.find(",") > 0:
-        return s
-
-    # check to see if the step syntax is used:
-    if s.find(":") < 0:
-        step = 1
-        rng = s
-    else:
-        rng, step = s.split(":")
-        step = int(step)
-
-    start, end = rng.split("-")
-    start = int(start)
-    end = int(end)
-
+def cpu_range_to_list_str(cpu_range: str):
+    start, end, step = parse_cpu_range(cpu_range)
     return ",".join([str(x) for x in list(range(start, end + 1, step))])
+
+
+def parse_cpu_range(cpu_range: str) -> tuple[int, int, int]:
+    """
+    Parse start-end[:step] where step defaults to 1.
+    Examples:
+      "0-3"   -> (0, 3, 1)
+      "0-7:2" -> (0, 7, 2)
+    """
+    s = cpu_range.strip()
+    if not s:
+        raise ValueError("cpu_range is empty")
+
+    step = 1
+    if ":" in s:
+        s, step_s = s.split(":", 1)
+        step = int(step_s)
+        if step <= 0:
+            raise ValueError(f"Invalid step: {step} in {cpu_range}")
+
+    if "-" not in s:
+        # If you truly only allow start-end[:step], you can remove this branch
+        start = end = int(s)
+        return start, end, step
+
+    a, b = s.split("-", 1)
+    start, end = int(a), int(b)
+    if end < start:
+        raise ValueError(f"Invalid cpu_range (end < start): {cpu_range}")
+
+    return start, end, step
+
+
+def ports_for_cpu_range(
+    cpu_range: str,
+) -> PortRange:
+    start, end, step = parse_cpu_range(cpu_range)
+
+    if start < 0 or end >= MAX_CPUS_PER_SERVER:
+        raise ValueError(
+            f"cpu_range {cpu_range} out of bounds for total_cpus={MAX_CPUS_PER_SERVER}"
+        )
+
+    # Number of CPUs in start-end:step (inclusive)
+    cpu_count = ((end - start) // step) + 1
+
+    # Pack CPUs so that lane = (cpu % step) blocks are contiguous
+    # group_size = ceil(total_cpus / step)
+    group_size = (MAX_CPUS_PER_SERVER + step - 1) // step
+    packed_start = (start // step) + (start % step) * group_size
+
+    port_start = BASE_PORT + packed_start * PORTS_PER_CPU
+    port_end = port_start + cpu_count * PORTS_PER_CPU - 1
+
+    if port_end > 65535:
+        raise ValueError(
+            f"Port range exceeds 65535: {port_start}-{port_end}. "
+            f"Choose a lower base_port, smaller ports_per_cpu, or reduce max units."
+        )
+
+    return PortRange(start=port_start, end=port_end)
 
 
 class MyRunner:

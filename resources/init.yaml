@@ -13,7 +13,7 @@
   gather_facts: no
   become: no
   vars:
-    kloigos_server: "http://127.0.0.1:8000"
+    kloigos_server: "http://127.0.0.1:8000/api"
   tasks:
     - name: gather new server details
       ansible.builtin.uri:
@@ -122,11 +122,14 @@
           MemoryAccounting=yes
           IOAccounting=yes
 
-          # Example defaults (adjust to your host)
+          # Max number of processes allowed
           TasksMax=2048
-          # MemoryMax=100G
-          # MemoryHigh=90G
+
           # IOWeight=100
+          AllowedMemoryNodes=1
+          MemoryNodes=1
+          MemoryHigh=60G
+          MemoryMax=64G
 
         dest: /etc/systemd/system/user-{{ item.0.stdout }}.slice.d/50-kloigos.conf
       loop: "{{ user_ids.results | zip(cpu_ranges_list) | list }}"
