@@ -1,4 +1,0 @@
-# Installation
-
-## Software Requirements
-

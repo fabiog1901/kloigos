@@ -179,7 +179,6 @@ class MyRunner:
             ).fetchone()
 
         # Decode the base64 string back to original YAML
-        gzip.decompress(rs[0]).decode()
         pb: dict = yaml.safe_load(
             base64.b64decode(gzip.decompress(rs[0]).decode()).decode()
         )
