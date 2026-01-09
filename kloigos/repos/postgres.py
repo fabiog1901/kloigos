@@ -306,8 +306,8 @@ class PostgresRepo(BaseRepo):
             params.append(cpu_count)
 
         if deployment_id is not None:
-            conditions.append("json_extract(tags, '$.deployment_id') = %s")
-            params.append(status)
+            conditions.append("tags ->> 'deployment_id' = %s")
+            params.append(deployment_id)
 
         if status is not None:
             conditions.append("status = %s")
