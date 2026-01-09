@@ -1,30 +1,16 @@
 import base64
-import gzip
 import json
 import os
 import shutil
 import time
 
 import ansible_runner
-import psycopg
 import yaml
-from psycopg.rows import class_row
-from psycopg.types.json import Jsonb, JsonbDumper
-from psycopg_pool import ConnectionPool
 
 from kloigos.models import Playbook, PortRange
+from kloigos.repos.base import BaseRepo
 
-from . import BASE_PORT, DB_URL, MAX_CPUS_PER_SERVER, PORTS_PER_CPU
-
-
-class Dict2JsonbDumper(JsonbDumper):
-    def dump(self, obj):
-        return super().dump(Jsonb(obj))
-
-
-# the pool starts connecting immediately.
-psycopg.adapters.register_dumper(dict, Dict2JsonbDumper)
-pool = ConnectionPool(DB_URL, kwargs={"autocommit": True})
+from . import BASE_PORT, MAX_CPUS_PER_SERVER, PORTS_PER_CPU
 
 
 def cpu_range_to_list_str(cpu_range: str):
@@ -94,6 +80,8 @@ def ports_for_cpu_range(
 
 
 class MyRunner:
+    def __init__(self, repo: BaseRepo) -> None:
+        self.repo = repo
 
     data = {}
 
@@ -166,22 +154,10 @@ class MyRunner:
         extra_vars: dict,
     ) -> bool:
 
-        with pool.connection() as conn:
-
-            cur = conn.cursor()
-            rs = cur.execute(
-                """
-                SELECT content
-                FROM playbooks
-                WHERE id = %s
-                """,
-                (playbook,),
-            ).fetchone()
+        rs = self.repo.get_playbook(playbook)
 
         # Decode the base64 string back to original YAML
-        pb: dict = yaml.safe_load(
-            base64.b64decode(gzip.decompress(rs[0]).decode()).decode()
-        )
+        pb: dict = yaml.safe_load(base64.b64decode(rs))
 
         # create a new working directory
 
