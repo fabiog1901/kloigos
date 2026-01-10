@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Response, status
 
 from ..dep import get_admin_service
-from ..models import InitServerRequest, Playbook, Status
+from ..models import DeferredTask, InitServerRequest, Playbook
 from ..services.admin import AdminService
 
 router = APIRouter(
@@ -13,7 +13,7 @@ router = APIRouter(
 
 
 @router.patch("/playbooks/{playbook}")
-async def update_playbooks(
+async def update_playbook(
     playbook: Playbook,
     # Annotated tells FastAPI this MUST come from the Body
     b64: Annotated[str, Body(description="The base64 encoded string")],
@@ -45,10 +45,11 @@ async def init_server(
 
     # add the server to the compute_units table with
     # status='init'
-    service.init_server(isr, bg_task)
+    tasks: list[DeferredTask] = service.init_server(isr, bg_task)
 
-    # async, run the cleanup task
-    # bg_task.add_task(run_init_server, isr)
+    # async, run the init task
+    for t in tasks:
+        bg_task.add_task(t.fn, *t.args, **t.kwargs)
 
     # returns immediately
     return Response(status_code=status.HTTP_200_OK)
@@ -63,10 +64,11 @@ async def decommission_server(
     service: AdminService = Depends(get_admin_service),
 ) -> Response:
 
-    service.decommission_server(hostname, bg_task)
+    tasks: list[DeferredTask] = service.decommission_server(hostname)
 
-    # # async, run the decomm task
-    # bg_task.add_task(run_decommission_server, hostname)
+    # async, run the decomm task
+    for t in tasks:
+        bg_task.add_task(t.fn, *t.args, **t.kwargs)
 
     # returns immediately
     return Response(status_code=status.HTTP_200_OK)

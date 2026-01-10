@@ -36,7 +36,7 @@ app = FastAPI(lifespan=lifespan)
 
 api = FastAPI(
     title="Κλοηγός / Kloigos",
-    version="0.2.0",
+    version="0.3.0",
 )
 
 # all API endpoints are grouped in dedicated routers

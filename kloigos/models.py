@@ -1,8 +1,22 @@
 import datetime as dt
 from enum import StrEnum, auto
-from typing import Any
+from typing import Any, Callable
 
 from pydantic import BaseModel
+
+
+class NoFreeComputeUnitError(Exception):
+    pass
+
+
+class AllocatePlaybookError(Exception):
+    pass
+
+
+class DeferredTask(BaseModel):
+    fn: Callable[..., None]
+    args: tuple
+    kwargs: dict
 
 
 class AutoNameStrEnum(StrEnum):

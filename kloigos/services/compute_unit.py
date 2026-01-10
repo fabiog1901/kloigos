@@ -1,9 +1,10 @@
-from fastapi import BackgroundTasks
-
 from kloigos.models import (
+    AllocatePlaybookError,
     ComputeUnitInDB,
     ComputeUnitRequest,
     ComputeUnitResponse,
+    DeferredTask,
+    NoFreeComputeUnitError,
     Playbook,
     Status,
 )
@@ -16,8 +17,14 @@ class ComputeUnitService:
     def __init__(self, repo: BaseRepo):
         self.repo = repo
 
-    def allocate(self, req: ComputeUnitRequest) -> ComputeUnitResponse | int:
+    def allocate(self, req: ComputeUnitRequest) -> ComputeUnitResponse:
+        """
+        Allocate a compute unit.
 
+        Raises:
+            NoFreeComputeUnitError: if no matching compute unit is available
+            AllocatePlaybookError: if the allocation playbook fails
+        """
         # find and return a free instance that matches the allocate request
         cu_list: list[ComputeUnitInDB] = self.repo.get_compute_units(
             region=req.region,
@@ -31,7 +38,7 @@ class ComputeUnitService:
         if cu_list:
             cu = cu_list[0]
         else:
-            return 460
+            raise NoFreeComputeUnitError()
 
         cpu_list = cpu_range_to_list_str(cu.cpu_range)
 
@@ -56,19 +63,20 @@ class ComputeUnitService:
             )
         else:
             self.repo.set_cu_status_alloc_fail(cu)
-            return 470
+            raise AllocatePlaybookError()
 
     def deallocate(
         self,
         compute_id: str,
-        bg_task: BackgroundTasks,
-    ):
+    ) -> list[DeferredTask]:
 
         # mark the compute_id as terminating
         self.repo.cu_mark_deallocated(compute_id)
 
         # async, run the cleanup task
-        bg_task.add_task(self.run_deallocate, compute_id)
+        tasks = [DeferredTask(fn=self.run_deallocate, args=(compute_id,), kwargs={})]
+
+        return tasks
 
     def list_server(
         self,

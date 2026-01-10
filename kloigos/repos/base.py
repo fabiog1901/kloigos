@@ -1,12 +1,6 @@
 from abc import ABC, abstractmethod
 
-from ..models import (
-    ComputeUnitInDB,
-    ComputeUnitRequest,
-    InitServerRequest,
-    Playbook,
-    Status,
-)
+from ..models import ComputeUnitInDB, ComputeUnitRequest, InitServerRequest, Playbook
 
 
 class BaseRepo(ABC):

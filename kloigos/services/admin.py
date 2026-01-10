@@ -1,7 +1,6 @@
-from fastapi import BackgroundTasks
-
 from kloigos.models import InitServerRequest, Playbook
 
+from ..models import DeferredTask
 from ..repos.base import BaseRepo
 from ..util import MyRunner, cpu_range_to_list_str
 
@@ -16,20 +15,26 @@ class AdminService:
     def get_playbook(self, playbook: Playbook):
         return self.repo.get_playbook(playbook)
 
-    def init_server(self, isr: InitServerRequest, bg_task: BackgroundTasks):
+    def init_server(self, isr: InitServerRequest) -> list[DeferredTask]:
 
         # add the server to the compute_units table with
         # status='init'
         self.repo.insert_init_server(isr)
 
-        bg_task.add_task(self.run_init_server, isr)
+        # async, run the cleanup task
+        return [DeferredTask(fn=self.run_init_server, args=(isr,), kwargs={})]
 
-    def decommission_server(self, hostname: str, bg_task: BackgroundTasks):
+    def decommission_server(
+        self,
+        hostname: str,
+    ) -> list[DeferredTask]:
 
         self.repo.delete_server(hostname)
 
         # async, run the decomm task
-        bg_task.add_task(self.run_decommission_server, hostname)
+        return [
+            DeferredTask(fn=self.run_decommission_server, args=(hostname,), kwargs={})
+        ]
 
     def run_init_server(self, isr: InitServerRequest) -> None:
         """
