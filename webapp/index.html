@@ -30,7 +30,7 @@
         <div>
           <h1>Κλοηγός / Kloigos</h1>
           <div class="topbar-sub"
-            x-text="view === 'dashboard' ? 'Compute units &amp; service status overview' : 'Playbooks editor (Ace)'">
+            x-text="view === 'dashboard' ? 'Compute units &amp; service status overview' : 'Playbooks editor'">
           </div>
         </div>
       </div>
@@ -74,13 +74,12 @@
         <div>
           <h2>Summary</h2>
           <div class="metric">
-            <div class="metric-label">Total Hosts</div>
+            <div class="metric-label">Total Compute Units</div>
             <div class="metric-value" x-text="computeUnits.length"></div>
-            <div class="metric-sub">Across all registered services</div>
           </div>
         </div>
 
-        <div>
+        <!-- <div>
           <h2>Status</h2>
           <div class="metric">
             <div class="legend">
@@ -90,14 +89,16 @@
               <div class="legend-pill"><span class="dot dot-offline"></span> Unavailable</div>
             </div>
           </div>
-        </div>
+        </div> -->
 
         <div>
           <h2>Actions</h2>
           <div class="metric" style="display:flex; flex-direction:column; gap:10px;">
             <button class="btn" @click="refreshDashboard()" :disabled="loading.list">
-              <span x-show="!loading.list">Refresh</span>
-              <span x-show="loading.list">Loading…</span>
+              <span>Refresh</span>
+              <!-- <span x-show="!loading.list">Refresh</span> -->
+              <!-- <span x-show="loading.list">Loading…</span> -->
+
             </button>
 
             <button class="btn" @click="openAllocateModal()">Allocate…</button>
@@ -124,12 +125,8 @@
             <input type="search" class="search-input" placeholder="Filter by hostname, owner, or service…"
               x-model="filterQuery" @input="persistFilter(); applyFilterSort();" />
 
-            <div class="pill">Updated (UTC): <span x-text="lastUpdatedUtc || '-'"></span></div>
+            <div class="pill">Updated (UTC): <span x-text="lastUpdatedUtc"></span></div>
 
-            <button class="btn" type="button" @click="refreshDashboard()" :disabled="loading.list">
-              <span x-show="!loading.list">REFRESH</span>
-              <span x-show="loading.list">LOADING…</span>
-            </button>
           </div>
         </div>
 
@@ -158,15 +155,15 @@
                     <!-- deployment_id -->
                     <td>
                       <template x-if="tagValue(row, 'deployment_id')">
-                        <span class="owner-pill" x-text="tagValue(row,'deployment_id')"></span>
+                        <span class="service-pill" x-text="tagValue(row,'deployment_id')"></span>
                       </template>
-                      <template x-if="!tagValue(row,'deployment_id')"><span>-</span></template>
                     </td>
 
                     <!-- compute_id (click for details) -->
                     <td>
                       <!-- <button class="ip-pill" style="cursor:pointer; background: rgba(15, 23, 42, 0.9);" type="button" @click="openComputeDetails(row)" :title="'Show details for ' + row.compute_id"> -->
-                        <span class="ip-pill clickable" style="cursor:pointer;" @click="openComputeDetails(row)" :title="'Show details for ' + row.compute_id" x-text="row.compute_id"></span>
+                      <span class="ip-pill clickable" style="cursor:pointer;" @click="openComputeDetails(row)"
+                        :title="'Show details for ' + row.compute_id" x-text="row.compute_id"></span>
                       <!-- </button> -->
                     </td>
 
@@ -176,16 +173,16 @@
                     <!-- hostname -->
                     <td>
                       <template x-if="row.hostname">
-                        <span class="ip-pill" x-text="row.hostname"></span>
+                        <span x-text="row.hostname"></span>
                       </template>
                       <template x-if="!row.hostname"><span>-</span></template>
                     </td>
 
                     <!-- ip -->
-                    <td><span class="ip-pill" x-text="row.ip || '-'"></span></td>
+                    <td><span x-text="row.ip || '-'"></span></td>
 
                     <!-- cpu_count -->
-                    <td><span class="service-pill" x-text="row.cpu_count"></span></td>
+                    <td><span x-text="row.cpu_count"></span></td>
 
                     <!-- cpu_range -->
                     <!-- <td>
@@ -227,18 +224,18 @@
                       <!-- Allocate only when FREE -->
                       <template x-if="String(row.status || '').toUpperCase() === 'FREE'">
                         <button class="icon-btn" :disabled="busyKey === row.compute_id"
-                          title="Allocate this compute unit"
-                          @click="openAllocateModal(row.compute_id)">
+                          title="Allocate this compute unit" @click="openAllocateModal(row.compute_id)">
                           <!-- plus-in-circle -->
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M12 7v10M7 12h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <path d="M12 21a9 9 0 1 1 0-18a9 9 0 0 1 0 18Z" stroke="currentColor" stroke-width="2"/>
+                            <path d="M12 7v10M7 12h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M12 21a9 9 0 1 1 0-18a9 9 0 0 1 0 18Z" stroke="currentColor" stroke-width="2" />
                           </svg>
                         </button>
                       </template>
 
                       <!-- Nothing otherwise -->
-                      <template x-if="String(row.status || '').toUpperCase() !== 'ALLOCATED' && String(row.status || '').toUpperCase() !== 'FREE'">
+                      <template
+                        x-if="String(row.status || '').toUpperCase() !== 'ALLOCATED' && String(row.status || '').toUpperCase() !== 'FREE'">
                         <span style="color: var(--muted);">-</span>
                       </template>
                     </td>
@@ -255,10 +252,7 @@
           </div>
         </div>
 
-        <div class="footer">
-          <span>Rendered at (UTC) <span x-text="renderedAtUtc"></span></span>
-          <span>Κλοηγός dashboard</span>
-        </div>
+
       </section>
     </main>
 
@@ -297,17 +291,12 @@
           <div class="metric">
             <div class="metric-label">Playbooks</div>
             <div class="metric-value" x-text="playbooks.length"></div>
-            <div class="metric-sub">From <span class="ip-pill">GET /api/admin/playbooks/</span></div>
           </div>
         </div>
 
         <div>
           <h2>Actions</h2>
           <div class="metric" style="display:flex; flex-direction:column; gap:10px;">
-            <button class="btn" @click="reloadPlaybooks()" :disabled="pbLoading.list">
-              <span x-show="!pbLoading.list">Refresh list</span>
-              <span x-show="pbLoading.list">Loading…</span>
-            </button>
 
             <button class="btn" @click="savePlaybook()"
               :disabled="pbLoading.save || !selectedPlaybook || !pbEditorReady">
@@ -315,19 +304,15 @@
               <span x-show="pbLoading.save">Saving…</span>
             </button>
 
-            <div class="hint">
-              * Save sends <span class="ip-pill">PATCH /api/admin/playbooks/{playbook}</span><br />
-              with base64-encoded YAML (<span class="ip-pill">YamlData</span>).
-            </div>
           </div>
         </div>
 
-        <template x-if="pbToast.message">
+        <!-- <template x-if="pbToast.message">
           <div class="toast" :class="pbToast.ok ? 'toast-ok' : 'toast-bad'">
             <div style="font-size:12px; color: var(--muted); margin-bottom: 4px;">Playbooks</div>
             <div x-text="pbToast.message"></div>
           </div>
-        </template>
+        </template> -->
       </aside>
 
       <section class="main">
@@ -346,15 +331,11 @@
               </template>
             </select>
 
-            <div class="pill">Updated (UTC): <span x-text="pbLastUpdatedUtc || '-'"></span></div>
           </div>
         </div>
 
         <div class="editor-shell">
-          <div class="editor-toolbar">
-            <div class="hint">Ace editor + YAML mode (no linter yet).</div>
-            <div class="hint">Selected: <span class="ip-pill" x-text="selectedPlaybook || '-'"></span></div>
-          </div>
+
           <div style="flex: 1 1 auto; min-height: 0;">
             <div id="aceEditor" x-ref="aceContainer" style="width:100%; height: 100%;"></div>
           </div>
@@ -392,7 +373,8 @@
             </div>
             <div class="form-row">
               <div class="label">compute_id (optional)</div>
-              <input class="input" x-model="modal.allocate.compute_id" placeholder="e.g. cu-123 (leave blank for any)" />
+              <input class="input" x-model="modal.allocate.compute_id"
+                placeholder="e.g. cu-123 (leave blank for any)" />
             </div>
             <div class="form-row" style="grid-column: 1 / -1;">
               <div class="label">ssh_public_key (required)</div>
