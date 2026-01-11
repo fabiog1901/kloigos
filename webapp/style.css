@@ -302,6 +302,33 @@ td:first-child {
   border: 1px solid rgba(148, 163, 184, 0.45);
 }
 
+/* clickable affordance */
+.ip-pill.clickable {
+  cursor: pointer;
+  transition: 
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    color 120ms ease;
+}
+
+/* hover state */
+.ip-pill.clickable:hover {
+  background: rgba(30, 64, 175, 0.45); /* subtle blue tint */
+  border-color: rgba(56, 189, 248, 0.9); /* accent */
+  color: #e0f2fe;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
+  text-decoration: underline; /* optional but effective */
+}
+
+/* keyboard accessibility */
+.ip-pill.clickable:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(56, 189, 248, 0.6),
+    0 0 0 4px rgba(2, 6, 23, 0.9);
+}
+
 .owner-pill {
   display: inline-flex;
   align-items: center;

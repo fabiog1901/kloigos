@@ -27,6 +27,7 @@ class ComputeUnitService:
         """
         # find and return a free instance that matches the allocate request
         cu_list: list[ComputeUnitInDB] = self.repo.get_compute_units(
+            compute_id=req.compute_id,
             region=req.region,
             zone=req.zone,
             cpu_count=req.cpu_count,

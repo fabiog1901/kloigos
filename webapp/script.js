@@ -21,18 +21,16 @@ window.app = function () {
     sortIndex: null,
     sortDir: "asc",
     sortTypeByIndex: {
-      0: "string",
-      1: "string",
-      2: "string",
-      3: "ip",
-      4: "number",
-      5: "string",
+      0: "string", // deployment_id
+      1: "string", // compute_id
+      2: "string", // region-zone
+      3: "string", // hostname
+      4: "ip",
+      5: "number",
       6: "string",
-      7: "date",
-      8: "string",
-      9: "string",
-      10: "string",
-      11: "string",
+      7: "string",
+      8: "date",
+      9: "string", // status
     },
 
     loading: {
@@ -52,6 +50,7 @@ window.app = function () {
         cpu_count: 4,
         region: "",
         zone: "",
+        compute_id: "",
         tagsText: "{}",
         ssh_public_key: "",
       },
@@ -65,6 +64,7 @@ window.app = function () {
       },
       decommission: { open: false, hostname: "" },
       deallocateConfirm: { open: false, compute_id: "", hostname: "" },
+      computeDetails: { open: false, row: null },
     },
 
     // ---------- Playbooks state ----------
@@ -211,7 +211,6 @@ window.app = function () {
         row.region,
         row.zone,
         row.status,
-        this.tagValue(row, "owner"),
         this.tagValue(row, "deployment_id"),
       ];
       const tags =
@@ -245,32 +244,24 @@ window.app = function () {
     cellText(row, colIndex) {
       switch (colIndex) {
         case 0:
-          return row.compute_id;
-        case 1:
-          return `${row.region || "-"}-${row.zone || "-"}`;
-        case 2:
-          return row.hostname || "";
-        case 3:
-          return row.ip || "";
-        case 4:
-          return row.cpu_count;
-        case 5:
-          return row.cpu_range || "";
-        case 6:
-          return row.ports_range || "";
-        case 7:
-          return row.started_at || "";
-        case 8:
           return this.tagValue(row, "deployment_id") || "";
+        case 1:
+          return row.compute_id;
+        case 2:
+          return `${row.region || "-"}-${row.zone || "-"}`;
+        case 3:
+          return row.hostname || "";
+        case 4:
+          return row.ip || "";
+        case 5:
+          return row.cpu_count;
+        case 6:
+          return row.cpu_range || "";
+        case 7:
+          return row.ports_range || "";
+        case 8:
+          return row.started_at || "";
         case 9:
-          return this.tagValue(row, "owner") || "";
-        case 10:
-          return row.tags && typeof row.tags === "object"
-            ? Object.entries(row.tags)
-                .map(([k, v]) => `${k}:${Array.isArray(v) ? v.join(",") : v}`)
-                .join(" ")
-            : "";
-        case 11:
           return row.status || "";
         default:
           return "";
@@ -416,7 +407,8 @@ window.app = function () {
     },
 
     // ---------- Dashboard actions ----------
-    openAllocateModal() {
+    openAllocateModal(computeId = "") {
+      this.modal.allocate.compute_id = computeId ? String(computeId) : "";
       this.modal.allocate.open = true;
     },
     closeAllocateModal() {
@@ -433,6 +425,7 @@ window.app = function () {
           cpu_count: this.modal.allocate.cpu_count ?? 4,
           region: this.modal.allocate.region || null,
           zone: this.modal.allocate.zone || null,
+          compute_id: (this.modal.allocate.compute_id || "").trim() || null,
           tags,
           ssh_public_key: (this.modal.allocate.ssh_public_key || "").trim(),
         };
@@ -525,6 +518,15 @@ window.app = function () {
     },
     closeDeallocateConfirm() {
       this.modal.deallocateConfirm.open = false;
+    },
+
+    openComputeDetails(row) {
+      this.modal.computeDetails.row = row || null;
+      this.modal.computeDetails.open = true;
+    },
+    closeComputeDetails() {
+      this.modal.computeDetails.open = false;
+      this.modal.computeDetails.row = null;
     },
 
     async confirmDeallocate() {

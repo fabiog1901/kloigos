@@ -138,18 +138,16 @@
             <table>
               <thead>
                 <tr>
-                  <th data-sort="string" :class="sortClass(0)" @click="toggleSort(0)">Compute ID</th>
-                  <th data-sort="string" :class="sortClass(1)" @click="toggleSort(1)">Region</th>
-                  <th data-sort="string" :class="sortClass(2)" @click="toggleSort(2)">Hostname</th>
-                  <th data-sort="ip" :class="sortClass(3)" @click="toggleSort(3)">IP</th>
-                  <th data-sort="number" :class="sortClass(4)" @click="toggleSort(4)">CPUs</th>
-                  <th data-sort="string" :class="sortClass(5)" @click="toggleSort(5)">CPU Range</th>
-                  <th data-sort="string" :class="sortClass(6)" @click="toggleSort(6)">Ports Range</th>
-                  <th data-sort="date" :class="sortClass(7)" @click="toggleSort(7)">Started At (UTC)</th>
-                  <th data-sort="string" :class="sortClass(8)" @click="toggleSort(8)">Deployment ID</th>
-                  <th data-sort="string" :class="sortClass(9)" @click="toggleSort(9)">Owner</th>
-                  <th data-sort="string" :class="sortClass(10)" @click="toggleSort(10)">Tags</th>
-                  <th data-sort="string" :class="sortClass(11)" @click="toggleSort(11)">Status</th>
+                  <th data-sort="string" :class="sortClass(0)" @click="toggleSort(0)">Deployment ID</th>
+                  <th data-sort="string" :class="sortClass(1)" @click="toggleSort(1)">Compute ID</th>
+                  <th data-sort="string" :class="sortClass(2)" @click="toggleSort(2)">Region</th>
+                  <th data-sort="string" :class="sortClass(3)" @click="toggleSort(3)">Hostname</th>
+                  <th data-sort="ip" :class="sortClass(4)" @click="toggleSort(4)">IP</th>
+                  <th data-sort="number" :class="sortClass(5)" @click="toggleSort(5)">CPUs</th>
+                  <!-- <th data-sort="string" :class="sortClass(6)" @click="toggleSort(6)">CPU Range</th>
+                  <th data-sort="string" :class="sortClass(7)" @click="toggleSort(7)">Ports Range</th> -->
+                  <th data-sort="date" :class="sortClass(8)" @click="toggleSort(8)">Started At (UTC)</th>
+                  <th data-sort="string" :class="sortClass(9)" @click="toggleSort(9)">Status</th>
                   <th>Act</th>
                 </tr>
               </thead>
@@ -157,28 +155,7 @@
               <tbody>
                 <template x-for="row in visibleRows" :key="row.compute_id">
                   <tr>
-                    <td x-text="row.compute_id"></td>
-                    <td><span x-text="(row.region || '-') + '-' + (row.zone || '-')"></span></td>
-
-                    <td>
-                      <template x-if="row.hostname">
-                        <span class="ip-pill" x-text="row.hostname"></span>
-                      </template>
-                      <template x-if="!row.hostname"><span>-</span></template>
-                    </td>
-
-                    <td><span class="ip-pill" x-text="row.ip || '-'"></span></td>
-                    <td><span class="service-pill" x-text="row.cpu_count"></span></td>
-
-                    <td>
-                      <span class="service-pill">
-                        <span :title="row.cpu_list || ''" x-text="row.cpu_range || '-'"></span>
-                      </span>
-                    </td>
-
-                    <td><span class="service-pill" x-text="row.ports_range || '-'"></span></td>
-                    <td x-text="toUtcStringMaybe(row.started_at)"></td>
-
+                    <!-- deployment_id -->
                     <td>
                       <template x-if="tagValue(row, 'deployment_id')">
                         <span class="owner-pill" x-text="tagValue(row,'deployment_id')"></span>
@@ -186,24 +163,44 @@
                       <template x-if="!tagValue(row,'deployment_id')"><span>-</span></template>
                     </td>
 
+                    <!-- compute_id (click for details) -->
                     <td>
-                      <template x-if="tagValue(row, 'owner')">
-                        <span class="owner-pill" x-text="tagValue(row,'owner')"></span>
+                      <!-- <button class="ip-pill" style="cursor:pointer; background: rgba(15, 23, 42, 0.9);" type="button" @click="openComputeDetails(row)" :title="'Show details for ' + row.compute_id"> -->
+                        <span class="ip-pill clickable" style="cursor:pointer;" @click="openComputeDetails(row)" :title="'Show details for ' + row.compute_id" x-text="row.compute_id"></span>
+                      <!-- </button> -->
+                    </td>
+
+                    <!-- region-zone -->
+                    <td><span x-text="(row.region || '-') + '-' + (row.zone || '-')"></span></td>
+
+                    <!-- hostname -->
+                    <td>
+                      <template x-if="row.hostname">
+                        <span class="ip-pill" x-text="row.hostname"></span>
                       </template>
-                      <template x-if="!tagValue(row,'owner')"><span>-</span></template>
+                      <template x-if="!row.hostname"><span>-</span></template>
                     </td>
 
-                    <td>
-                      <div class="tag-list">
-                        <template x-for="[k,v] in extraTags(row)" :key="k">
-                          <span class="owner-pill" x-text="formatTag(k,v)"></span>
-                        </template>
-                        <template x-if="extraTags(row).length === 0">
-                          <span class="owner-pill" style="opacity:0.6;">(none)</span>
-                        </template>
-                      </div>
-                    </td>
+                    <!-- ip -->
+                    <td><span class="ip-pill" x-text="row.ip || '-'"></span></td>
 
+                    <!-- cpu_count -->
+                    <td><span class="service-pill" x-text="row.cpu_count"></span></td>
+
+                    <!-- cpu_range -->
+                    <!-- <td>
+                      <span class="service-pill">
+                        <span :title="row.cpu_list || ''" x-text="row.cpu_range || '-'"></span>
+                      </span>
+                    </td> -->
+
+                    <!-- ports range -->
+                    <!-- <td><span class="service-pill" x-text="row.ports_range || '-'"></span></td> -->
+
+                    <!-- started_at -->
+                    <td x-text="toUtcStringMaybe(row.started_at)"></td>
+
+                    <!-- status -->
                     <td>
                       <span class="status" :class="statusClass(row.status)">
                         <span class="status-dot"></span>
@@ -211,24 +208,46 @@
                       </span>
                     </td>
 
+                    <!-- actions -->
                     <td>
-                      <button class="icon-btn" :disabled="busyKey === row.compute_id"
-                        title="Deallocate compute unit (releases the host back to the pool)"
-                        @click="openDeallocateConfirm(row)">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                          <path d="M8 3v7m8-7v7" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                          <path d="M7 10h10v3a5 5 0 0 1-10 0v-3Z" stroke="currentColor" stroke-width="2"
-                            stroke-linejoin="round" />
-                          <path d="M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                        </svg>
-                      </button>
+                      <!-- Deallocate only when ALLOCATED -->
+                      <template x-if="String(row.status || '').toUpperCase() === 'ALLOCATED'">
+                        <button class="icon-btn" :disabled="busyKey === row.compute_id"
+                          title="Deallocate compute unit (releases the host back to the pool)"
+                          @click="openDeallocateConfirm(row)">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M8 3v7m8-7v7" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M7 10h10v3a5 5 0 0 1-10 0v-3Z" stroke="currentColor" stroke-width="2"
+                              stroke-linejoin="round" />
+                            <path d="M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                          </svg>
+                        </button>
+                      </template>
+
+                      <!-- Allocate only when FREE -->
+                      <template x-if="String(row.status || '').toUpperCase() === 'FREE'">
+                        <button class="icon-btn" :disabled="busyKey === row.compute_id"
+                          title="Allocate this compute unit"
+                          @click="openAllocateModal(row.compute_id)">
+                          <!-- plus-in-circle -->
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M12 7v10M7 12h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M12 21a9 9 0 1 1 0-18a9 9 0 0 1 0 18Z" stroke="currentColor" stroke-width="2"/>
+                          </svg>
+                        </button>
+                      </template>
+
+                      <!-- Nothing otherwise -->
+                      <template x-if="String(row.status || '').toUpperCase() !== 'ALLOCATED' && String(row.status || '').toUpperCase() !== 'FREE'">
+                        <span style="color: var(--muted);">-</span>
+                      </template>
                     </td>
                   </tr>
                 </template>
 
                 <template x-if="!loading.list && visibleRows.length === 0">
                   <tr>
-                    <td colspan="13" style="padding: 18px; color: var(--muted);">No results.</td>
+                    <td colspan="11" style="padding: 18px; color: var(--muted);">No results.</td>
                   </tr>
                 </template>
               </tbody>
@@ -371,6 +390,10 @@
               <div class="label">zone (optional)</div>
               <input class="input" x-model="modal.allocate.zone" placeholder="e.g. us-east-1a" />
             </div>
+            <div class="form-row">
+              <div class="label">compute_id (optional)</div>
+              <input class="input" x-model="modal.allocate.compute_id" placeholder="e.g. cu-123 (leave blank for any)" />
+            </div>
             <div class="form-row" style="grid-column: 1 / -1;">
               <div class="label">ssh_public_key (required)</div>
               <textarea class="textarea" x-model="modal.allocate.ssh_public_key"
@@ -507,6 +530,32 @@
             <span x-show="!loading.deallocateConfirm">YES, DEALLOCATE</span>
             <span x-show="loading.deallocateConfirm">WORKING…</span>
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Compute Unit Details Modal -->
+    <div class="modal-backdrop" x-show="modal.computeDetails.open" x-transition
+      @keydown.escape.window="closeComputeDetails()">
+      <div class="modal" @click.outside="closeComputeDetails()">
+        <div class="modal-header">
+          <h3 class="modal-title">Compute Unit Details</h3>
+          <button class="btn" style="padding:7px 12px;" @click="closeComputeDetails()">CLOSE</button>
+        </div>
+
+        <div class="modal-body" style="display:grid; gap:10px;">
+          <div style="color: var(--muted); font-size: 13px;">
+            Full record for <span class="ip-pill" x-text="modal.computeDetails.row?.compute_id || '-'"></span>
+          </div>
+
+          <div class="metric" style="border-color: rgba(148, 163, 184, 0.25);">
+            <pre class="inspector-pre" style="max-height: 50vh; white-space: pre-wrap;"
+              x-text="modal.computeDetails.row ? (inspectorFormat==='json' ? JSON.stringify(modal.computeDetails.row, null, 2) : toYaml(modal.computeDetails.row)) : ''"></pre>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn" @click="closeComputeDetails()">CLOSE</button>
         </div>
       </div>
     </div>

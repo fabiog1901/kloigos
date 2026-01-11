@@ -73,6 +73,7 @@ class ComputeUnitResponse(ComputeUnitInDB):
 
 
 class ComputeUnitRequest(BaseModel):
+    compute_id: str | None = None
     cpu_count: int | None = 4
     region: str | None = None
     zone: str | None = None
