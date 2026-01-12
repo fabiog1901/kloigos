@@ -10,26 +10,30 @@ from .api import admin, compute_unit
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    print(f"Initializing {DB_ENGINE}...")
-
     if DB_ENGINE == "postgres":
         from psycopg_pool import ConnectionPool
 
-        from .repos.postgres import PostgresRepo
+        from .repos.postgres import PostgresRepo, Dict2JsonbDumper
 
         # Initialize the global pool
-        dep.db_pool = ConnectionPool(DB_URL)
-        dep.repo_factory = lambda: PostgresRepo(dep.db_pool)
+        dep.DB_POOL = ConnectionPool(
+            DB_URL,
+            kwargs={"autocommit": True},
+            configure=lambda conn: conn.adapters.register_dumper(
+                dict, Dict2JsonbDumper
+            ),
+        )
+        dep.REPO_FACTORY = lambda: PostgresRepo(dep.DB_POOL)
     else:
         from .repos.sqlite import SQLiteRepo
 
-        dep.repo_factory = lambda: SQLiteRepo("local.db")
+        dep.REPO_FACTORY = lambda: SQLiteRepo(DB_URL)
 
     yield
 
     # Cleanup
-    if dep.db_pool:
-        dep.db_pool.close()
+    if dep.DB_POOL:
+        dep.DB_POOL.close()
 
 
 app = FastAPI(lifespan=lifespan)

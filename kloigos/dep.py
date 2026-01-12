@@ -7,15 +7,15 @@ from .services.compute_unit import ComputeUnitService
 
 # Global references
 
-db_pool = None
-repo_factory: Optional[Callable] = None
+DB_POOL = None
+REPO_FACTORY: Optional[Callable] = None
 
 
 # 1. The Repo Factory (Hidden from API)
 def get_repo():
-    if repo_factory is None:
+    if REPO_FACTORY is None:
         raise RuntimeError("Database not initialized. Ensure lifespan ran.")
-    return repo_factory()
+    return REPO_FACTORY()
 
 
 # 2. The Service Factory (The only thing API sees)
