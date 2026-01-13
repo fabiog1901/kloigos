@@ -4,40 +4,32 @@
 #
 # The following extra-vars are passed:
 #   compute_id
+#   hostname
+#.  ip
+#.  cpu_range
+#.  cpu_count
+#.  port_ranges
 #   ssh_public_key
+#
 #
 - name: GATHER COMPUTE UNIT TO ALLOCATE
   hosts: localhost
   connection: local
   gather_facts: no
   become: no
-  vars:
-    kloigos_server: "http://127.0.0.1:8000"
   tasks:
-    - name: gather new server details
-      ansible.builtin.uri:
-        url: "{{ kloigos_server }}/compute_units?compute_id={{ compute_id }}"
-        method: GET
-        status_code: 200
-      register: instances
-
-    - name: print list of instances
-      debug:
-        var: instances.json
-
     - name: Build ansible inventory dynamically
       add_host:
-        name: "{{ item.compute_id }}"
+        name: "{{ compute_id }}"
         ansible_user: ubuntu
-        public_hostname: "{{ item.hostname }}"
-        ansible_host: "{{ item.ip }}"
-        public_ip: "{{ item.ip }}"
-        cu_user: "c{{ item.cpu_range.replace(':', '-') }}"
-        ports_range: "{{ item.ports_range }}"
-        cpu_count: "{{ item.cpu_count }}"
+        public_hostname: "{{ hostname }}"
+        ansible_host: "{{ ip }}"
+        public_ip: "{{ ip }}"
+        cu_user: "c{{ cpu_range.replace(':', '-') }}"
+        ports_range: "{{ port_ranges }}"
+        cpu_count: "{{ cpu_count }}"
         groups: new_alloc
 
-      loop: "{{ instances.json }}"
 
 - name: ALLOCATE COMPUTE UNIT
   hosts: new_alloc
@@ -53,13 +45,13 @@
     - name: create welcome file
       copy:
         content: |
-          WELCOME TO COMPUTE UNIT `{{ name }}`!
+          WELCOME TO COMPUTE UNIT `{{ compute_id }}`!
 
           This compute unit features:
             - CPU count: {{ cpu_count }}
             - Memory:
             - Max running processes: 
-            - Ports assigned: {{ ports_range }}
+            - Ports assigned: {{ port_ranges }}
             - Network bandwidth:
             - Disk volume at /mnt/{{ cu_user }}
             - IOPS/MBPS:

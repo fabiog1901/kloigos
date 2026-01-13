@@ -3,39 +3,28 @@
 # Playbook invoked by Kloigos after each `init_server` call.
 #
 # The following extra-vars are passed:
-#   compute_id
+#   hostname
+#   ip
+#
 #   cpu_ranges
 #   cpu_ranges_list
+#   port_ranges
 #
 - name: GATHER NEW SERVER TO INIT
   hosts: localhost
   connection: local
   gather_facts: no
   become: no
-  vars:
-    kloigos_server: "http://127.0.0.1:8000/api"
   tasks:
-    - name: gather new server details
-      ansible.builtin.uri:
-        url: "{{ kloigos_server }}/compute_units?compute_id={{ compute_id }}"
-        method: GET
-        status_code: 200
-      register: instances
-
-    - name: print list of instances
-      debug:
-        var: instances.json
-
     - name: Build ansible inventory dynamically
       add_host:
-        name: "{{ item.compute_id }}"
-        ansible_user: ec2-user
-        public_hostname: "{{ item.hostname }}"
-        ansible_host: "{{ item.ip }}"
-        public_ip: "{{ item.ip }}"
+        name: "{{ hostname }}"
+        ansible_user: ubuntu
+        public_hostname: "{{ hostname }}"
+        ansible_host: "{{ ip }}"
+        public_ip: "{{ ip }}"
         groups: init_server
 
-      loop: "{{ instances.json }}"
 
 - name: INIT NEW SERVER
   hosts: init_server
@@ -95,6 +84,10 @@
       loop: "{{ cpu_ranges }}"
       register: user_ids
 
+    - name: create directory for delegate.conf
+      shell: |
+        mkdir -p /etc/systemd/system/user@.service.d
+        
     - name: write user service delegate.conf
       copy:
         content: |
@@ -103,10 +96,11 @@
           DelegateControllers=cpuset cpu io memory pids
 
         dest: /etc/systemd/system/user@.service.d/delegate.conf
-
-    - name: configuring systemd user slices
+      
+    - name: creating user slice and nft directories
       shell: |
         mkdir -p /etc/systemd/system/user-{{ item.stdout }}.slice.d
+        mkdir -p /etc/nftables.d
       loop: "{{ user_ids.results }}"
 
     - name: write user slice override
@@ -165,11 +159,11 @@
               chain output {
                   type filter hook output priority 0;
 
-                  {% for item in user_ids.results | zip(ports_range) | list %}
-                  # Allow {{ item.0 }} only {{ item.1 }}
-                  meta skuid {{ item.0 }} tcp dport {{ item.1 }} accept
-                  meta skuid {{ item.0 }} udp dport {{ item.1 }} accept
-                  meta skuid {{ item.0 }} drop
+                  {% for item in user_ids.results | zip(port_ranges) | list %}
+                  # Allow {{ item.0.stdout }} only {{ item.1 }}
+                  meta skuid {{ item.0.stdout }} tcp dport {{ item.1 }} accept
+                  meta skuid {{ item.0.stdout }} udp dport {{ item.1 }} accept
+                  meta skuid {{ item.0.stdout }} drop
                   
                   {% endfor %}
               }
@@ -178,7 +172,7 @@
 
     - name: add kloigos.nft to nft config file for inclusion
       shell: |
-        echo "include "/etc/nftables.d/*.nft" >> /etc/nftables.conf
+        grep -F 'include "/etc/nftables.d/*.nft"' /etc/nftables.conf || echo 'include "/etc/nftables.d/*.nft"' >> /etc/nftables.conf
 
     - name: apply nft tables
       shell: |

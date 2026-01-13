@@ -60,7 +60,7 @@ class ComputeUnitService:
             return ComputeUnitResponse(
                 cpu_list=cpu_list,
                 ports_range=ports_range,
-                user=f"c{ports_range}",
+                cu_user=f"c{cu.cpu_range.replace(':', '-')}",
                 tags=req.tags,
                 **cu.model_dump(exclude="tags"),  # type: ignore
             )
@@ -74,11 +74,15 @@ class ComputeUnitService:
         compute_id: str,
     ) -> list[DeferredTask]:
 
+        # get details for the compute_unit
+
+        cu = self.repo.get_compute_units(compute_id=compute_id)[0]
+
         # mark the compute_id as terminating
         self.repo.cu_mark_deallocated(compute_id)
 
         # async, run the cleanup task
-        tasks = [DeferredTask(fn=self.run_deallocate, args=(compute_id,), kwargs={})]
+        tasks = [DeferredTask(fn=self.run_deallocate, args=(cu,), kwargs={})]
 
         return tasks
 
@@ -115,7 +119,7 @@ class ComputeUnitService:
                 ComputeUnitResponse(
                     cpu_list=cpu_list,
                     ports_range=ports_range,
-                    user=f"c{x.cpu_range}",
+                    cu_user=f"c{x.cpu_range.replace(':','-')}",
                     **x.model_dump(),
                 )
             )
@@ -139,13 +143,16 @@ class ComputeUnitService:
             },
         )
 
-    def run_deallocate(self, compute_id: str) -> None:
+    def run_deallocate(self, cu: ComputeUnitInDB) -> None:
 
         job_ok = MyRunner(self.repo).launch_runner(
             Playbook.cu_deallocate,
             {
-                "compute_id": compute_id,
+                "compute_id": cu.compute_id,
+                "hostname": cu.hostname,
+                "ip": cu.ip,
+                "cu_user": f"c{cu.cpu_range.replace(':', '-')}",
             },
         )
 
-        self.repo.update_cu_status_dealloc(compute_id, job_ok)
+        self.repo.update_cu_status_dealloc(cu.compute_id, job_ok)

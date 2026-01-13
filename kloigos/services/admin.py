@@ -32,19 +32,18 @@ class AdminService:
         hostname: str,
     ) -> list[DeferredTask]:
 
+        cu = self.repo.get_compute_units(hostname=hostname)[0]
+
         self.repo.delete_server(hostname)
 
         # async, run the decomm task
         return [
-            DeferredTask(fn=self.run_decommission_server, args=(hostname,), kwargs={})
+            DeferredTask(
+                fn=self.run_decommission_server, args=(hostname, cu.ip), kwargs={}
+            )
         ]
 
     def run_init_server(self, isr: InitServerRequest) -> None:
-        """
-        Execute Ansible Playbook `init.yaml`
-        The playbook setups the server with the requested
-        compute_units.
-        """
 
         cpu_ranges_list = [cpu_range_to_list_str(x) for x in isr.cpu_ranges]
         cpu_ranges = [x.replace(":", "-") for x in isr.cpu_ranges]
@@ -56,7 +55,8 @@ class AdminService:
         job_ok = MyRunner(self.repo).launch_runner(
             Playbook.server_init,
             {
-                "compute_id": isr.hostname,
+                "hostname": isr.hostname,
+                "ip": isr.ip,
                 "cpu_ranges": cpu_ranges,
                 "cpu_ranges_list": cpu_ranges_list,
                 "port_ranges": port_ranges,
@@ -78,7 +78,7 @@ class AdminService:
         else:
             self.repo.init_fail(isr.hostname)
 
-    def run_decommission_server(self, hostname: str) -> None:
+    def run_decommission_server(self, hostname: str, ip: str) -> None:
         """
         Execute Ansible Playbook `decommission.yaml`
         The playbook decomm the server with the requested
@@ -88,7 +88,8 @@ class AdminService:
         job_ok = MyRunner(self.repo).launch_runner(
             Playbook.server_decomm,
             {
-                "decomm_hostname": hostname,
+                "hostname": hostname,
+                "ip": ip,
             },
         )
 

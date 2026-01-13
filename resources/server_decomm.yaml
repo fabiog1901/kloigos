@@ -1,0 +1,33 @@
+---
+#
+# Playbook invoked by Kloigos after each `decommission` call.
+#
+# The following extra-vars are passed:
+#   hostname
+#   ip
+#
+- name: ADD SERVER TO DECOMMISSION
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: no
+  tasks:
+    - name: Build ansible inventory dynamically
+      add_host:
+        name: "{{ hostname }}"
+        ansible_user: ubuntu
+        public_hostname: "{{ hostname }}"
+        ansible_host: "{{ ip }}"
+        public_ip: "{{ ip }}"
+        groups: decomm
+
+
+- name: DECOMMISSION SERVER
+  hosts: decomm
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: decommissioning the node
+      debug:
+        msg: "This is just a placeholder!"
+        

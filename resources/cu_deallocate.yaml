@@ -2,40 +2,27 @@
 #
 # Playbook invoked by Kloigos after each `deallocate` call.
 #
-#     compute_id
+#   compute_id
+#   hostname
+#   ip
+#   cu_user
 #
 - name: GATHER COMPUTE UNITS TO DEALLOCATE
   hosts: localhost
   connection: local
   gather_facts: no
   become: no
-  vars:
-    kloigos_server: "http://127.0.0.1:8000/api"
   tasks:
-    - name: gather compute unit to deallocate
-      ansible.builtin.uri:
-        url: "{{ kloigos_server }}/compute_units?compute_id={{ compute_id }}"
-        method: GET
-        status_code: 200
-      register: instance
-
-    - name: print instance
-      debug:
-        var: instance.json
-
     - name: Build ansible inventory dynamically
       add_host:
-        name: "{{ item.compute_id }}"
+        name: "{{ compute_id }}"
         ansible_user: ubuntu
-        public_hostname: "{{ item.hostname }}"
-        ansible_host: "{{ item.ip }}"
-        public_ip: "{{ item.ip }}"
-        cu_user: "c{{ item.cpu_range.replace(':', '-') }}"
-        ports_range: "{{ item.ports_range }}"
-        cpu_count: "{{ item.cpu_count }}"
-        groups: dealloc
+        public_hostname: "{{ hostname }}"
+        ansible_host: "{{ ip }}"
+        public_ip: "{{ ip }}"
+        cu_user: "{{ cu_user }}"
 
-      loop: "{{ instance.json }}"
+        groups: dealloc
 
 - name: CLEANUP COMPUTE UNIT
   hosts: dealloc
@@ -53,7 +40,7 @@
 
     - name: stop the user systemd instance to stop any running process
       shell: |
-        systemctl stop user@${{ user_id.stdout }}.service
+        systemctl stop user@{{ user_id.stdout }}.service
 
     - name: severe any open connection
       shell: |
@@ -72,5 +59,5 @@
         chmod 700 /home/{{ cu_user }}/.ssh
 
         touch /home/{{ cu_user }}/.ssh/authorized_keys
-        chown {{ cu_user }}:{{ cu_user }}/home/{{ cu_user }}/.ssh/authorized_keys
+        chown {{ cu_user }}:{{ cu_user }} /home/{{ cu_user }}/.ssh/authorized_keys
         chmod 600 /home/{{ cu_user }}/.ssh/authorized_keys
