@@ -82,3 +82,7 @@ class BaseRepo(ABC):
         limit: int | None = None,
     ) -> list[ComputeUnitInDB]:
         pass
+
+    @abstractmethod
+    def save_audit_event(db, user_id, action, status, details):
+        pass

@@ -2,19 +2,21 @@ from kloigos.models import InitServerRequest, Playbook
 
 from ..models import DeferredTask
 from ..repos.base import BaseRepo
-from ..util import MyRunner, cpu_range_to_list_str
+from ..util import MyRunner, audit_logger, cpu_range_to_list_str, ports_for_cpu_range
 
 
 class AdminService:
     def __init__(self, repo: BaseRepo):
         self.repo = repo
 
+    @audit_logger()
     def update_playbooks(self, playbook: Playbook, b64: str):
         return self.repo.update_playbook(playbook, b64)
 
     def get_playbook(self, playbook: Playbook):
         return self.repo.get_playbook(playbook)
 
+    @audit_logger()
     def init_server(self, isr: InitServerRequest) -> list[DeferredTask]:
 
         # add the server to the compute_units table with
@@ -24,6 +26,7 @@ class AdminService:
         # async, run the cleanup task
         return [DeferredTask(fn=self.run_init_server, args=(isr,), kwargs={})]
 
+    @audit_logger()
     def decommission_server(
         self,
         hostname: str,
@@ -45,6 +48,10 @@ class AdminService:
 
         cpu_ranges_list = [cpu_range_to_list_str(x) for x in isr.cpu_ranges]
         cpu_ranges = [x.replace(":", "-") for x in isr.cpu_ranges]
+        port_ranges = []
+        for i in cpu_ranges:
+            x = ports_for_cpu_range(i)
+            port_ranges.append(f"{x.start}-{x.end}")
 
         job_ok = MyRunner(self.repo).launch_runner(
             Playbook.server_init,
@@ -52,6 +59,7 @@ class AdminService:
                 "compute_id": isr.hostname,
                 "cpu_ranges": cpu_ranges,
                 "cpu_ranges_list": cpu_ranges_list,
+                "port_ranges": port_ranges,
             },
         )
 

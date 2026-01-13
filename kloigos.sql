@@ -27,3 +27,12 @@ CREATE TABLE playbooks (
     content BYTES NULL,
     CONSTRAINT pk PRIMARY KEY (id ASC)
 );
+
+CREATE TABLE event_log (
+    ts TIMESTAMPTZ NOT NULL,
+    user_id STRING NOT NULL,
+    action STRING NOT NULL,
+    status STRING NULL,
+    details JSONB NULL,
+    CONSTRAINT pk PRIMARY KEY (ts ASC, user_id ASC, action ASC)
+);

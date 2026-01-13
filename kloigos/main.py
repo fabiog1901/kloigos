@@ -13,7 +13,7 @@ async def lifespan(_app: FastAPI):
     if DB_ENGINE == "postgres":
         from psycopg_pool import ConnectionPool
 
-        from .repos.postgres import PostgresRepo, Dict2JsonbDumper
+        from .repos.postgres import Dict2JsonbDumper, PostgresRepo
 
         # Initialize the global pool
         dep.DB_POOL = ConnectionPool(

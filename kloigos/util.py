@@ -1,4 +1,5 @@
 import base64
+import functools
 import json
 import os
 import shutil
@@ -11,6 +12,36 @@ from kloigos.models import Playbook, PortRange
 from kloigos.repos.base import BaseRepo
 
 from . import BASE_PORT, MAX_CPUS_PER_SERVER, PORTS_PER_CPU
+
+
+def audit_logger():
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # 1. Identify context (assumes 'db' and 'user' are in kwargs or args)
+            # db = kwargs.get('db')
+            # user = kwargs.get('current_user')
+            repo: BaseRepo = args[0].repo
+
+            try:
+                # 2. Execute the actual service logic
+                result = func(*args, **kwargs)
+
+                # 3. Log Success (Optionally via BackgroundTasks)
+                repo.save_audit_event(
+                    "fabio", func.__name__.upper(), "SUCCESS", {"params": str(kwargs)}
+                )
+                return result
+            except Exception as e:
+                # 4. Log Failure
+                repo.save_audit_event(
+                    "error-man", func.__name__.upper(), "FAILED", {"error": str(e)}
+                )
+                raise e
+
+        return wrapper
+
+    return decorator
 
 
 def cpu_range_to_list_str(cpu_range: str):
@@ -52,6 +83,13 @@ def parse_cpu_range(cpu_range: str) -> tuple[int, int, int]:
 def ports_for_cpu_range(
     cpu_range: str,
 ) -> PortRange:
+    """
+    Returns the PortRange for the given cpu_range.
+
+    Examples:
+      "0-3"   -> PortRange(1111, 3333)
+      "0-7:2" -> PortRange(45000, 45600)
+    """
     start, end, step = parse_cpu_range(cpu_range)
 
     if start < 0 or end >= MAX_CPUS_PER_SERVER:
@@ -168,7 +206,7 @@ class MyRunner:
         try:
             runner = ansible_runner.run(
                 quiet=False,
-                verbosity=1,
+                verbosity=2,
                 playbook=pb,
                 private_data_dir=f"/tmp/job-{job_id}",
                 extravars=extra_vars,

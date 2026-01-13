@@ -1,7 +1,7 @@
+import datetime as dt
 import gzip
 import json
 
-import psycopg
 from psycopg.rows import class_row
 from psycopg.types.json import Jsonb, JsonbDumper
 from psycopg_pool import ConnectionPool
@@ -21,16 +21,7 @@ class Dict2JsonbDumper(JsonbDumper):
         return super().dump(Jsonb(obj))
 
 
-def create_postgres_pool(db_url: str):
-    # Only import inside the function so it doesn't crash on module load
-
-    psycopg.adapters.register_dumper(dict, Dict2JsonbDumper)
-
-    return ConnectionPool(db_url, kwargs={"autocommit": True})
-
-
 class PostgresRepo(BaseRepo):
-
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool: ConnectionPool = pool
 
@@ -329,3 +320,22 @@ class PostgresRepo(BaseRepo):
                 rs = cur.execute(sql, params).fetchall()  # type: ignore
 
                 return rs
+
+    # AUDIT
+    def save_audit_event(self, user_id, action, status, details):
+
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO event_log (ts, user_id, action, status, details)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        dt.datetime.now(dt.timezone.utc),
+                        user_id,
+                        action,
+                        status,
+                        details,
+                    ),
+                )

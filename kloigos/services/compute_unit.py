@@ -10,13 +10,14 @@ from kloigos.models import (
 )
 
 from ..repos.base import BaseRepo
-from ..util import MyRunner, cpu_range_to_list_str, ports_for_cpu_range
+from ..util import MyRunner, audit_logger, cpu_range_to_list_str, ports_for_cpu_range
 
 
 class ComputeUnitService:
     def __init__(self, repo: BaseRepo):
         self.repo = repo
 
+    @audit_logger()
     def allocate(self, req: ComputeUnitRequest) -> ComputeUnitResponse:
         """
         Allocate a compute unit.
@@ -59,6 +60,7 @@ class ComputeUnitService:
             return ComputeUnitResponse(
                 cpu_list=cpu_list,
                 ports_range=ports_range,
+                user=f"c{ports_range}",
                 tags=req.tags,
                 **cu.model_dump(exclude="tags"),  # type: ignore
             )
@@ -66,6 +68,7 @@ class ComputeUnitService:
             self.repo.set_cu_status_alloc_fail(cu)
             raise AllocatePlaybookError()
 
+    @audit_logger()
     def deallocate(
         self,
         compute_id: str,
@@ -112,6 +115,7 @@ class ComputeUnitService:
                 ComputeUnitResponse(
                     cpu_list=cpu_list,
                     ports_range=ports_range,
+                    user=f"c{x.cpu_range}",
                     **x.model_dump(),
                 )
             )
@@ -119,24 +123,23 @@ class ComputeUnitService:
         return inventory
 
     def run_allocate(self, compute_id: str, ssh_public_key: str) -> bool:
-        """
-        Execute Ansible Playbook `allocate.yaml`
-        """
+
+        cu = self.list_server(compute_id=compute_id)[0]
 
         return MyRunner(self.repo).launch_runner(
             Playbook.cu_allocate,
             {
                 "compute_id": compute_id,
+                "hostname": cu.hostname,
+                "ip": cu.ip,
+                "cpu_range": cu.cpu_range,
+                "cpu_count": cu.cpu_count,
+                "port_ranges": cu.ports_range,
                 "ssh_public_key": ssh_public_key,
             },
         )
 
     def run_deallocate(self, compute_id: str) -> None:
-        """
-        Execute Ansible Playbook `deallocate.yaml`
-        The goal is to return the compute unit to a clean state
-        so that it can be available for being re-allocateed.
-        """
 
         job_ok = MyRunner(self.repo).launch_runner(
             Playbook.cu_deallocate,

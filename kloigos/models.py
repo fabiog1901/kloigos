@@ -70,6 +70,7 @@ class ComputeUnitInDB(BaseModel):
 class ComputeUnitResponse(ComputeUnitInDB):
     cpu_list: str
     ports_range: str | None
+    user: str
 
 
 class ComputeUnitRequest(BaseModel):

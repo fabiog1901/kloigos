@@ -45,7 +45,7 @@ async def init_server(
 
     # add the server to the compute_units table with
     # status='init'
-    tasks: list[DeferredTask] = service.init_server(isr, bg_task)
+    tasks: list[DeferredTask] = service.init_server(isr)
 
     # async, run the init task
     for t in tasks:
