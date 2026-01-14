@@ -69,8 +69,9 @@ class ComputeUnitInDB(BaseModel):
 
 class ComputeUnitResponse(ComputeUnitInDB):
     cpu_list: str
-    ports_range: str | None
+    port_range: str | None
     cu_user: str
+
 
 class ComputeUnitRequest(BaseModel):
     compute_id: str | None = None

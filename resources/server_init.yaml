@@ -158,8 +158,22 @@
           table inet kloigos {
               chain output {
                   type filter hook output priority 0;
+                  
+                  # Always allow loopback
+                  oifname "lo" accept
+          
+                  # Allow already-established connections
+                  ct state established,related accept
+          
+                  # Allow ICMP (ping, PMTU, etc.)
+                  ip protocol icmp accept
+                  ip6 nexthdr icmpv6 accept
+          
+                  # Allow all users to connect to privileged destination ports
+                  tcp dport 0-1024 accept
+                  udp dport 0-1024 accept
 
-                  {% for item in user_ids.results | zip(port_ranges) | list %}
+                  {% for item in user_ids.results | zip(port_ranges) | list -%}
                   # Allow {{ item.0.stdout }} only {{ item.1 }}
                   meta skuid {{ item.0.stdout }} tcp dport {{ item.1 }} accept
                   meta skuid {{ item.0.stdout }} udp dport {{ item.1 }} accept

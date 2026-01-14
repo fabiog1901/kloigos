@@ -45,7 +45,7 @@ class ComputeUnitService:
         cpu_list = cpu_range_to_list_str(cu.cpu_range)
 
         pr = ports_for_cpu_range(cu.cpu_range)
-        ports_range = f"{pr.start}-{pr.end}"
+        port_range = f"{pr.start}-{pr.end}"
 
         # mark the compute_unit to allocating
         self.repo.cu_mark_allocated(req, cu)
@@ -59,7 +59,7 @@ class ComputeUnitService:
             # return the details of the compute_unit
             return ComputeUnitResponse(
                 cpu_list=cpu_list,
-                ports_range=ports_range,
+                port_range=port_range,
                 cu_user=f"c{cu.cpu_range.replace(':', '-')}",
                 tags=req.tags,
                 **cu.model_dump(exclude="tags"),  # type: ignore
@@ -113,12 +113,12 @@ class ComputeUnitService:
             cpu_list = cpu_range_to_list_str(x.cpu_range)
 
             pr = ports_for_cpu_range(x.cpu_range)
-            ports_range = f"{pr.start}-{pr.end}"
+            port_range = f"{pr.start}-{pr.end}"
 
             inventory.append(
                 ComputeUnitResponse(
                     cpu_list=cpu_list,
-                    ports_range=ports_range,
+                    port_range=port_range,
                     cu_user=f"c{x.cpu_range.replace(':','-')}",
                     **x.model_dump(),
                 )
@@ -138,7 +138,7 @@ class ComputeUnitService:
                 "ip": cu.ip,
                 "cpu_range": cu.cpu_range,
                 "cpu_count": cu.cpu_count,
-                "port_ranges": cu.ports_range,
+                "port_ranges": cu.port_range,
                 "ssh_public_key": ssh_public_key,
             },
         )
