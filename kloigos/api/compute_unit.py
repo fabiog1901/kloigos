@@ -2,12 +2,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from fastapi.exceptions import RequestErrorModel
 
 from ..dep import get_compute_unit_service
-from ..models import ComputeUnitRequest, ComputeUnitResponse, DeferredTask
-from ..services.compute_unit import (
-    AllocatePlaybookError,
-    ComputeUnitService,
-    NoFreeComputeUnitError,
-)
+from ..models import ComputeUnitOverview, ComputeUnitRequest, DeferredTask
+from ..services.compute_unit import ComputeUnitService, NoFreeComputeUnitError
 
 router = APIRouter(
     prefix="/compute_units",
@@ -18,30 +14,30 @@ router = APIRouter(
 @router.post(
     "/allocate",
     summary="Allocate a Compute Unit.",
-    response_model=ComputeUnitResponse,
+    response_model=str,
     responses={
         460: {
             "model": RequestErrorModel,
             "description": "No free Compute Unit found to match the request",
         },
-        470: {
-            "model": RequestErrorModel,
-            "description": "Error running allocating playbook",
-        },
     },
 )
 async def allocate(
     req: ComputeUnitRequest,
+    bg_task: BackgroundTasks,
     service: ComputeUnitService = Depends(get_compute_unit_service),
-) -> ComputeUnitResponse:
+) -> str:
 
     # find and return a free instance that matches the allocate request
     try:
-        return service.allocate(req)
+        compute_id, tasks = service.allocate(req)
+
+        for t in tasks:
+            bg_task.add_task(t.fn, *t.args, **t.kwargs)
+
+        return compute_id
     except NoFreeComputeUnitError:
         raise HTTPException(460, "No free Compute Unit found to match your request")
-    except AllocatePlaybookError:
-        raise HTTPException(470, "Error running allocating playbook")
 
 
 @router.delete(
@@ -73,7 +69,7 @@ async def list_compute_units(
     deployment_id: str | None = None,
     status: str | None = None,
     service: ComputeUnitService = Depends(get_compute_unit_service),
-) -> list[ComputeUnitResponse]:
+) -> list[ComputeUnitOverview]:
     """
     Returns a list of all servers.
     Optionally filter the results by 'deployment_id' or 'status' query parameters.

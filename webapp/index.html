@@ -30,7 +30,7 @@
         <div>
           <h1>Κλοηγός / Kloigos</h1>
           <div class="topbar-sub"
-            x-text="view === 'dashboard' ? 'Compute units &amp; service status overview' : 'Playbooks editor'">
+            x-text="view === 'dashboard' ? 'Compute units &amp; service status overview' : (view === 'servers' ? 'Servers inventory &amp; lifecycle' : 'Playbooks editor')">
           </div>
         </div>
       </div>
@@ -38,6 +38,9 @@
       <div class="topbar-right">
         <a href="#" class="pill" :class="{ 'pill-accent': view === 'dashboard' }"
           @click.prevent="setView('dashboard')">Dashboard</a>
+
+        <a href="#" class="pill" :class="{ 'pill-accent': view === 'servers' }"
+          @click.prevent="setView('servers')">Servers</a>
 
         <a href="#" class="pill" :class="{ 'pill-accent': view === 'playbooks' }"
           @click.prevent="setView('playbooks')">Playbooks</a>
@@ -102,8 +105,6 @@
             </button>
 
             <button class="btn" @click="openAllocateModal()">Allocate…</button>
-            <button class="btn btn-warn" @click="openInitModal()">Init server…</button>
-            <button class="btn btn-danger" @click="openDecommissionModal()">Decommission…</button>
 
             <label
               style="display:flex; align-items:center; gap:10px; font-size:12px; color: var(--muted); margin-top: 4px;">
@@ -257,7 +258,7 @@
     </main>
 
     <!-- Bottom Inspector (Dashboard only) -->
-    <section class="inspector-panel" x-show="view === 'dashboard'">
+    <!-- <section class="inspector-panel" x-show="view === 'dashboard'">
       <div class="inspector-header">
         <h2 class="inspector-title">API Inspector</h2>
 
@@ -281,9 +282,232 @@
       </div>
 
       <pre class="inspector-pre" x-text="inspectorText()"></pre>
-    </section>
+    </section> -->
 
-    <!-- PLAYBOOKS VIEW -->
+    
+    
+    <!-- Server Details Modal -->
+    <div class="modal-backdrop" x-show="modal.serverDetails.open" x-transition
+      @keydown.escape.window="closeServerDetails()">
+      <div class="modal" @click.outside="closeServerDetails()">
+        <div class="modal-header">
+          <h3 class="modal-title">Server Details</h3>
+          <button class="btn" style="padding:7px 12px;" @click="closeServerDetails()">CLOSE</button>
+        </div>
+
+        <div class="modal-body" style="display:grid; gap:10px;">
+          <div style="color: var(--muted); font-size: 13px;">
+            Full record for <span class="ip-pill" x-text="modal.serverDetails.row?.hostname || '-'"></span>
+          </div>
+
+          <div class="metric" style="border-color: rgba(148, 163, 184, 0.25);">
+            <pre class="inspector-pre" style="max-height: 50vh; white-space: pre-wrap;"
+              x-text="modal.serverDetails.row ? (inspectorFormat === 'json' ? JSON.stringify(modal.serverDetails.row, null, 2) : toYaml(modal.serverDetails.row)) : ''"></pre>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn" @click="closeServerDetails()">CLOSE</button>
+        </div>
+      </div>
+    </div>
+
+
+<!-- SERVERS VIEW -->
+    <main class="layout" x-show="view === 'servers'">
+      <aside class="sidebar">
+        <div>
+          <h2>Summary</h2>
+          <div class="metric">
+            <div class="metric-label">Total Servers</div>
+            <div class="metric-value" x-text="servers.length"></div>
+            <div class="metric-sub">Inventory from /api/admin/servers</div>
+          </div>
+        </div>
+
+        <div>
+          <h2>Actions</h2>
+          <div class="metric" style="display:flex; flex-direction:column; gap:10px;">
+            <button class="btn" @click="refreshServers()" :disabled="serversLoading.list">
+              <span x-show="!serversLoading.list">Refresh</span>
+              <span x-show="serversLoading.list">Loading…</span>
+            </button>
+
+            <button class="btn btn-warn" @click="openInitModal()">Init server…</button>
+
+            <label
+              style="display:flex; align-items:center; gap:10px; font-size:12px; color: var(--muted); margin-top: 4px;">
+              <input type="checkbox" x-model="serversAutoRefreshEnabled" />
+              Auto-refresh (15s)
+            </label>
+          </div>
+        </div>
+      </aside>
+
+      <section class="main">
+        <div class="main-header">
+          <div class="main-header-left">
+            <div class="main-title">Servers</div>
+            <div class="main-subtitle">Lifecycle actions are available per-row based on server status.</div>
+          </div>
+
+          <div class="main-actions">
+            <input type="search" class="search-input" placeholder="Filter by hostname, ip, region, user…"
+              x-model="serversFilterQuery" @input="persistServersFilter(); applyServersFilterSort();" />
+
+            <div class="pill">Updated (UTC): <span x-text="serversLastUpdatedUtc"></span></div>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th data-sort="string" :class="serversSortClass(0)" @click="toggleServersSort(0)">Hostname</th>
+                  <th data-sort="ip" :class="serversSortClass(1)" @click="toggleServersSort(1)">IP</th>
+                  <th data-sort="string" :class="serversSortClass(2)" @click="toggleServersSort(2)">User</th>
+                  <th data-sort="string" :class="serversSortClass(3)" @click="toggleServersSort(3)">Region</th>
+                  <th data-sort="string" :class="serversSortClass(4)" @click="toggleServersSort(4)">Zone</th>
+                  <th data-sort="number" :class="serversSortClass(5)" @click="toggleServersSort(5)">CPU</th>
+                  <th data-sort="number" :class="serversSortClass(6)" @click="toggleServersSort(6)">Mem GB</th>
+                  <th data-sort="number" :class="serversSortClass(7)" @click="toggleServersSort(7)">Disks</th>
+                  <th data-sort="number" :class="serversSortClass(8)" @click="toggleServersSort(8)">Disk GB</th>
+                  <th data-sort="string" :class="serversSortClass(9)" @click="toggleServersSort(9)">Tags</th>
+                  <th data-sort="string" :class="serversSortClass(10)" @click="toggleServersSort(10)">Status</th>
+                  <th>Act</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <template x-for="s in serversVisibleRows" :key="s.hostname">
+                  <tr>
+                    <td>
+                      <span class="ip-pill clickable" tabindex="0" role="button" title="View server details" @click="openServerDetails(s)" @keydown.enter.prevent="openServerDetails(s)" @keydown.space.prevent="openServerDetails(s)" x-text="s.hostname"></span>
+                    </td>
+                    <td><span x-text="s.ip || '-'"></span></td>
+                    <td><span x-text="s.user_id || '-'"></span></td>
+                    <td><span x-text="s.region || '-'"></span></td>
+                    <td><span x-text="s.zone || '-'"></span></td>
+                    <td><span x-text="s.cpu_count ?? '-'"></span></td>
+                    <td><span x-text="s.mem_gb ?? '-'"></span></td>
+                    <td><span x-text="s.disk_count ?? '-'"></span></td>
+                    <td><span x-text="s.disk_size_gb ?? '-'"></span></td>
+                    <td>
+                      <template x-if="s.tags && typeof s.tags === 'object'">
+                        <span class="service-pill" x-text="serversTagsCompact(s.tags)"></span>
+                      </template>
+                      <template x-if="!s.tags"><span style="color: var(--muted);">-</span></template>
+                    </td>
+                    <td>
+                      <span class="status" :class="serversStatusClass(s.status)">
+                        <span class="status-dot"></span>
+                        <span x-text="String(s.status || 'unknown').toUpperCase()"></span>
+                      </span>
+                    </td>
+                    <td>
+                      <!-- Decommission when READY -->
+                      <template x-if="String(s.status || '').toLowerCase() === 'ready'">
+                        <button class="icon-btn" title="Decommission server"
+                          @click="openServerActionConfirm(s, 'decommission')">
+                          <!-- power icon -->
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M12 2v10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M7 4.5a8 8 0 1 0 10 0" stroke="currentColor" stroke-width="2"
+                              stroke-linecap="round" />
+                          </svg>
+                        </button>
+                      </template>
+
+                      <!-- Delete when DECOMMISSIONED -->
+                      <template x-if="String(s.status || '').toLowerCase() === 'decommissioned'">
+                        <button class="icon-btn" title="Delete server record"
+                          @click="openServerActionConfirm(s, 'delete')">
+                          <!-- trash icon -->
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M3 6h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M8 6V4h8v2" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                            <path d="M19 6l-1 14H6L5 6" stroke="currentColor" stroke-width="2"
+                              stroke-linejoin="round" />
+                            <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                          </svg>
+                        </button>
+                      </template>
+
+                      <template
+                        x-if="String(s.status || '').toLowerCase() !== 'ready' && String(s.status || '').toLowerCase() !== 'decommissioned'">
+                        <span style="color: var(--muted);">-</span>
+                      </template>
+                    </td>
+                  </tr>
+                </template>
+
+                <template x-if="!serversLoading.list && serversVisibleRows.length === 0">
+                  <tr>
+                    <td colspan="12" style="padding: 18px; color: var(--muted);">No results.</td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="footer">
+          <span>Rendered at (UTC) <span x-text="renderedAtUtc"></span></span>
+          <span>Κλοηγός servers</span>
+        </div>
+      </section>
+    </main>
+
+    <!-- Server Action Confirm Modal (Decommission / Delete) -->
+    <div class="modal-backdrop" x-show="modal.serverActionConfirm.open" x-transition
+      @keydown.escape.window="closeServerActionConfirm()">
+      <div class="modal" @click.outside="closeServerActionConfirm()">
+        <div class="modal-header">
+          <h3 class="modal-title" x-text="modal.serverActionConfirm.action === 'delete' ? 'Confirm Delete' : 'Confirm Decommission'"></h3>
+          <button class="btn" style="padding:7px 12px;" @click="closeServerActionConfirm()">CLOSE</button>
+        </div>
+
+        <div class="modal-body">
+          <div style="color: var(--muted); font-size: 13px; line-height: 1.5;">
+            <template x-if="modal.serverActionConfirm.action === 'decommission'">
+              <div>
+                This will start decommissioning for <span class="ip-pill" x-text="modal.serverActionConfirm.hostname"></span>.
+              </div>
+            </template>
+            <template x-if="modal.serverActionConfirm.action === 'delete'">
+              <div>
+                This will permanently delete the server record for <span class="ip-pill" x-text="modal.serverActionConfirm.hostname"></span>.
+              </div>
+            </template>
+          </div>
+
+          <div class="metric" style="display:grid; gap:8px;">
+            <div class="metric-label">Request</div>
+            <div>
+              <template x-if="modal.serverActionConfirm.action === 'decommission'">
+                <span class="ip-pill">PUT /api/admin/servers/<span x-text="modal.serverActionConfirm.hostname"></span></span>
+              </template>
+              <template x-if="modal.serverActionConfirm.action === 'delete'">
+                <span class="ip-pill">DELETE /api/admin/servers/<span x-text="modal.serverActionConfirm.hostname"></span></span>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn" @click="closeServerActionConfirm()">CANCEL</button>
+          <button class="btn" :class="modal.serverActionConfirm.action === 'delete' ? 'btn-danger' : 'btn-warn'"
+            :disabled="serversLoading.action" @click="confirmServerAction()">
+            <span x-show="!serversLoading.action" x-text="modal.serverActionConfirm.action === 'delete' ? 'YES, DELETE' : 'YES, DECOMMISSION'"></span>
+            <span x-show="serversLoading.action">WORKING…</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+
+<!-- PLAYBOOKS VIEW -->
     <main class="layout" x-show="view === 'playbooks'">
       <aside class="sidebar">
         <div>
@@ -361,7 +585,7 @@
             <div class="form-row">
               <div class="label">cpu_count (optional)</div>
               <input class="input" type="number" min="1" x-model.number="modal.allocate.cpu_count"
-                placeholder="default 4" />
+                placeholder="cpu number" />
             </div>
             <div class="form-row">
               <div class="label">region (optional)</div>
@@ -416,6 +640,10 @@
             <div class="form-row">
               <div class="label">hostname</div>
               <input class="input" x-model="modal.init.hostname" placeholder="server-123" />
+            </div>
+            <div class="form-row">
+              <div class="label">user id</div>
+              <input class="input" x-model="modal.init.user_id" placeholder="default = ubuntu" />
             </div>
             <div class="form-row">
               <div class="label">region</div>
@@ -532,7 +760,7 @@
 
           <div class="metric" style="border-color: rgba(148, 163, 184, 0.25);">
             <pre class="inspector-pre" style="max-height: 50vh; white-space: pre-wrap;"
-              x-text="modal.computeDetails.row ? (inspectorFormat==='json' ? JSON.stringify(modal.computeDetails.row, null, 2) : toYaml(modal.computeDetails.row)) : ''"></pre>
+              x-text="modal.computeDetails.row ? (inspectorFormat === 'json' ? JSON.stringify(modal.computeDetails.row, null, 2) : toYaml(modal.computeDetails.row)) : ''"></pre>
           </div>
         </div>
 

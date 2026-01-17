@@ -8,7 +8,7 @@
 #.  ip
 #.  cpu_range
 #.  cpu_count
-#.  port_ranges
+#.  port_range
 #   ssh_public_key
 #
 #
@@ -26,7 +26,7 @@
         ansible_host: "{{ ip }}"
         public_ip: "{{ ip }}"
         cu_user: "c{{ cpu_range.replace(':', '-') }}"
-        ports_range: "{{ port_ranges }}"
+        port_range: "{{ port_range }}"
         cpu_count: "{{ cpu_count }}"
         groups: new_alloc
 
@@ -51,7 +51,7 @@
             - CPU count: {{ cpu_count }}
             - Memory:
             - Max running processes: 
-            - Ports assigned: {{ port_ranges }}
+            - Ports assigned: {{ port_range }}
             - Network bandwidth:
             - Disk volume at /mnt/{{ cu_user }}
             - IOPS/MBPS:

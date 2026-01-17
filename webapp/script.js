@@ -7,6 +7,31 @@ window.app = function () {
     apiBase: "/api",
 
     // Shared UTC timestamps
+
+    // ---------- Servers state ----------
+    servers: [],
+    serversVisibleRows: [],
+    serversFilterQuery: "",
+    serversLastUpdatedUtc: null,
+    serversSortIndex: null,
+    serversSortDir: "asc",
+    serversSortTypeByIndex: {
+      0: "string", // hostname
+      1: "ip",     // ip
+      2: "string", // user_id
+      3: "string", // region
+      4: "string", // zone
+      5: "number", // cpu_count
+      6: "number", // mem_gb
+      7: "number", // disk_count
+      8: "number", // disk_size_gb
+      9: "string", // tags
+      10: "string" // status
+    },
+    serversLoading: { list: false, action: false },
+    serversAutoRefreshEnabled: true,
+    _serversAutoTimer: null,
+
     renderedAtUtc: "now",
 
     // ---------- Dashboard state ----------
@@ -65,10 +90,12 @@ window.app = function () {
       decommission: { open: false, hostname: "" },
       deallocateConfirm: { open: false, compute_id: "", hostname: "" },
       computeDetails: { open: false, row: null },
+      serverActionConfirm: { open: false, hostname: "", action: "decommission" },
+      serverDetails: { open: false, row: null },
     },
 
     // ---------- Playbooks state ----------
-    playbooks: ["cu_allocate", "cu_deallocate", "server_init", "server_decomm"],
+    playbooks: ["CU_ALLOCATE", "CU_DEALLOCATE", "SERVER_INIT", "SERVER_DECOMM"],
     selectedPlaybook: "",
     pbEditorReady: false,
     pbLoading: { list: false, save: false, load: false },
@@ -104,12 +131,18 @@ window.app = function () {
       const sFilter = localStorage.getItem("kloigos_filter");
       const sFmt = localStorage.getItem("kloigos_inspector_format");
       const sView = localStorage.getItem("kloigos_view");
+      const ssIdx = localStorage.getItem("kloigos_servers_sort_index");
+      const ssDir = localStorage.getItem("kloigos_servers_sort_dir");
+      const ssFilter = localStorage.getItem("kloigos_servers_filter");
 
       if (sIdx !== null && !Number.isNaN(+sIdx)) this.sortIndex = +sIdx;
       if (sDir === "desc") this.sortDir = "desc";
       if (sFilter !== null) this.filterQuery = sFilter;
+      if (ssFilter !== null) this.serversFilterQuery = ssFilter;
+      if (ssIdx !== null && !Number.isNaN(+ssIdx)) this.serversSortIndex = +ssIdx;
+      if (ssDir === "desc") this.serversSortDir = "desc";
       if (sFmt === "json" || sFmt === "yaml") this.inspectorFormat = sFmt;
-      if (sView === "dashboard" || sView === "playbooks") this.view = sView;
+      if (sView === "dashboard" || sView === "playbooks" || sView === "servers") this.view = sView;
 
       this.renderedAtUtc = this.utcNowString();
 
@@ -119,8 +152,15 @@ window.app = function () {
           this.refreshDashboard();
       }, 10_000);
 
+      // Start servers timer (only refresh if servers tab is active)
+      this._serversAutoTimer = setInterval(() => {
+        if (this.serversAutoRefreshEnabled && this.view === "servers")
+          this.refreshServers();
+      }, 15_000);
+
       // Load the active tab
       if (this.view === "playbooks") this.ensurePlaybooksView();
+      else if (this.view === "servers") this.ensureServersView();
       else this.ensureDashboardView();
     },
 
@@ -130,6 +170,7 @@ window.app = function () {
       localStorage.setItem("kloigos_view", this.view);
 
       if (this.view === "playbooks") this.ensurePlaybooksView();
+      else if (this.view === "servers") this.ensureServersView();
       else this.ensureDashboardView();
     },
 
@@ -173,6 +214,175 @@ window.app = function () {
       return data;
     },
 
+
+    // ---------- Servers lifecycle ----------
+    async ensureServersView() {
+      if (this.servers.length === 0 && !this.serversLoading.list)
+        await this.refreshServers();
+      else this.applyServersFilterSort();
+    },
+
+    serversRowText(s) {
+      const tags =
+        s.tags && typeof s.tags === "object"
+          ? Object.entries(s.tags)
+              .map(([k, v]) => `${k}:${Array.isArray(v) ? v.join(",") : v}`)
+              .join(" ")
+          : "";
+      return [
+        s.hostname,
+        s.ip,
+        s.user_id,
+        s.region,
+        s.zone,
+        s.status,
+        tags,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+    },
+
+    serversCellText(s, colIndex) {
+      switch (colIndex) {
+        case 0:
+          return s.hostname || "";
+        case 1:
+          return s.ip || "";
+        case 2:
+          return s.user_id || "";
+        case 3:
+          return s.region || "";
+        case 4:
+          return s.zone || "";
+        case 5:
+          return s.cpu_count ?? "";
+        case 6:
+          return s.mem_gb ?? "";
+        case 7:
+          return s.disk_count ?? "";
+        case 8:
+          return s.disk_size_gb ?? "";
+        case 9:
+          return this.serversTagsCompact(s.tags) || "";
+        case 10:
+          return s.status || "";
+        default:
+          return "";
+      }
+    },
+
+    serversTagsCompact(tags) {
+      if (!tags || typeof tags !== "object") return "";
+      // compact "k=v" pairs (limit length a bit)
+      const s = Object.entries(tags)
+        .map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(",") : v}`)
+        .join(" ");
+      return s.length > 60 ? s.slice(0, 60) + "…" : s;
+    },
+
+    serversStatusClass(status) {
+      const s = String(status || "").toLowerCase();
+      if (s === "ready") return "status-online";
+      if (s === "decommissioned") return "status-muted";
+      if (s.includes("ing")) return "status-pending status-pulse";
+      if (!s || s === "unknown") return "status-muted";
+      return "status-offline";
+    },
+
+    serversSortClass(index) {
+      if (this.serversSortIndex !== index) return "";
+      return this.serversSortDir === "asc" ? "sort-asc" : "sort-desc";
+    },
+
+    toggleServersSort(index) {
+      if (this.serversSortIndex === index)
+        this.serversSortDir = this.serversSortDir === "asc" ? "desc" : "asc";
+      else {
+        this.serversSortIndex = index;
+        this.serversSortDir = "asc";
+      }
+
+      localStorage.setItem(
+        "kloigos_servers_sort_index",
+        String(this.serversSortIndex)
+      );
+      localStorage.setItem("kloigos_servers_sort_dir", this.serversSortDir);
+      this.applyServersFilterSort();
+    },
+
+    applyServersFilterSort() {
+      const q = (this.serversFilterQuery || "").toLowerCase().trim();
+      let rows = this.servers.slice();
+      if (q) rows = rows.filter((s) => this.serversRowText(s).includes(q));
+
+      if (this.serversSortIndex !== null) {
+        const type =
+          this.serversSortTypeByIndex[this.serversSortIndex] || "string";
+        const idx = this.serversSortIndex;
+        const dir = this.serversSortDir;
+
+        rows.sort((a, b) => {
+          const av = this.parseValue(type, this.serversCellText(a, idx));
+          const bv = this.parseValue(type, this.serversCellText(b, idx));
+          if (av < bv) return dir === "asc" ? -1 : 1;
+          if (av > bv) return dir === "asc" ? 1 : -1;
+          return 0;
+        });
+      }
+
+      this.serversVisibleRows = rows;
+    },
+
+    async refreshServers() {
+      this.serversLoading.list = true;
+      try {
+        const data = await this.apiFetch("/admin/servers/", { method: "GET" });
+        this.servers = Array.isArray(data) ? data : [];
+        this.serversLastUpdatedUtc = this.utcNowString();
+        this.applyServersFilterSort();
+      } catch (e) {
+        console.error(e);
+        this.serversLastUpdatedUtc = this.utcNowString();
+      } finally {
+        this.serversLoading.list = false;
+      }
+    },
+
+    openServerActionConfirm(server, action) {
+      this.modal.serverActionConfirm.hostname = server?.hostname || "";
+      this.modal.serverActionConfirm.action = action || "decommission";
+      this.modal.serverActionConfirm.open = true;
+    },
+
+    closeServerActionConfirm() {
+      this.modal.serverActionConfirm.open = false;
+    },
+
+    async confirmServerAction() {
+      const hostname = (this.modal.serverActionConfirm.hostname || "").trim();
+      const action = this.modal.serverActionConfirm.action;
+      if (!hostname) return;
+
+      this.serversLoading.action = true;
+      try {
+        if (action === "delete") {
+          await this.apiFetch(`/admin/servers/${encodeURIComponent(hostname)}`, {
+            method: "DELETE",
+          });
+        } else {
+          await this.apiFetch(`/admin/servers/${encodeURIComponent(hostname)}`, {
+            method: "PUT",
+          });
+        }
+        this.closeServerActionConfirm();
+        await this.refreshServers();
+      } finally {
+        this.serversLoading.action = false;
+      }
+    },
+
+
     // ---------- Dashboard lifecycle ----------
     async ensureDashboardView() {
       if (this.computeUnits.length === 0 && !this.loading.list)
@@ -183,6 +393,10 @@ window.app = function () {
     persistFilter() {
       localStorage.setItem("kloigos_filter", this.filterQuery || "");
     },
+
+    persistServersFilter() {
+      localStorage.setItem("kloigos_servers_filter", this.serversFilterQuery || "");
+    },
     persistInspectorFormat() {
       localStorage.setItem("kloigos_inspector_format", this.inspectorFormat);
     },
@@ -192,6 +406,10 @@ window.app = function () {
       try {
         const data = await this.apiFetch("/compute_units/");
         this.computeUnits = Array.isArray(data) ? data : [];
+        this.computeUnits = this.computeUnits.map((row) => ({
+          ...row,
+          compute_id: `${row.hostname}_${row.cpu_range}`,
+        }));
         this.lastUpdatedUtc = this.utcNowString();
         this.applyFilterSort();
       } catch (e) {
@@ -333,8 +551,9 @@ window.app = function () {
       const s = String(status || "").toLowerCase();
       if (s.includes("free")) return "status-online";
       if (s.includes("allocated")) return "status-warning";
-      if (s.includes("terminating")) return "status-muted";
-      if (!s || s === "unknown") return "status-default";
+      if (s.includes("decommissioned")) return "status-muted";
+      if (s.includes("ing")) return "status-pending status-pulse";
+      if (!s || s === "unknown") return "status-muted";
       return "status-offline";
     },
 
@@ -422,7 +641,7 @@ window.app = function () {
           (this.modal.allocate.tagsText || "{}").trim() || "{}"
         );
         const payload = {
-          cpu_count: this.modal.allocate.cpu_count ?? 4,
+          cpu_count: this.modal.allocate.cpu_count ?? 0,
           region: this.modal.allocate.region || null,
           zone: this.modal.allocate.zone || null,
           compute_id: (this.modal.allocate.compute_id || "").trim() || null,
@@ -470,6 +689,7 @@ window.app = function () {
           region: (this.modal.init.region || "").trim(),
           zone: (this.modal.init.zone || "").trim(),
           hostname: (this.modal.init.hostname || "").trim(),
+          user_id: (this.modal.init.user_id || "ubuntu").trim(),
           cpu_ranges,
         };
         for (const [k, v] of Object.entries(payload)) {
@@ -477,7 +697,7 @@ window.app = function () {
             throw new Error(`${k} is required.`);
         }
 
-        await this.apiFetch("/admin/init_server", {
+        await this.apiFetch("/admin/servers", {
           method: "POST",
           body: payload,
         });
@@ -501,8 +721,8 @@ window.app = function () {
         const hostname = (this.modal.decommission.hostname || "").trim();
         if (!hostname) throw new Error("hostname is required.");
         await this.apiFetch(
-          `/admin/decommission_server/${encodeURIComponent(hostname)}`,
-          { method: "DELETE" }
+          `/admin/servers/${encodeURIComponent(hostname)}`,
+          { method: "PUT" }
         );
         this.closeDecommissionModal();
         await this.refreshDashboard();
@@ -528,6 +748,17 @@ window.app = function () {
       this.modal.computeDetails.open = false;
       this.modal.computeDetails.row = null;
     },
+
+    openServerDetails(row) {
+      this.modal.serverDetails.row = row || null;
+      this.modal.serverDetails.open = true;
+    },
+
+    closeServerDetails() {
+      this.modal.serverDetails.open = false;
+      this.modal.serverDetails.row = null;
+    },
+
 
     async confirmDeallocate() {
       const computeId = this.modal.deallocateConfirm.compute_id;

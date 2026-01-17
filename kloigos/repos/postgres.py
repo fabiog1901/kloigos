@@ -8,10 +8,12 @@ from psycopg_pool import ConnectionPool
 
 from ..models import (
     ComputeUnitInDB,
-    ComputeUnitRequest,
-    InitServerRequest,
+    ComputeUnitOverview,
+    ComputeUnitStatus,
     Playbook,
-    Status,
+    ServerInDB,
+    ServerInitRequest,
+    ServerStatus,
 )
 from .base import BaseRepo
 
@@ -28,7 +30,7 @@ class PostgresRepo(BaseRepo):
     #
     # ADMIN_SERVICE
     #
-    def get_playbook(self, playbook: Playbook) -> str:
+    def playbook_get_content(self, playbook: Playbook) -> str:
 
         with self.pool.connection() as conn:
 
@@ -44,7 +46,7 @@ class PostgresRepo(BaseRepo):
 
         return gzip.decompress(rs[0]).decode()  # type: ignore
 
-    def update_playbook(
+    def playbook_update_content(
         self,
         playbook: Playbook,
         b64: str,
@@ -65,125 +67,126 @@ class PostgresRepo(BaseRepo):
                 ),
             )
 
-    def insert_init_server(self, isr: InitServerRequest) -> None:
+    def server_init_new(
+        self,
+        sir: ServerInitRequest,
+        status: ServerStatus,
+    ) -> None:
 
         with self.pool.connection() as conn:
             conn.execute(
                 """
-                INSERT INTO compute_units (
-                    compute_id, cpu_count, cpu_range, hostname, ip,
-                    region, zone, status, started_at, tags
+                UPSERT INTO servers (
+                    hostname, ip, user_id, region, zone, status, 
+                    cpu_count, mem_gb, disk_count, disk_size_gb, tags
                 )
                 VALUES (
                     %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s
                 )
-                ON CONFLICT DO NOTHING
                 """,
                 (
-                    isr.hostname,
-                    0,
-                    "0-0",
-                    isr.hostname,
-                    isr.ip,
-                    isr.region,
-                    isr.zone,
-                    Status.INITIALIZING,
-                    None,
-                    "{}",
+                    sir.hostname,
+                    sir.ip,
+                    sir.user_id,
+                    sir.region,
+                    sir.zone,
+                    status,
+                    sir.cpu_count,
+                    sir.mem_gb,
+                    sir.disk_count,
+                    sir.disk_size_gb,
+                    sir.tags,
                 ),
             )
 
-    def delete_server(self, hostname: str) -> None:
+    def server_update_status(self, hostname: str, status: ServerStatus) -> None:
         with self.pool.connection() as conn:
             cur = conn.cursor()
             cur.execute(
                 """
-                UPDATE compute_units
+                UPDATE servers
                 SET status = %s
                 WHERE hostname = %s
                 """,
                 (
-                    Status.DECOMMISSIONING,
+                    status,
                     hostname,
                 ),
             )
 
-    def insert_new_cu(self, compute_id: str, cpu_count: int, x, isr: InitServerRequest):
+    def get_servers(
+        self,
+        hostname: str = None,
+    ) -> list[ServerInDB]:
+
+        # Prepare the WHERE clause
+        conditions = []
+        params = []
+
+        if hostname is not None:
+            conditions.append("hostname = %s")
+            params.append(hostname)
+
+        sql = "SELECT * FROM servers "
+
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+
+        with self.pool.connection() as conn:
+            cur = conn.cursor(row_factory=class_row(ServerInDB))
+            return cur.execute(sql, params).fetchall()
+
+    def delete_server(self, hostname: str) -> ServerInDB:
+        with self.pool.connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                DELETE
+                FROM servers
+                WHERE hostname = %s
+                """,
+                (hostname,),
+            )
+
+    #
+    # COMPUTE UNIT
+    #
+    def insert_new_compute_unit(self, cudb: ComputeUnitInDB):
         with self.pool.connection() as conn:
             cur = conn.cursor()
             cur.execute(
                 """
                 UPSERT INTO compute_units (
-                    compute_id, cpu_count, cpu_range, hostname, ip, 
-                    region, zone, status, started_at, tags
+                    hostname, cpu_range, cpu_count, 
+                    cpu_list, port_range, cu_user,
+                    status, started_at, tags
                 ) 
                 VALUES (
-                    %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s
+                    %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s
                 )
                 """,
                 (
-                    compute_id,
-                    cpu_count,
-                    x,
-                    isr.hostname,
-                    isr.ip,
-                    isr.region,
-                    isr.zone,
-                    Status.FREE,
-                    None,
-                    "{}",
+                    cudb.hostname,
+                    cudb.cpu_range,
+                    cudb.cpu_count,
+                    cudb.cpu_list,
+                    cudb.port_range,
+                    cudb.cu_user,
+                    cudb.status,
+                    cudb.started_at,
+                    cudb.tags,
                 ),
             )
 
-    def delete_cu(self, hostname: str) -> None:
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                    DELETE 
-                    FROM compute_units
-                    WHERE compute_id = %s
-                    """,
-                (hostname,),
-            )
-
-    def init_fail(self, hostname: str) -> None:
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                    UPDATE compute_units 
-                    SET status = %s
-                    WHERE compute_id = %s
-                    """,
-                (Status.INIT_FAIL, hostname),
-            )
-
-    def mark_decommissioned(self, hostname: str, job_ok: bool) -> None:
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                UPDATE compute_units 
-                SET status = %s
-                WHERE hostname = %s
-                """,
-                (
-                    Status.DECOMMISSIONED if job_ok else Status.DECOMMISSION_FAIL,
-                    hostname,
-                ),
-            )
-
-    #
-    # COMPUTE_UNIT_SERVICE
-    #
-
-    def cu_mark_allocated(
+    def update_compute_unit(
         self,
-        req: ComputeUnitRequest,
-        cu: ComputeUnitInDB,
+        hostname: str,
+        cpu_range: str,
+        status: ComputeUnitStatus | None,
+        tags: dict | None,
     ) -> None:
         # mark the compute_unit to allocating
         with self.pool.connection() as conn:
@@ -191,72 +194,29 @@ class PostgresRepo(BaseRepo):
             cur.execute(
                 """
                 UPDATE compute_units
-                SET status = %s,
-                    tags = %s
-                WHERE compute_id = %s
+                SET 
+                    status = coalesce(%s, status),
+                    tags = coalesce(%s, tags)
+                WHERE (hostname, cpu_range) = (%s, %s)
                 """,
                 (
-                    Status.ALLOCATING,
-                    json.dumps(req.tags),
-                    cu.compute_id,
+                    status,
+                    json.dumps(tags),
+                    hostname,
+                    cpu_range,
                 ),
             )
 
-    def cu_mark_deallocated(self, compute_id: str) -> None:
-
+    def delete_compute_units(self, hostname: str) -> None:
         with self.pool.connection() as conn:
             cur = conn.cursor()
             cur.execute(
                 """
-                UPDATE compute_units
-                SET status = %s,
-                    tags = '{}'
-                WHERE compute_id = %s
+                DELETE
+                FROM compute_units
+                WHERE hostname = %s
                 """,
-                (
-                    Status.DEALLOCATING,
-                    compute_id,
-                ),
-            )
-
-    def update_cu_status_alloc(self, cu: ComputeUnitInDB) -> None:
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                UPDATE compute_units
-                SET status = %s
-                WHERE compute_id = %s
-                """,
-                (Status.ALLOCATED, cu.compute_id),
-            )
-
-    def update_cu_status_dealloc(self, compute_id: str, job_ok: bool) -> None:
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                UPDATE compute_units
-                SET status = %s
-                WHERE compute_id = %s
-                """,
-                (
-                    Status.FREE if job_ok else Status.DEALLOCATION_FAIL,
-                    compute_id,
-                ),
-            )
-
-    def set_cu_status_alloc_fail(self, cu: ComputeUnitInDB) -> None:
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                UPDATE compute_units
-                SET status = %s,
-                    tags = '{}'
-                WHERE compute_id = %s
-                """,
-                (Status.ALLOCATION_FAIL, cu.compute_id),
+                (hostname,),
             )
 
     def get_compute_units(
@@ -269,41 +229,56 @@ class PostgresRepo(BaseRepo):
         deployment_id: str | None = None,
         status: str | None = None,
         limit: int | None = None,
-    ) -> list[ComputeUnitInDB]:
+    ) -> list[ComputeUnitOverview]:
 
         # Prepare the WHERE clause
         conditions = []
         params = []
 
         if compute_id is not None:
-            conditions.append("compute_id = %s")
-            params.append(compute_id)
+            hostname, cpu_range = compute_id.split("_")
+            conditions.append("(c.hostname, c.cpu_range) = (%s, %s)")
+            params.append(hostname, cpu_range)
 
         if hostname is not None:
-            conditions.append("hostname = %s")
+            conditions.append("s.hostname = %s")
             params.append(hostname)
 
         if region is not None:
-            conditions.append("region = %s")
+            conditions.append("s.region = %s")
             params.append(region)
 
         if zone is not None:
-            conditions.append("zone = %s")
+            conditions.append("s.zone = %s")
             params.append(zone)
 
         if cpu_count is not None:
-            conditions.append("cpu_count = %s")
+            conditions.append("c.cpu_count = %s")
             params.append(cpu_count)
 
         if deployment_id is not None:
-            conditions.append("tags ->> 'deployment_id' = %s")
+            conditions.append("c.tags ->> 'deployment_id' = %s")
             params.append(deployment_id)
 
         if status is not None:
-            conditions.append("status = %s")
+            conditions.append("c.status = %s")
             params.append(status)
 
-        sql = "SELECT * FROM compute_units"
+        sql = """
+            SELECT c.hostname,
+                c.cpu_range,
+                s.ip,
+                s.region,
+                s.zone,
+                c.cpu_list,
+                c.port_range,
+                c.cu_user,
+                c.cpu_count,
+                c.status,
+                c.started_at,
+                c.tags 
+            FROM compute_units c JOIN servers s 
+              ON c.hostname = s.hostname """
 
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
@@ -314,7 +289,7 @@ class PostgresRepo(BaseRepo):
         with self.pool.connection() as conn:
 
             with conn.cursor(
-                row_factory=class_row(ComputeUnitInDB),
+                row_factory=class_row(ComputeUnitOverview),
             ) as cur:
 
                 rs = cur.execute(sql, params).fetchall()  # type: ignore

@@ -15,8 +15,8 @@ class AllocatePlaybookError(Exception):
 
 class DeferredTask(BaseModel):
     fn: Callable[..., None]
-    args: tuple
-    kwargs: dict
+    args: tuple | None
+    kwargs: dict = {}
 
 
 class AutoNameStrEnum(StrEnum):
@@ -26,18 +26,13 @@ class AutoNameStrEnum(StrEnum):
 
 class Playbook(AutoNameStrEnum):
     # compute unit level statuses
-    cu_allocate = auto()
-    cu_deallocate = auto()
-    server_init = auto()
-    server_decomm = auto()
+    CU_ALLOCATE = auto()
+    CU_DEALLOCATE = auto()
+    SERVER_INIT = auto()
+    SERVER_DECOMM = auto()
 
 
-class PortRange(BaseModel):
-    start: int
-    end: int
-
-
-class Status(AutoNameStrEnum):
+class ComputeUnitStatus(AutoNameStrEnum):
     # compute unit level statuses
     FREE = auto()
     ALLOCATING = auto()
@@ -46,31 +41,34 @@ class Status(AutoNameStrEnum):
     DEALLOCATING = auto()
     DEALLOCATION_FAIL = auto()
     UNAVAILABLE = auto()
+
+
+class ServerStatus(AutoNameStrEnum):
     # Server level statuses
     INITIALIZING = auto()
     INIT_FAIL = auto()
+    READY = auto()
     DECOMMISSIONING = auto()
     DECOMMISSIONED = auto()
     DECOMMISSION_FAIL = auto()
 
 
 class ComputeUnitInDB(BaseModel):
-    compute_id: str
     hostname: str
-    ip: str
-    cpu_count: int
     cpu_range: str
+    cpu_count: int
+    cpu_list: str
+    port_range: str  # | None = None
+    cu_user: str
+    status: str
+    started_at: dt.datetime | None = None
+    tags: dict[str, Any] | None = None
+
+
+class ComputeUnitOverview(ComputeUnitInDB):
+    ip: str
     region: str
     zone: str
-    status: str
-    started_at: dt.datetime | None
-    tags: dict[str, Any] | None
-
-
-class ComputeUnitResponse(ComputeUnitInDB):
-    cpu_list: str
-    port_range: str | None
-    cu_user: str
 
 
 class ComputeUnitRequest(BaseModel):
@@ -82,9 +80,22 @@ class ComputeUnitRequest(BaseModel):
     ssh_public_key: str
 
 
-class InitServerRequest(BaseModel):
-    ip: str
-    region: str
-    zone: str
+class BaseServer(BaseModel):
     hostname: str
+    ip: str
+    user_id: str
+    region: str
+    zone: str | None = None
+    cpu_count: int | None = None
+    mem_gb: int | None = None
+    disk_count: int | None = None
+    disk_size_gb: int | None = None
+    tags: dict[str, Any] | None = None
+
+
+class ServerInDB(BaseServer):
+    status: str
+
+
+class ServerInitRequest(BaseServer):
     cpu_ranges: list[str]

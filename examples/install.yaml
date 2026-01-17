@@ -1,6 +1,6 @@
 #
 # Example Playbook showing how to use Kloigos
-# to provision compute units and use them to
+# to use provisioned compute units to
 # deploy a CockroachDB cluster.
 #
 ---
@@ -10,7 +10,7 @@
   gather_facts: no
   become: no
   vars:
-    deployment_id: fab7
+    deployment_id: fab8
     kloigos_server: "http://127.0.0.1:8000/api"
   tasks:
     - name: get the previously allocated instances
@@ -77,7 +77,7 @@
     cockroachdb_insecure_flag: --insecure
     cockroachdb_repo_url: https://binaries.cockroachdb.com
     cockroachdb_locality: "cloud={{ cloud | default('') }},region={{ region | default('') }},zone={{ zone | default('') }}"
-    cockroachdb_advertise_addr: "{{ public_hostname | default('') }}"
+    cockroachdb_advertise_addr: "{{ public_ip | default('') }}"
     cockroachdb_listen_addr: "0.0.0.0"
     cockroachdb_attrs: std
     cockroachdb_cache: ".35"
@@ -148,7 +148,7 @@
               {% for g in groups -%}
               {% if g.startswith("crdbregion_") -%}
               {% for joinhost in (groups[g] | sort)[:3] -%}
-              --join={{ hostvars[joinhost].public_hostname }}:{{ hostvars[joinhost].port_range.split('-')[0] | int + cockroachdb_rpc_port }} \
+              --join={{ hostvars[joinhost].public_ip }}:{{ hostvars[joinhost].port_range.split('-')[0] | int + cockroachdb_rpc_port }} \
               {% endfor -%}
               {% endif -%}
               {% endfor -%}
@@ -193,6 +193,39 @@
       shell: |
         /opt/{{ cu_user }}/cockroach init \
           {{ (cockroachdb_secure) | ternary(cockroachdb_secure_flag, cockroachdb_insecure_flag) }} \
-          --host={{ hostvars[init_host].public_hostname }}:{{ hostvars[init_host].port_range.split('-')[0] | int + cockroachdb_rpc_port }}
+          --host={{ hostvars[init_host].public_ip }}:{{ hostvars[init_host].port_range.split('-')[0] | int + cockroachdb_rpc_port }}
       register: result
       failed_when: result.rc != 0 and 'cluster has already been initialized' not in result.stderr and 'unable to bootstrap due to internal error' not in result.stderr
+
+- name: GET DATA FROM COCKROACHDB CLUSTER
+  hosts: localhost
+  gather_facts: no
+  become: no
+  tasks:
+    - name: Collect cloud, region and public_ip for cockroachdb servers
+      set_fact:
+        cockroachdb: >-
+          {{
+            groups['cockroachdb']
+            | map('extract', hostvars) 
+            | map('dict2items')                  
+            | map('selectattr', 'key', 'in', ['ansible_host', 'cloud', 'region', 'public_ip'])
+            | map('items2dict')    | list              
+          }}
+
+    # - name: Collect cloud, region and public_ip for haproxy servers
+    #   set_fact:
+    #     haproxy: >-
+    #       {{
+    #         groups['haproxy']
+    #         | map('extract', hostvars) 
+    #         | map('dict2items')                  
+    #         | map('selectattr', 'key', 'in', ['ansible_host', 'cloud', 'region', 'public_ip'])
+    #         | map('items2dict')    | list              
+    #       }}
+
+    - name: Data
+      debug:
+        msg:
+          cockroachdb: "{{ cockroachdb }}"
+          # haproxy: "{{ haproxy }}"

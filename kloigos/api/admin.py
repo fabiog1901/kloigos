@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Response, status
 
 from ..dep import get_admin_service
-from ..models import DeferredTask, InitServerRequest, Playbook
+from ..models import DeferredTask, Playbook, ServerInitRequest, ServerInDB
 from ..services.admin import AdminService
 
 router = APIRouter(
@@ -34,18 +34,29 @@ async def get_playbook(
     return service.get_playbook(playbook)
 
 
+@router.get(
+    "/servers/",
+)
+async def list_servers(
+    hostname: str = None,
+    service: AdminService = Depends(get_admin_service),
+) -> list[ServerInDB]:
+
+    return service.list_servers(hostname)
+
+
 @router.post(
-    "/init_server",
+    "/servers/",
 )
 async def init_server(
-    isr: InitServerRequest,
+    sir: ServerInitRequest,
     bg_task: BackgroundTasks,
     service: AdminService = Depends(get_admin_service),
 ) -> Response:
 
     # add the server to the compute_units table with
     # status='init'
-    tasks: list[DeferredTask] = service.init_server(isr)
+    tasks: list[DeferredTask] = service.init_server(sir)
 
     # async, run the init task
     for t in tasks:
@@ -55,8 +66,8 @@ async def init_server(
     return Response(status_code=status.HTTP_200_OK)
 
 
-@router.delete(
-    "/decommission_server/{hostname}",
+@router.put(
+    "/servers/{hostname}",
 )
 async def decommission_server(
     hostname: str,
@@ -71,4 +82,16 @@ async def decommission_server(
         bg_task.add_task(t.fn, *t.args, **t.kwargs)
 
     # returns immediately
+    return Response(status_code=status.HTTP_200_OK)
+
+
+@router.delete(
+    "/servers/{hostname}",
+)
+async def delete_server(
+    hostname: str,
+    service: AdminService = Depends(get_admin_service),
+) -> Response:
+    service.delete_server(hostname)
+
     return Response(status_code=status.HTTP_200_OK)

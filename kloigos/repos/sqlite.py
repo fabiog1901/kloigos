@@ -5,9 +5,9 @@ import sqlite3
 from ..models import (
     ComputeUnitInDB,
     ComputeUnitRequest,
-    InitServerRequest,
+    ComputeUnitStatus,
     Playbook,
-    Status,
+    ServerInitRequest,
 )
 from .base import BaseRepo
 
@@ -17,7 +17,7 @@ class SQLiteRepo(BaseRepo):
     def __init__(self, db_url: str) -> None:
         self.db_url = db_url
 
-    def get_playbook(self, playbook: Playbook) -> str:
+    def playbook_get_content(self, playbook: Playbook) -> str:
 
         with sqlite3.connect(self.db_url) as conn:
 
@@ -33,7 +33,7 @@ class SQLiteRepo(BaseRepo):
 
         return rs[0]
 
-    def update_playbook(
+    def playbook_update_content(
         self,
         playbook: Playbook,
         b64: str,
@@ -54,7 +54,7 @@ class SQLiteRepo(BaseRepo):
                 ),
             )
 
-    def insert_init_server(self, isr: InitServerRequest) -> None:
+    def server_init_new(self, isr: ServerInitRequest) -> None:
 
         with sqlite3.connect(self.db_url) as conn:
             cur = conn.cursor()
@@ -78,13 +78,13 @@ class SQLiteRepo(BaseRepo):
                     isr.ip,
                     isr.region,
                     isr.zone,
-                    Status.INITIALIZING,
+                    ComputeUnitStatus.INITIALIZING,
                     None,
                     "{}",
                 ),
             )
 
-    def delete_server(self, hostname: str) -> None:
+    def server_update_status(self, hostname: str) -> None:
         with sqlite3.connect(self.db_url) as conn:
             cur = conn.cursor()
             cur.execute(
@@ -94,12 +94,14 @@ class SQLiteRepo(BaseRepo):
                 WHERE hostname = ?
                 """,
                 (
-                    Status.DECOMMISSIONING,
+                    ComputeUnitStatus.DECOMMISSIONING,
                     hostname,
                 ),
             )
 
-    def insert_new_cu(self, compute_id: str, cpu_count: int, x, isr: InitServerRequest):
+    def insert_new_compute_unit(
+        self, compute_id: str, cpu_count: int, x, isr: ServerInitRequest
+    ):
         with sqlite3.connect(self.db_url) as conn:
             cur = conn.cursor()
             cur.execute(
@@ -132,7 +134,7 @@ class SQLiteRepo(BaseRepo):
                     isr.ip,
                     isr.region,
                     isr.zone,
-                    Status.FREE,
+                    ComputeUnitStatus.FREE,
                     None,
                     "{}",
                 ),
@@ -159,7 +161,7 @@ class SQLiteRepo(BaseRepo):
                 SET status = ?
                 WHERE compute_id = ?
                 """,
-                (Status.INIT_FAIL, hostname),
+                (ComputeUnitStatus.INIT_FAIL, hostname),
             )
 
     def mark_decommissioned(self, hostname: str, job_ok: bool) -> None:
@@ -172,7 +174,11 @@ class SQLiteRepo(BaseRepo):
                 WHERE hostname = ?
                 """,
                 (
-                    Status.DECOMMISSIONED if job_ok else Status.DECOMMISSION_FAIL,
+                    (
+                        ComputeUnitStatus.DECOMMISSIONED
+                        if job_ok
+                        else ComputeUnitStatus.DECOMMISSION_FAIL
+                    ),
                     hostname,
                 ),
             )
@@ -188,7 +194,7 @@ class SQLiteRepo(BaseRepo):
                     tags = ?
                 WHERE compute_id = ?
                 """,
-                (Status.ALLOCATING, json.dumps(req.tags), cu.compute_id),
+                (ComputeUnitStatus.ALLOCATING, json.dumps(req.tags), cu.compute_id),
             )
 
     def update_cu_status_alloc(self, cu: ComputeUnitInDB) -> None:
@@ -200,7 +206,7 @@ class SQLiteRepo(BaseRepo):
                     SET status = ?
                     WHERE compute_id = ?
                     """,
-                (Status.ALLOCATED, cu.compute_id),
+                (ComputeUnitStatus.ALLOCATED, cu.compute_id),
             )
 
     def set_cu_status_alloc_fail(self, cu: ComputeUnitInDB) -> None:
@@ -213,7 +219,7 @@ class SQLiteRepo(BaseRepo):
                     tags = '{}'
                 WHERE compute_id = ?
                 """,
-                (Status.ALLOCATION_FAIL, cu.compute_id),
+                (ComputeUnitStatus.ALLOCATION_FAIL, cu.compute_id),
             )
 
     def get_compute_units(

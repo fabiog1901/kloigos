@@ -1,8 +1,14 @@
-from kloigos.models import InitServerRequest, Playbook
+from kloigos.models import Playbook, ServerInitRequest
 
-from ..models import DeferredTask
+from ..models import (
+    ComputeUnitInDB,
+    ComputeUnitStatus,
+    DeferredTask,
+    ServerInDB,
+    ServerStatus,
+)
 from ..repos.base import BaseRepo
-from ..util import MyRunner, audit_logger, cpu_range_to_list_str, ports_for_cpu_range
+from ..util import MyRunner, audit_logger, ports_for_cpu_range, to_cpu_set
 
 
 class AdminService:
@@ -11,20 +17,25 @@ class AdminService:
 
     @audit_logger()
     def update_playbooks(self, playbook: Playbook, b64: str):
-        return self.repo.update_playbook(playbook, b64)
+        return self.repo.playbook_update_content(playbook, b64)
 
     def get_playbook(self, playbook: Playbook):
-        return self.repo.get_playbook(playbook)
+        return self.repo.playbook_get_content(playbook)
 
     @audit_logger()
-    def init_server(self, isr: InitServerRequest) -> list[DeferredTask]:
+    def init_server(self, sir: ServerInitRequest) -> list[DeferredTask]:
 
-        # add the server to the compute_units table with
-        # status='init'
-        self.repo.insert_init_server(isr)
+        self.repo.server_init_new(sir, ServerStatus.INITIALIZING)
 
-        # async, run the cleanup task
-        return [DeferredTask(fn=self.run_init_server, args=(isr,), kwargs={})]
+        # async, run the init task
+        return [DeferredTask(fn=self._run_init_server, args=(sir,))]
+
+    def list_servers(
+        self,
+        hostname: str = None,
+    ) -> list[ServerInDB]:
+
+        return self.repo.get_servers(hostname)
 
     @audit_logger()
     def decommission_server(
@@ -32,53 +43,58 @@ class AdminService:
         hostname: str,
     ) -> list[DeferredTask]:
 
-        cu = self.repo.get_compute_units(hostname=hostname)[0]
+        self.repo.server_update_status(hostname, ServerStatus.DECOMMISSIONING)
 
-        self.repo.delete_server(hostname)
+        self.repo.delete_compute_units(hostname)
+
+        srv = self.repo.get_servers(hostname)[0]
 
         # async, run the decomm task
-        return [
-            DeferredTask(
-                fn=self.run_decommission_server, args=(hostname, cu.ip), kwargs={}
-            )
-        ]
+        return [DeferredTask(fn=self._run_decommission_server, args=(srv,))]
 
-    def run_init_server(self, isr: InitServerRequest) -> None:
+    @audit_logger()
+    def delete_server(self, hostname: str) -> None:
+        self.repo.delete_server(hostname)
 
-        cpu_ranges_list = [cpu_range_to_list_str(x) for x in isr.cpu_ranges]
-        cpu_ranges = [x.replace(":", "-") for x in isr.cpu_ranges]
-        port_ranges = []
-        for i in cpu_ranges:
-            x = ports_for_cpu_range(i)
-            port_ranges.append(f"{x.start}-{x.end}")
+    def _run_init_server(self, sir: ServerInitRequest) -> None:
+
+        cpu_sets = [to_cpu_set(x) for x in sir.cpu_ranges]
+        cpu_ranges = [x.replace(":", "-") for x in sir.cpu_ranges]
+        port_ranges = [ports_for_cpu_range(i) for i in cpu_ranges]
 
         job_ok = MyRunner(self.repo).launch_runner(
-            Playbook.server_init,
+            Playbook.SERVER_INIT,
             {
-                "hostname": isr.hostname,
-                "ip": isr.ip,
+                "hostname": sir.hostname,
+                "ip": sir.ip,
+                "user_id": sir.user_id,
                 "cpu_ranges": cpu_ranges,
-                "cpu_ranges_list": cpu_ranges_list,
+                "cpu_sets": cpu_sets,
                 "port_ranges": port_ranges,
             },
         )
 
         # add the created compute units if the job was successfull
         if job_ok:
-            for x in isr.cpu_ranges:
+            for x in sir.cpu_ranges:
+                self.repo.insert_new_compute_unit(
+                    ComputeUnitInDB(
+                        hostname=sir.hostname,
+                        cpu_range=x,
+                        cpu_count=len(to_cpu_set(x).split(",")),
+                        cpu_list=to_cpu_set(x),
+                        port_range=ports_for_cpu_range(x),
+                        cu_user=f"c{x.replace(':', '-')}",
+                        status=ComputeUnitStatus.FREE,
+                    )
+                )
 
-                cpu_count = len(cpu_range_to_list_str(x).split(","))
-                compute_id = f"{isr.hostname}_c{x.replace(':', '-')}"
-
-                self.repo.insert_new_cu(compute_id, cpu_count, x, isr)
-
-            # remove the row with the details of the server in init status
-            self.repo.delete_cu(isr.hostname)
+            self.repo.server_update_status(sir.hostname, ServerStatus.READY)
 
         else:
-            self.repo.init_fail(isr.hostname)
+            self.repo.server_update_status(sir.hostname, ServerStatus.INIT_FAIL)
 
-    def run_decommission_server(self, hostname: str, ip: str) -> None:
+    def _run_decommission_server(self, srv: ServerInDB) -> None:
         """
         Execute Ansible Playbook `decommission.yaml`
         The playbook decomm the server with the requested
@@ -86,13 +102,18 @@ class AdminService:
         """
 
         job_ok = MyRunner(self.repo).launch_runner(
-            Playbook.server_decomm,
+            Playbook.SERVER_DECOMM,
             {
-                "hostname": hostname,
-                "ip": ip,
+                "hostname": srv.hostname,
+                "ip": srv.ip,
+                "user_id": srv.user_id,
             },
         )
 
         # don't delete any metadata, instead mark the compute units as
         # status = 'DECOMMISSIONED'
-        self.repo.mark_decommissioned(hostname, job_ok)
+
+        self.repo.server_update_status(
+            srv.hostname,
+            ServerStatus.DECOMMISSIONED if job_ok else ServerStatus.DECOMMISSION_FAIL,
+        )

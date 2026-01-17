@@ -1,5 +1,4 @@
 -- cockroachdb schema
-
 USE defaultdb;
 
 DROP DATABASE IF EXISTS kloigos;
@@ -8,18 +7,33 @@ CREATE DATABASE kloigos;
 
 USE kloigos;
 
-CREATE TABLE compute_units (
-    compute_id STRING NOT NULL,
-    cpu_count INT2 NOT NULL,
-    cpu_range STRING NOT NULL,
+CREATE TABLE servers (
     hostname STRING NOT NULL,
     ip STRING NOT NULL,
+    user_id STRING NOT NULL,
     region STRING NOT NULL,
     zone STRING NOT NULL,
-    status STRING NOT NULL,
+    STATUS STRING NOT NULL,
+    cpu_count int2 NULL,
+    mem_gb int2 NULL,
+    disk_count int2 NULL,
+    disk_size_gb int2 NULL,
+    tags JSONB NULL,
+    CONSTRAINT pk PRIMARY KEY (hostname)
+);
+
+CREATE TABLE compute_units (
+    hostname STRING NOT NULL,
+    cpu_range STRING NOT NULL,
+    cpu_count INT2 NOT NULL,
+    cpu_list STRING NOT NULL,
+    port_range STRING NOT NULL,
+    cu_user STRING NOT NULL,
+    STATUS STRING NOT NULL,
     started_at TIMESTAMPTZ NULL,
-    tags JSONB NOT NULL DEFAULT '{}':::JSONB,
-    CONSTRAINT pk PRIMARY KEY (compute_id ASC)
+    tags JSONB NULL,
+    CONSTRAINT pk PRIMARY KEY (hostname ASC, cpu_range ASC),
+    CONSTRAINT hostname_in_servers FOREIGN KEY (hostname) REFERENCES servers(hostname) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 CREATE TABLE playbooks (
@@ -31,8 +45,8 @@ CREATE TABLE playbooks (
 CREATE TABLE event_log (
     ts TIMESTAMPTZ NOT NULL,
     user_id STRING NOT NULL,
-    action STRING NOT NULL,
-    status STRING NULL,
+    ACTION STRING NOT NULL,
+    STATUS STRING NULL,
     details JSONB NULL,
-    CONSTRAINT pk PRIMARY KEY (ts ASC, user_id ASC, action ASC)
+    CONSTRAINT pk PRIMARY KEY (ts ASC, user_id ASC, ACTION ASC)
 );

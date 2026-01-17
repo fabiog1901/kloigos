@@ -1,12 +1,21 @@
 from abc import ABC, abstractmethod
 
-from ..models import ComputeUnitInDB, ComputeUnitRequest, InitServerRequest, Playbook
+from ..models import (
+    ComputeUnitInDB,
+    ComputeUnitOverview,
+    ComputeUnitStatus,
+    Playbook,
+    ServerInDB,
+    ServerInitRequest,
+    ServerStatus,
+)
 
 
 class BaseRepo(ABC):
 
+    # PLAYBOOK
     @abstractmethod
-    def get_playbook(self, playbook: Playbook) -> str:
+    def playbook_get_content(self, playbook: Playbook) -> str:
         """
         Returns the content of the given playbook as
         a b64 encoded string
@@ -19,54 +28,48 @@ class BaseRepo(ABC):
         pass
 
     @abstractmethod
-    def update_playbook(
+    def playbook_update_content(
         self,
         playbook: Playbook,
         b64: str,
     ) -> None:
         pass
 
+    # SERVER
     @abstractmethod
-    def insert_init_server(self, isr: InitServerRequest) -> None:
+    def server_init_new(self, sir: ServerInitRequest, status: ServerStatus) -> None:
         pass
+
+    @abstractmethod
+    def server_update_status(self, hostname: str, status: ServerStatus) -> None:
+        pass
+
+    @abstractmethod
+    def get_servers(hostname: str = None) -> list[ServerInDB]:
+        pass
+
 
     @abstractmethod
     def delete_server(self, hostname: str) -> None:
         pass
 
+    # COMPUTE UNIT
     @abstractmethod
-    def insert_new_cu(self, compute_id: str, cpu_count: int, x, isr: InitServerRequest):
+    def insert_new_compute_unit(self, cudb: ComputeUnitInDB):
         pass
 
     @abstractmethod
-    def delete_cu(self, hostname: str) -> None:
+    def update_compute_unit(
+        self,
+        hostname: str,
+        cpu_range: str,
+        status: ComputeUnitStatus,
+        tags: dict | None,
+    ) -> None:
         pass
 
     @abstractmethod
-    def init_fail(self, hostname: str) -> None:
-        pass
-
-    @abstractmethod
-    def mark_decommissioned(self, hostname: str, job_ok: bool) -> None:
-        pass
-
-    @abstractmethod
-    def cu_mark_allocated(self, req: ComputeUnitRequest, cu: ComputeUnitInDB) -> None:
-        pass
-
-    @abstractmethod
-    def cu_mark_deallocated(self, compute_id: str) -> None:
-        pass
-
-    @abstractmethod
-    def update_cu_status_alloc(self, cu: ComputeUnitInDB) -> None:
-        pass
-
-    def update_cu_status_dealloc(self, compute_id: str, job_ok: bool) -> None:
-        pass
-
-    @abstractmethod
-    def set_cu_status_alloc_fail(self, cu: ComputeUnitInDB) -> None:
+    def delete_compute_units(self, hostname: str) -> None:
         pass
 
     @abstractmethod
@@ -80,7 +83,7 @@ class BaseRepo(ABC):
         deployment_id: str | None = None,
         status: str | None = None,
         limit: int | None = None,
-    ) -> list[ComputeUnitInDB]:
+    ) -> list[ComputeUnitOverview]:
         pass
 
     @abstractmethod

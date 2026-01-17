@@ -8,7 +8,7 @@ import time
 import ansible_runner
 import yaml
 
-from kloigos.models import Playbook, PortRange
+from kloigos.models import Playbook
 from kloigos.repos.base import BaseRepo
 
 from . import BASE_PORT, MAX_CPUS_PER_SERVER, PORTS_PER_CPU
@@ -44,7 +44,14 @@ def audit_logger():
     return decorator
 
 
-def cpu_range_to_list_str(cpu_range: str):
+def to_cpu_set(cpu_range: str):
+    """
+    Returns the cpu set from cpu_range
+
+    Examples:
+      "0-3"   -> "0,1,2,3"
+      "0-7:2" -> "0,2,4,6"
+    """
     start, end, step = parse_cpu_range(cpu_range)
     return ",".join([str(x) for x in list(range(start, end + 1, step))])
 
@@ -52,6 +59,7 @@ def cpu_range_to_list_str(cpu_range: str):
 def parse_cpu_range(cpu_range: str) -> tuple[int, int, int]:
     """
     Parse start-end[:step] where step defaults to 1.
+
     Examples:
       "0-3"   -> (0, 3, 1)
       "0-7:2" -> (0, 7, 2)
@@ -82,13 +90,13 @@ def parse_cpu_range(cpu_range: str) -> tuple[int, int, int]:
 
 def ports_for_cpu_range(
     cpu_range: str,
-) -> PortRange:
+) -> str:
     """
     Returns the PortRange for the given cpu_range.
 
     Examples:
-      "0-3"   -> PortRange(1111, 3333)
-      "0-7:2" -> PortRange(45000, 45600)
+      "0-3"   -> "1111-3333"
+      "0-7:2" -> "45000-45600"
     """
     start, end, step = parse_cpu_range(cpu_range)
 
@@ -114,7 +122,7 @@ def ports_for_cpu_range(
             f"Choose a lower base_port, smaller ports_per_cpu, or reduce max units."
         )
 
-    return PortRange(start=port_start, end=port_end)
+    return f"{port_start}-{port_end}"
 
 
 class MyRunner:
@@ -192,7 +200,7 @@ class MyRunner:
         extra_vars: dict,
     ) -> bool:
 
-        rs = self.repo.get_playbook(playbook)
+        rs = self.repo.playbook_get_content(playbook)
 
         # Decode the base64 string back to original YAML
         pb: dict = yaml.safe_load(base64.b64decode(rs))
@@ -213,8 +221,9 @@ class MyRunner:
                 event_handler=self.my_event_handler,
                 status_handler=self.my_status_handler,
             )
+
         except Exception as e:
-            print(f"Error running playbook: {e}")
+            raise ValueError(f"Error running playbook: {e}")
 
         # rm -rf job-directory
         shutil.rmtree(f"/tmp/job-{job_id}", ignore_errors=True)

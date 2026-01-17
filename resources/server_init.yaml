@@ -5,9 +5,9 @@
 # The following extra-vars are passed:
 #   hostname
 #   ip
-#
+#   user_id 
 #   cpu_ranges
-#   cpu_ranges_list
+#   cpu_sets
 #   port_ranges
 #
 - name: GATHER NEW SERVER TO INIT
@@ -19,12 +19,11 @@
     - name: Build ansible inventory dynamically
       add_host:
         name: "{{ hostname }}"
-        ansible_user: ubuntu
+        ansible_user: "{{ user_id }}"
         public_hostname: "{{ hostname }}"
         ansible_host: "{{ ip }}"
         public_ip: "{{ ip }}"
         groups: init_server
-
 
 - name: INIT NEW SERVER
   hosts: init_server
@@ -87,7 +86,7 @@
     - name: create directory for delegate.conf
       shell: |
         mkdir -p /etc/systemd/system/user@.service.d
-        
+
     - name: write user service delegate.conf
       copy:
         content: |
@@ -96,7 +95,7 @@
           DelegateControllers=cpuset cpu io memory pids
 
         dest: /etc/systemd/system/user@.service.d/delegate.conf
-      
+
     - name: creating user slice and nft directories
       shell: |
         mkdir -p /etc/systemd/system/user-{{ item.stdout }}.slice.d
@@ -107,10 +106,10 @@
       copy:
         content: |
           [Slice]
-          # CPU pinning (cpuset)
+
+          # CPUSET PINNING
           AllowedCPUs={{ item.1 }}
 
-          # Keep services running after logout (set separately via loginctl enable-linger)
           # Resource controls (tune as needed)
           CPUAccounting=yes
           MemoryAccounting=yes
@@ -120,13 +119,31 @@
           TasksMax=2048
 
           # IOWeight=100
+
+          # TODO
           AllowedMemoryNodes=1
           MemoryNodes=1
           MemoryHigh=60G
           MemoryMax=64G
 
+          # BIND PORTS
+          # 
+          # SocketBindAllow/Deny is implemented using systemd’s BPF framework.
+          # If your systemd is not built with that support, 
+          # the settings will appear in `systemctl show ...`,
+          # but won’t be enforced. 
+          # This is a known real-world case (e.g., certain Debian builds).
+          # Quickly check support by executing `systemd --version` and
+          # look for +BPF / +BPF_FRAMEWORK in the feature list.
+          #
+          SocketBindDeny=any
+          SocketBindAllow=ipv4:tcp:{{ item.2 }}
+          SocketBindAllow=ipv4:udp:{{ item.2 }}
+          SocketBindAllow=ipv6:tcp:{{ item.2 }}
+          SocketBindAllow=ipv6:udp:{{ item.2 }}
+
         dest: /etc/systemd/system/user-{{ item.0.stdout }}.slice.d/50-kloigos.conf
-      loop: "{{ user_ids.results | zip(cpu_ranges_list) | list }}"
+      loop: "{{ user_ids.results | zip(cpu_sets, port_ranges) | list }}"
 
     - name: restart logind
       shell: |
@@ -151,43 +168,3 @@
         # maybe_setup_dir_quota "11007" "home_u4_7" "$HOME2" "/home"
         # maybe_setup_dir_quota "21003" "opt_c0_3"  "$OPT1"  "/opt"
         # maybe_setup_dir_quota "21007" "opt_c4_7"  "$OPT2"  "/opt"
-
-    - name: setup nft tables to assign ports to each user
-      copy:
-        content: |
-          table inet kloigos {
-              chain output {
-                  type filter hook output priority 0;
-                  
-                  # Always allow loopback
-                  oifname "lo" accept
-          
-                  # Allow already-established connections
-                  ct state established,related accept
-          
-                  # Allow ICMP (ping, PMTU, etc.)
-                  ip protocol icmp accept
-                  ip6 nexthdr icmpv6 accept
-          
-                  # Allow all users to connect to privileged destination ports
-                  tcp dport 0-1024 accept
-                  udp dport 0-1024 accept
-
-                  {% for item in user_ids.results | zip(port_ranges) | list -%}
-                  # Allow {{ item.0.stdout }} only {{ item.1 }}
-                  meta skuid {{ item.0.stdout }} tcp dport {{ item.1 }} accept
-                  meta skuid {{ item.0.stdout }} udp dport {{ item.1 }} accept
-                  meta skuid {{ item.0.stdout }} drop
-                  
-                  {% endfor %}
-              }
-          }
-        dest: /etc/nftables.d/kloigos.nft
-
-    - name: add kloigos.nft to nft config file for inclusion
-      shell: |
-        grep -F 'include "/etc/nftables.d/*.nft"' /etc/nftables.conf || echo 'include "/etc/nftables.d/*.nft"' >> /etc/nftables.conf
-
-    - name: apply nft tables
-      shell: |
-        nft -f /etc/nftables.conf
