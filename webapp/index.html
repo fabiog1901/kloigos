@@ -284,8 +284,8 @@
       <pre class="inspector-pre" x-text="inspectorText()"></pre>
     </section> -->
 
-    
-    
+
+
     <!-- Server Details Modal -->
     <div class="modal-backdrop" x-show="modal.serverDetails.open" x-transition
       @keydown.escape.window="closeServerDetails()">
@@ -313,7 +313,7 @@
     </div>
 
 
-<!-- SERVERS VIEW -->
+    <!-- SERVERS VIEW -->
     <main class="layout" x-show="view === 'servers'">
       <aside class="sidebar">
         <div>
@@ -321,7 +321,6 @@
           <div class="metric">
             <div class="metric-label">Total Servers</div>
             <div class="metric-value" x-text="servers.length"></div>
-            <div class="metric-sub">Inventory from /api/admin/servers</div>
           </div>
         </div>
 
@@ -383,7 +382,9 @@
                 <template x-for="s in serversVisibleRows" :key="s.hostname">
                   <tr>
                     <td>
-                      <span class="ip-pill clickable" tabindex="0" role="button" title="View server details" @click="openServerDetails(s)" @keydown.enter.prevent="openServerDetails(s)" @keydown.space.prevent="openServerDetails(s)" x-text="s.hostname"></span>
+                      <span class="ip-pill clickable" tabindex="0" role="button" title="View server details"
+                        @click="openServerDetails(s)" @keydown.enter.prevent="openServerDetails(s)"
+                        @keydown.space.prevent="openServerDetails(s)" x-text="s.hostname"></span>
                     </td>
                     <td><span x-text="s.ip || '-'"></span></td>
                     <td><span x-text="s.user_id || '-'"></span></td>
@@ -452,10 +453,6 @@
           </div>
         </div>
 
-        <div class="footer">
-          <span>Rendered at (UTC) <span x-text="renderedAtUtc"></span></span>
-          <span>Κλοηγός servers</span>
-        </div>
       </section>
     </main>
 
@@ -464,7 +461,8 @@
       @keydown.escape.window="closeServerActionConfirm()">
       <div class="modal" @click.outside="closeServerActionConfirm()">
         <div class="modal-header">
-          <h3 class="modal-title" x-text="modal.serverActionConfirm.action === 'delete' ? 'Confirm Delete' : 'Confirm Decommission'"></h3>
+          <h3 class="modal-title"
+            x-text="modal.serverActionConfirm.action === 'delete' ? 'Confirm Delete' : 'Confirm Decommission'"></h3>
           <button class="btn" style="padding:7px 12px;" @click="closeServerActionConfirm()">CLOSE</button>
         </div>
 
@@ -472,12 +470,14 @@
           <div style="color: var(--muted); font-size: 13px; line-height: 1.5;">
             <template x-if="modal.serverActionConfirm.action === 'decommission'">
               <div>
-                This will start decommissioning for <span class="ip-pill" x-text="modal.serverActionConfirm.hostname"></span>.
+                This will start decommissioning for <span class="ip-pill"
+                  x-text="modal.serverActionConfirm.hostname"></span>.
               </div>
             </template>
             <template x-if="modal.serverActionConfirm.action === 'delete'">
               <div>
-                This will permanently delete the server record for <span class="ip-pill" x-text="modal.serverActionConfirm.hostname"></span>.
+                This will permanently delete the server record for <span class="ip-pill"
+                  x-text="modal.serverActionConfirm.hostname"></span>.
               </div>
             </template>
           </div>
@@ -486,10 +486,12 @@
             <div class="metric-label">Request</div>
             <div>
               <template x-if="modal.serverActionConfirm.action === 'decommission'">
-                <span class="ip-pill">PUT /api/admin/servers/<span x-text="modal.serverActionConfirm.hostname"></span></span>
+                <span class="ip-pill">PUT /api/admin/servers/<span
+                    x-text="modal.serverActionConfirm.hostname"></span></span>
               </template>
               <template x-if="modal.serverActionConfirm.action === 'delete'">
-                <span class="ip-pill">DELETE /api/admin/servers/<span x-text="modal.serverActionConfirm.hostname"></span></span>
+                <span class="ip-pill">DELETE /api/admin/servers/<span
+                    x-text="modal.serverActionConfirm.hostname"></span></span>
               </template>
             </div>
           </div>
@@ -499,7 +501,8 @@
           <button class="btn" @click="closeServerActionConfirm()">CANCEL</button>
           <button class="btn" :class="modal.serverActionConfirm.action === 'delete' ? 'btn-danger' : 'btn-warn'"
             :disabled="serversLoading.action" @click="confirmServerAction()">
-            <span x-show="!serversLoading.action" x-text="modal.serverActionConfirm.action === 'delete' ? 'YES, DELETE' : 'YES, DECOMMISSION'"></span>
+            <span x-show="!serversLoading.action"
+              x-text="modal.serverActionConfirm.action === 'delete' ? 'YES, DELETE' : 'YES, DECOMMISSION'"></span>
             <span x-show="serversLoading.action">WORKING…</span>
           </button>
         </div>
@@ -507,7 +510,7 @@
     </div>
 
 
-<!-- PLAYBOOKS VIEW -->
+    <!-- PLAYBOOKS VIEW -->
     <main class="layout" x-show="view === 'playbooks'">
       <aside class="sidebar">
         <div>
@@ -583,6 +586,10 @@
         <div class="modal-body">
           <div class="form-grid">
             <div class="form-row">
+              <div class="label">deployment id</div>
+              <input class="input" x-model="modal.allocate.deployment_id" placeholder="web_app_v1" />
+            </div>
+            <div class="form-row">
               <div class="label">cpu_count (optional)</div>
               <input class="input" type="number" min="1" x-model.number="modal.allocate.cpu_count"
                 placeholder="cpu number" />
@@ -608,7 +615,7 @@
             <div class="form-row" style="grid-column: 1 / -1;">
               <div class="label">tags (required, JSON object)</div>
               <textarea class="textarea" x-model="modal.allocate.tagsText" spellcheck="false"
-                placeholder='{"deployment_id":"web_app_v1","owner":"fabio","roles":["db","worker"]}'></textarea>
+                placeholder='{"owner":"fabio","roles":["db","worker"]}'></textarea>
             </div>
           </div>
         </div>
@@ -653,11 +660,38 @@
               <div class="label">zone</div>
               <input class="input" x-model="modal.init.zone" placeholder="us-east-1a" />
             </div>
+
             <div class="form-row" style="grid-column: 1 / -1;">
-              <div class="label">cpu_ranges (JSON array of strings)</div>
-              <textarea class="textarea" x-model="modal.init.cpuRangesText" spellcheck="false"
-                placeholder='["0-3","4-7"]'></textarea>
+              <div class="label">cpu ranges builder (server cpu count / compute unit cpus)</div>
+              <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                <input class="input" type="number" min="0" x-model.number="modal.init.cpuEnd"
+                  @input="recomputeInitCpuRanges()" placeholder="total server cpus (e.g. 15)" />
+                <input class="input" type="number" min="1" x-model.number="modal.init.cpuStep"
+                  @input="recomputeInitCpuRanges()" placeholder="cpu per compute unit" />
+              </div>
+              <div style="margin-top:8px; color: var(--muted); font-size: 12px;">
+                Produces an array of ranges like <span class="ip-pill">["0-3","4-7"]</span> and an expanded CPU set.
+              </div>
+              <div x-show="modal.init.cpuRangesError" style="margin-top:6px; color: var(--danger); font-size: 12px;"
+                x-text="modal.init.cpuRangesError"></div>
             </div>
+
+            <div class="form-row" style="grid-column: 1 / -1;">
+              <div class="label">computed cpu_ranges</div>
+              <pre class="inspector-pre" style="max-height: 140px; white-space: pre-wrap;"
+                x-text="modal.init.cpuRangesPreview || '-'"></pre>
+            </div>
+
+            <details class="form-row" style="grid-column: 1 / -1;">
+              <summary style="cursor:pointer; color: var(--muted); font-size: 12px; user-select:none;">
+                Advanced: edit cpu_ranges JSON directly
+              </summary>
+              <div style="margin-top:8px;">
+                <textarea class="textarea" x-model="modal.init.cpuRangesText" spellcheck="false"
+                  @input="recomputeInitCpuRanges(true)" placeholder='["0-3","4-7"]'></textarea>
+              </div>
+            </details>
+
           </div>
         </div>
 

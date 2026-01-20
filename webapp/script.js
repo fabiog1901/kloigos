@@ -17,7 +17,7 @@ window.app = function () {
     serversSortDir: "asc",
     serversSortTypeByIndex: {
       0: "string", // hostname
-      1: "ip",     // ip
+      1: "ip", // ip
       2: "string", // user_id
       3: "string", // region
       4: "string", // zone
@@ -26,7 +26,7 @@ window.app = function () {
       7: "number", // disk_count
       8: "number", // disk_size_gb
       9: "string", // tags
-      10: "string" // status
+      10: "string", // status
     },
     serversLoading: { list: false, action: false },
     serversAutoRefreshEnabled: true,
@@ -72,7 +72,7 @@ window.app = function () {
     modal: {
       allocate: {
         open: false,
-        cpu_count: 4,
+        cpu_count: null,
         region: "",
         zone: "",
         compute_id: "",
@@ -90,7 +90,11 @@ window.app = function () {
       decommission: { open: false, hostname: "" },
       deallocateConfirm: { open: false, compute_id: "", hostname: "" },
       computeDetails: { open: false, row: null },
-      serverActionConfirm: { open: false, hostname: "", action: "decommission" },
+      serverActionConfirm: {
+        open: false,
+        hostname: "",
+        action: "decommission",
+      },
       serverDetails: { open: false, row: null },
     },
 
@@ -139,10 +143,12 @@ window.app = function () {
       if (sDir === "desc") this.sortDir = "desc";
       if (sFilter !== null) this.filterQuery = sFilter;
       if (ssFilter !== null) this.serversFilterQuery = ssFilter;
-      if (ssIdx !== null && !Number.isNaN(+ssIdx)) this.serversSortIndex = +ssIdx;
+      if (ssIdx !== null && !Number.isNaN(+ssIdx))
+        this.serversSortIndex = +ssIdx;
       if (ssDir === "desc") this.serversSortDir = "desc";
       if (sFmt === "json" || sFmt === "yaml") this.inspectorFormat = sFmt;
-      if (sView === "dashboard" || sView === "playbooks" || sView === "servers") this.view = sView;
+      if (sView === "dashboard" || sView === "playbooks" || sView === "servers")
+        this.view = sView;
 
       this.renderedAtUtc = this.utcNowString();
 
@@ -214,7 +220,6 @@ window.app = function () {
       return data;
     },
 
-
     // ---------- Servers lifecycle ----------
     async ensureServersView() {
       if (this.servers.length === 0 && !this.serversLoading.list)
@@ -229,15 +234,7 @@ window.app = function () {
               .map(([k, v]) => `${k}:${Array.isArray(v) ? v.join(",") : v}`)
               .join(" ")
           : "";
-      return [
-        s.hostname,
-        s.ip,
-        s.user_id,
-        s.region,
-        s.zone,
-        s.status,
-        tags,
-      ]
+      return [s.hostname, s.ip, s.user_id, s.region, s.zone, s.status, tags]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -305,7 +302,7 @@ window.app = function () {
 
       localStorage.setItem(
         "kloigos_servers_sort_index",
-        String(this.serversSortIndex)
+        String(this.serversSortIndex),
       );
       localStorage.setItem("kloigos_servers_sort_dir", this.serversSortDir);
       this.applyServersFilterSort();
@@ -367,13 +364,19 @@ window.app = function () {
       this.serversLoading.action = true;
       try {
         if (action === "delete") {
-          await this.apiFetch(`/admin/servers/${encodeURIComponent(hostname)}`, {
-            method: "DELETE",
-          });
+          await this.apiFetch(
+            `/admin/servers/${encodeURIComponent(hostname)}`,
+            {
+              method: "DELETE",
+            },
+          );
         } else {
-          await this.apiFetch(`/admin/servers/${encodeURIComponent(hostname)}`, {
-            method: "PUT",
-          });
+          await this.apiFetch(
+            `/admin/servers/${encodeURIComponent(hostname)}`,
+            {
+              method: "PUT",
+            },
+          );
         }
         this.closeServerActionConfirm();
         await this.refreshServers();
@@ -382,11 +385,12 @@ window.app = function () {
       }
     },
 
-
     // ---------- Dashboard lifecycle ----------
     async ensureDashboardView() {
       if (this.computeUnits.length === 0 && !this.loading.list)
         await this.refreshDashboard();
+      if (typeof this.refreshServers === "function")
+        await this.refreshServers();
       else this.applyFilterSort();
     },
 
@@ -395,7 +399,10 @@ window.app = function () {
     },
 
     persistServersFilter() {
-      localStorage.setItem("kloigos_servers_filter", this.serversFilterQuery || "");
+      localStorage.setItem(
+        "kloigos_servers_filter",
+        this.serversFilterQuery || "",
+      );
     },
     persistInspectorFormat() {
       localStorage.setItem("kloigos_inspector_format", this.inspectorFormat);
@@ -434,7 +441,7 @@ window.app = function () {
       const tags =
         row.tags && typeof row.tags === "object"
           ? Object.entries(row.tags).map(
-              ([k, v]) => `${k}:${Array.isArray(v) ? v.join(",") : v}`
+              ([k, v]) => `${k}:${Array.isArray(v) ? v.join(",") : v}`,
             )
           : [];
       return parts.concat(tags).filter(Boolean).join(" ").toLowerCase();
@@ -538,7 +545,7 @@ window.app = function () {
       const t = row.tags;
       if (!t || typeof t !== "object") return [];
       return Object.entries(t).filter(
-        ([k, _]) => !["deployment_id", "owner"].includes(k)
+        ([k, _]) => !["deployment_id", "owner"].includes(k),
       );
     },
 
@@ -596,7 +603,7 @@ window.app = function () {
               if (isObj(item) || Array.isArray(item)) {
                 return `${indent(depth)}- ${render(
                   item,
-                  depth + 1
+                  depth + 1,
                 ).trimStart()}`;
               }
               return `${indent(depth)}- ${scalar(item)}`;
@@ -638,16 +645,22 @@ window.app = function () {
       this.loading.allocate = true;
       try {
         const tags = JSON.parse(
-          (this.modal.allocate.tagsText || "{}").trim() || "{}"
+          (this.modal.allocate.tagsText || "{}").trim() || "{}",
         );
+
         const payload = {
-          cpu_count: this.modal.allocate.cpu_count ?? 0,
+          cpu_count: this.modal.allocate.cpu_count ?? null,
           region: this.modal.allocate.region || null,
           zone: this.modal.allocate.zone || null,
           compute_id: (this.modal.allocate.compute_id || "").trim() || null,
           tags,
           ssh_public_key: (this.modal.allocate.ssh_public_key || "").trim(),
         };
+
+        const deployment_id = (this.modal.allocate.deployment_id || "").trim();
+        if (deployment_id)
+          payload.tags = { ...(payload.tags || {}), deployment_id };
+
         if (!payload.ssh_public_key)
           throw new Error("ssh_public_key is required.");
         if (tags === null || typeof tags !== "object" || Array.isArray(tags))
@@ -662,21 +675,105 @@ window.app = function () {
         this.loading.allocate = false;
         this.closeAllocateModal();
         await this.refreshDashboard();
+        if (typeof this.refreshServers === "function")
+          await this.refreshServers();
       }
     },
 
     openInitModal() {
+      // Keep any existing values, but ensure step has a sane default.
+      if (this.modal.init.cpuStep == null || this.modal.init.cpuStep <= 0)
+        this.modal.init.cpuStep = null;
+
       this.modal.init.open = true;
+      this.recomputeInitCpuRanges();
     },
     closeInitModal() {
       this.modal.init.open = false;
+      this.modal.init.ip = "";
+      this.modal.init.hostname = "";
+      this.modal.init.user_id = "ubuntu";
+      this.modal.init.region = "";
+      this.modal.init.zone = "";
+      this.modal.init.deployment_id = "";
+      this.modal.init.cpuStart = 0;
+      this.modal.init.cpuEnd = 0;
+      this.modal.init.cpuStep = 0;
+      this.modal.init.cpuRangesText = "";
+      this.modal.init.cpuRangesPreview = "";
+      this.modal.init.cpuSetPreview = "";
+      this.modal.init.cpuRangesError = "";
+    },
+
+    recomputeInitCpuRanges(fromTextarea = false) {
+      // If fromTextarea=true, parse cpuRangesText and just update previews.
+      // Otherwise compute ranges from start/end/step and update cpuRangesText + previews.
+      try {
+        this.modal.init.cpuRangesError = "";
+
+        let cpu_ranges = [];
+        let cpu_set = [];
+
+        if (fromTextarea) {
+          const parsed = JSON.parse(
+            (this.modal.init.cpuRangesText || "[]").trim() || "[]",
+          );
+          if (
+            !Array.isArray(parsed) ||
+            parsed.some((x) => typeof x !== "string")
+          )
+            throw new Error("cpu_ranges must be a JSON array of strings.");
+          cpu_ranges = parsed;
+        } else {
+          const start = 0;
+          const end = Number(this.modal.init.cpuEnd) - 1;
+          const step = Number(this.modal.init.cpuStep);
+
+          if (!Number.isInteger(end) || end < 0)
+            throw new Error("end must be a non-negative integer.");
+          if (!Number.isInteger(step) || step <= 0)
+            throw new Error("step must be a positive integer.");
+          if (end < start) throw new Error("end must be >= start.");
+
+          // Build chunks: [start..min(start+step-1,end)], then advance by step.
+          for (let cur = start; cur <= end; cur += step) {
+            const chunkEnd = Math.min(cur + step - 1, end);
+            cpu_ranges.push(`${cur}-${chunkEnd}`);
+          }
+
+          // Keep JSON textarea in sync for transparency / copy-paste.
+          this.modal.init.cpuRangesText = JSON.stringify(cpu_ranges);
+        }
+
+        // Expand to a CPU set preview (best-effort)
+        for (const r of cpu_ranges) {
+          const m = String(r).match(/^\s*(\d+)\s*-\s*(\d+)\s*$/);
+          if (!m) continue;
+          const a = Number(m[1]);
+          const b = Number(m[2]);
+          if (!Number.isInteger(a) || !Number.isInteger(b) || b < a) continue;
+          for (let i = a; i <= b; i++) cpu_set.push(i);
+        }
+
+        // De-dup + sort
+        cpu_set = Array.from(new Set(cpu_set)).sort((a, b) => a - b);
+
+        this.modal.init.cpuRangesPreview = JSON.stringify(cpu_ranges, null, 2);
+        this.modal.init.cpuSetPreview = cpu_set.length
+          ? `${cpu_set.join(", ")}\n(count: ${cpu_set.length})`
+          : "-";
+      } catch (e) {
+        this.modal.init.cpuRangesPreview = "";
+        this.modal.init.cpuSetPreview = "";
+        this.modal.init.cpuRangesError = e.message || String(e);
+      }
     },
 
     async initServer() {
       this.loading.init = true;
       try {
         const cpu_ranges = JSON.parse(
-          (this.modal.init.cpuRangesText || "[]").trim() || "[]"
+          (this.modal.init.cpuRangesText || "[]").trim() || "[]",
         );
         if (
           !Array.isArray(cpu_ranges) ||
@@ -697,12 +794,14 @@ window.app = function () {
             throw new Error(`${k} is required.`);
         }
 
-        await this.apiFetch("/admin/servers", {
+        await this.apiFetch("/admin/servers/", {
           method: "POST",
           body: payload,
         });
         this.closeInitModal();
         await this.refreshDashboard();
+        if (typeof this.refreshServers === "function")
+          await this.refreshServers();
       } finally {
         this.loading.init = false;
       }
@@ -720,12 +819,13 @@ window.app = function () {
       try {
         const hostname = (this.modal.decommission.hostname || "").trim();
         if (!hostname) throw new Error("hostname is required.");
-        await this.apiFetch(
-          `/admin/servers/${encodeURIComponent(hostname)}`,
-          { method: "PUT" }
-        );
+        await this.apiFetch(`/admin/servers/${encodeURIComponent(hostname)}`, {
+          method: "PUT",
+        });
         this.closeDecommissionModal();
         await this.refreshDashboard();
+        if (typeof this.refreshServers === "function")
+          await this.refreshServers();
       } finally {
         this.loading.decommission = false;
       }
@@ -759,7 +859,6 @@ window.app = function () {
       this.modal.serverDetails.row = null;
     },
 
-
     async confirmDeallocate() {
       const computeId = this.modal.deallocateConfirm.compute_id;
       this.loading.deallocateConfirm = true;
@@ -767,10 +866,12 @@ window.app = function () {
       try {
         await this.apiFetch(
           `/compute_units/deallocate/${encodeURIComponent(computeId)}`,
-          { method: "DELETE" }
+          { method: "DELETE" },
         );
         this.closeDeallocateConfirm();
         await this.refreshDashboard();
+        if (typeof this.refreshServers === "function")
+          await this.refreshServers();
       } finally {
         this.loading.deallocateConfirm = false;
         this.busyKey = null;
@@ -851,7 +952,7 @@ window.app = function () {
       try {
         const payload = await this.apiFetch(
           `/admin/playbooks/${encodeURIComponent(name)}`,
-          { method: "GET" }
+          { method: "GET" },
         );
 
         let text = "";
@@ -889,7 +990,7 @@ window.app = function () {
     // Decode (Base64 → String)
     b64decode(b64) {
       return new TextDecoder().decode(
-        Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+        Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)),
       );
     },
 
@@ -911,7 +1012,7 @@ window.app = function () {
           {
             method: "PATCH",
             body: this.b64encode(this._ace.getValue()),
-          }
+          },
         );
 
         this.pbToast = {
