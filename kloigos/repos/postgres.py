@@ -117,7 +117,7 @@ class PostgresRepo(BaseRepo):
 
     def get_servers(
         self,
-        hostname: str = None,
+        hostname: str | None = None,
     ) -> list[ServerInDB]:
 
         # Prepare the WHERE clause
@@ -137,7 +137,7 @@ class PostgresRepo(BaseRepo):
             cur = conn.cursor(row_factory=class_row(ServerInDB))
             return cur.execute(sql, params).fetchall()
 
-    def delete_server(self, hostname: str) -> ServerInDB:
+    def delete_server(self, hostname: str) -> None:
         with self.pool.connection() as conn:
             cur = conn.cursor()
             cur.execute(
@@ -159,7 +159,7 @@ class PostgresRepo(BaseRepo):
                 """
                 UPSERT INTO compute_units (
                     hostname, cpu_range, cpu_count, 
-                    cpu_list, port_range, cu_user,
+                    cpu_set, port_range, cu_user,
                     status, started_at, tags
                 ) 
                 VALUES (
@@ -172,7 +172,7 @@ class PostgresRepo(BaseRepo):
                     cudb.hostname,
                     cudb.cpu_range,
                     cudb.cpu_count,
-                    cudb.cpu_list,
+                    cudb.cpu_set,
                     cudb.port_range,
                     cudb.cu_user,
                     cudb.status,
@@ -183,10 +183,9 @@ class PostgresRepo(BaseRepo):
 
     def update_compute_unit(
         self,
-        hostname: str,
-        cpu_range: str,
+        compute_unit: str,
         status: ComputeUnitStatus | None,
-        tags: dict | None,
+        tags: dict | None = None,
     ) -> None:
         # mark the compute_unit to allocating
         with self.pool.connection() as conn:
@@ -197,13 +196,12 @@ class PostgresRepo(BaseRepo):
                 SET 
                     status = coalesce(%s, status),
                     tags = coalesce(%s, tags)
-                WHERE (hostname, cpu_range) = (%s, %s)
+                WHERE compute_id = %s
                 """,
                 (
                     status,
                     json.dumps(tags),
-                    hostname,
-                    cpu_range,
+                    compute_unit,
                 ),
             )
 
@@ -236,9 +234,8 @@ class PostgresRepo(BaseRepo):
         params = []
 
         if compute_id is not None:
-            hostname, cpu_range = compute_id.split("_")
-            conditions.append("(c.hostname, c.cpu_range) = (%s, %s)")
-            params.append(hostname, cpu_range)
+            conditions.append("c.compute_id = %s")
+            params.append(compute_id)
 
         if hostname is not None:
             conditions.append("s.hostname = %s")
@@ -265,12 +262,13 @@ class PostgresRepo(BaseRepo):
             params.append(status)
 
         sql = """
-            SELECT c.hostname,
+            SELECT c.compute_id,
+                c.hostname,
                 c.cpu_range,
                 s.ip,
                 s.region,
                 s.zone,
-                c.cpu_list,
+                c.cpu_set,
                 c.port_range,
                 c.cu_user,
                 c.cpu_count,

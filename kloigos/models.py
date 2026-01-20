@@ -54,11 +54,12 @@ class ServerStatus(AutoNameStrEnum):
 
 
 class ComputeUnitInDB(BaseModel):
+    compute_id: str
     hostname: str
     cpu_range: str
     cpu_count: int
-    cpu_list: str
-    port_range: str  # | None = None
+    cpu_set: str
+    port_range: str
     cu_user: str
     status: str
     started_at: dt.datetime | None = None
@@ -73,7 +74,7 @@ class ComputeUnitOverview(ComputeUnitInDB):
 
 class ComputeUnitRequest(BaseModel):
     compute_id: str | None = None
-    cpu_count: int | None = 4
+    cpu_count: int | None = None
     region: str | None = None
     zone: str | None = None
     tags: dict[str, str | int | list[str]] | None

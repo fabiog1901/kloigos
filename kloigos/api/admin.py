@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Response, status
 
 from ..dep import get_admin_service
-from ..models import DeferredTask, Playbook, ServerInitRequest, ServerInDB
+from ..models import DeferredTask, Playbook, ServerInDB, ServerInitRequest
 from ..services.admin import AdminService
 
 router = APIRouter(
@@ -38,7 +38,7 @@ async def get_playbook(
     "/servers/",
 )
 async def list_servers(
-    hostname: str = None,
+    hostname: str | None = None,
     service: AdminService = Depends(get_admin_service),
 ) -> list[ServerInDB]:
 

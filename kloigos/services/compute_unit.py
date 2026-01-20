@@ -1,5 +1,4 @@
 from kloigos.models import (
-    ComputeUnitInDB,
     ComputeUnitOverview,
     ComputeUnitRequest,
     ComputeUnitStatus,
@@ -17,7 +16,7 @@ class ComputeUnitService:
         self.repo = repo
 
     @audit_logger()
-    def allocate(self, req: ComputeUnitRequest) -> tuple[str, str, list[DeferredTask]]:
+    def allocate(self, req: ComputeUnitRequest) -> tuple[str, list[DeferredTask]]:
         """
         Allocate a compute unit.
 
@@ -27,7 +26,7 @@ class ComputeUnitService:
             NoFreeComputeUnitError: if no matching compute unit is available
         """
         # find and return a free instance that matches the allocate request
-        cu_list: list[ComputeUnitInDB] = self.repo.get_compute_units(
+        cu_list: list[ComputeUnitOverview] = self.repo.get_compute_units(
             compute_id=req.compute_id,
             region=req.region,
             zone=req.zone,
@@ -43,9 +42,7 @@ class ComputeUnitService:
             raise NoFreeComputeUnitError()
 
         # mark the compute_unit to allocating
-        self.repo.update_compute_unit(
-            cu.hostname, cu.cpu_range, ComputeUnitStatus.ALLOCATING
-        )
+        self.repo.update_compute_unit(cu.compute_id, ComputeUnitStatus.ALLOCATING)
 
         # async, run the cleanup task
         tasks = [
@@ -59,7 +56,7 @@ class ComputeUnitService:
             )
         ]
 
-        return cu.hostname, cu.cpu_range, tasks
+        return cu.compute_id, tasks
 
     @audit_logger()
     def deallocate(
@@ -71,16 +68,14 @@ class ComputeUnitService:
 
         cu = self.repo.get_compute_units(compute_id=compute_id)[0]
 
-        self.repo.update_compute_unit(
-            cu.hostname, cu.cpu_range, ComputeUnitStatus.DEALLOCATING
-        )
+        self.repo.update_compute_unit(cu.compute_id, ComputeUnitStatus.DEALLOCATING)
 
         # async, run the cleanup task
         tasks = [DeferredTask(fn=self._run_deallocate, args=(cu,), kwargs={})]
 
         return tasks
 
-    def list_server(
+    def list_compute_units(
         self,
         compute_id: str | None = None,
         hostname: str | None = None,
@@ -101,12 +96,12 @@ class ComputeUnitService:
             status,
         )
 
-    def _run_allocate(self, cu: ComputeUnitOverview, ssh_public_key: str) -> bool:
+    def _run_allocate(self, cu: ComputeUnitOverview, ssh_public_key: str) -> None:
 
         job_ok = MyRunner(self.repo).launch_runner(
             Playbook.CU_ALLOCATE,
             {
-                "compute_id": f"{cu.hostname}_{cu.cpu_range}",
+                "compute_id": cu.compute_id,
                 "hostname": cu.hostname,
                 "ip": cu.ip,
                 "cpu_range": cu.cpu_range,
@@ -117,8 +112,7 @@ class ComputeUnitService:
         )
 
         self.repo.update_compute_unit(
-            cu.hostname,
-            cu.cpu_range,
+            cu.compute_id,
             (
                 ComputeUnitStatus.ALLOCATED
                 if job_ok
@@ -131,7 +125,7 @@ class ComputeUnitService:
         job_ok = MyRunner(self.repo).launch_runner(
             Playbook.CU_DEALLOCATE,
             {
-                "compute_id": f"{cu.hostname}_{cu.cpu_range}",
+                "compute_id": cu.compute_id,
                 "hostname": cu.hostname,
                 "ip": cu.ip,
                 "cu_user": cu.cu_user,
@@ -139,7 +133,6 @@ class ComputeUnitService:
         )
 
         self.repo.update_compute_unit(
-            cu.hostname,
-            cu.cpu_range,
+            cu.compute_id,
             ComputeUnitStatus.FREE if job_ok else ComputeUnitStatus.DEALLOCATION_FAIL,
         )

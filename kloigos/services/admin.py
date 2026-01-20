@@ -32,7 +32,7 @@ class AdminService:
 
     def list_servers(
         self,
-        hostname: str = None,
+        hostname: str | None = None,
     ) -> list[ServerInDB]:
 
         return self.repo.get_servers(hostname)
@@ -79,10 +79,11 @@ class AdminService:
             for x in sir.cpu_ranges:
                 self.repo.insert_new_compute_unit(
                     ComputeUnitInDB(
+                        compute_id="",  # not used
                         hostname=sir.hostname,
                         cpu_range=x,
                         cpu_count=len(to_cpu_set(x).split(",")),
-                        cpu_list=to_cpu_set(x),
+                        cpu_set=to_cpu_set(x),
                         port_range=ports_for_cpu_range(x),
                         cu_user=f"c{x.replace(':', '-')}",
                         status=ComputeUnitStatus.FREE,

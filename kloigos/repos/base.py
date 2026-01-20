@@ -45,9 +45,8 @@ class BaseRepo(ABC):
         pass
 
     @abstractmethod
-    def get_servers(hostname: str = None) -> list[ServerInDB]:
+    def get_servers(self, hostname: str | None) -> list[ServerInDB]:
         pass
-
 
     @abstractmethod
     def delete_server(self, hostname: str) -> None:
@@ -61,10 +60,9 @@ class BaseRepo(ABC):
     @abstractmethod
     def update_compute_unit(
         self,
-        hostname: str,
-        cpu_range: str,
+        compute_id: str,
         status: ComputeUnitStatus,
-        tags: dict | None,
+        tags: dict | None = None,
     ) -> None:
         pass
 

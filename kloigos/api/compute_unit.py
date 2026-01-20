@@ -80,7 +80,7 @@ async def list_compute_units(
     - /servers?status=free
     """
 
-    return service.list_server(
+    return service.list_compute_units(
         compute_id,
         hostname,
         region,
