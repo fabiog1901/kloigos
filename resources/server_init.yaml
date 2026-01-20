@@ -191,7 +191,16 @@
         # maybe_setup_dir_quota "21003" "opt_c0_3"  "$OPT1"  "/opt"
         # maybe_setup_dir_quota "21007" "opt_c4_7"  "$OPT2"  "/opt"
 
-    - name: create kloigos-apt
+    - name: Set pkgmgr using a lookup map
+      set_fact:
+        pkgmgr: "{{ os_to_pkg_map[ansible_os_family | lower ] }}"
+      vars:
+        os_to_pkg_map:
+          redhat: "dnf"
+          debian: "apt"
+          suse: "zypper"
+      
+    - name: create kloigos-[pkgmgr] script
       copy:
         content: |
           #!/bin/bash
@@ -201,20 +210,21 @@
             install|remove|purge|update)
               ;;
             *)
-              echo "Unsupported apt action"
+              echo "Unsupported {{ pkgmgr }} action"
               exit 1
               ;;
           esac
 
-          exec /usr/bin/apt "$@"
-        dest: /usr/local/bin/kloigos-apt
+          exec /usr/bin/{{ pkgmgr }} "$@"
+        dest: /usr/local/bin/kloigos-{{ pkgmgr }} 
 
-    - name: set kloigos-apt permissions and ownership
+    - name: set kloigos-[pkgmgr] permissions and ownership
       shell: |
-        chown root:root /usr/local/bin/kloigos-apt
-        chmod 0755 /usr/local/bin/kloigos-apt
+        chown root:root /usr/local/bin/kloigos-{{ pkgmgr }} 
+        chmod 0755 /usr/local/bin/kloigos-{{ pkgmgr }}
 
     - name: make source repos files immutable
+      when: ansible_os_family | lower == "debian"
       shell: |
         # Let’s break down exactly what your command does and why it matters.
         # The command marks:
@@ -227,6 +237,11 @@
         # Even root cannot modify it until the flag is removed.
 
         chattr +i /etc/apt/sources.list  #/etc/apt/sources.list.d/*.list
+    
+    - name: make source repos files immutable
+      when: ansible_os_family | lower == "redhat"
+      shell: |
+        chattr +i /etc/yum.repos.d/*.repo
 
     - name: create sudoers directory
       shell: |
@@ -235,7 +250,7 @@
     - name: create sudoers files to run kloigos-apt
       copy:
         content: |
-          c{{ item }} ALL=(root) NOPASSWD: /usr/local/bin/kloigos-apt
+          c{{ item }} ALL=(root) NOPASSWD: /usr/local/bin/kloigos-{{ pkgmgr }}
           Defaults:c{{ item }} env_reset
           Defaults:c{{ item }} secure_path="/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin"
 
