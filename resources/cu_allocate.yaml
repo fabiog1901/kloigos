@@ -5,10 +5,10 @@
 # The following extra-vars are passed:
 #   compute_id
 #   hostname
-#.  ip
-#.  cpu_range
-#.  cpu_count
-#.  port_range
+#   ip
+#   cpu_range
+#   cpu_count
+#   port_range
 #   ssh_public_key
 #
 #

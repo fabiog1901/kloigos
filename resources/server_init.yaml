@@ -5,7 +5,7 @@
 # The following extra-vars are passed:
 #   hostname
 #   ip
-#   user_id 
+#   user_id
 #   cpu_ranges
 #   cpu_sets
 #   port_ranges
@@ -35,13 +35,17 @@
         id c{{ item }} || useradd --create-home --home-dir /home/c{{ item }} --shell /bin/bash c{{ item }}
       loop: "{{ cpu_ranges }}"
 
-    - name: Find attached disks bigger than 100GB
+    - name: Find attached disks
       shell: |
-        lsblk -o NAME,TYPE,SIZE -p -n -b -s | \
-          awk '$NF ~ /[1-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/' | \
-          grep -v '└─' | \
-          grep disk | \
-          awk '{print $1}'
+        # 1. Get the device path for the root partition
+        ROOTLOC=$(lsblk -plo NAME,MOUNTPOINTS | grep -w '/$' | awk '{print $1}')
+
+        # 2. Identify the physical parent disk
+        ROOTDISK=$(lsblk -no PKNAME "$ROOTLOC")
+
+        # 3. List disks excluding the OS parent disk
+        # Use single backslash for awk in a | block
+        lsblk -dpno NAME,TYPE | grep -w 'disk' | grep -vw "$ROOTDISK" | awk '{print $1}'
       args:
         executable: /bin/bash
       register: disks
@@ -58,7 +62,7 @@
         grep -q $DISKUUID /etc/fstab || echo "UUID=$DISKUUID /mnt/c{{ item.1 }} ext4 defaults 0 2" >> /etc/fstab
       loop: "{{ disks.stdout_lines | zip(cpu_ranges) | list }}"
 
-    - name: reload systemct and mount disks
+    - name: reload systemd and mount disks
       shell: |
         systemctl daemon-reload
         mount --all
@@ -102,6 +106,23 @@
         mkdir -p /etc/nftables.d
       loop: "{{ user_ids.results }}"
 
+    - name: allocate memory proportionate to the compute unit cpu count
+      shell: |
+        MEM_TOT=`cat /proc/meminfo | grep "MemTotal" | awk '{print $2}'`
+        CPU_COUNT=`cat /proc/cpuinfo | grep -c processor`
+        echo $MEM_TOT / $CPU_COUNT | bc
+      register: mem_kb_per_cpu
+
+    - name: get cpu,numa_node from lscpu
+      shell: |
+        lscpu -p=CPU,NODE | grep -v '#'
+      register: lscpu_p
+
+    - name: Build cpu_to_node dict from lscpu
+      set_fact:
+        cpu_to_node: "{{ cpu_to_node | default({}) | combine({ (item.split(',')[0]): (item.split(',')[1]) }) }}"
+      loop: "{{ lscpu_p.stdout_lines }}"
+
     - name: write user slice override
       copy:
         content: |
@@ -120,11 +141,12 @@
 
           # IOWeight=100
 
-          # TODO
-          AllowedMemoryNodes=1
-          MemoryNodes=1
-          MemoryHigh=60G
-          MemoryMax=64G
+          # MEMORY ALLOCATION
+          #
+          AllowedMemoryNodes={{ cpu_to_node[item.1.split(',')[0]] }}
+          MemoryNodes={{ cpu_to_node[item.1.split(',')[0]] }}
+          MemoryHigh={{ (item.1.split(',') | length * mem_kb_per_cpu.stdout | int / 1024 / 1024) | round(0, 'floor') | int }}G
+          MemoryMax={{ (item.1.split(',') | length * mem_kb_per_cpu.stdout | int * 0.9 / 1024 / 1024) | round(0, 'floor') | int }}G
 
           # BIND PORTS
           # 
@@ -168,3 +190,54 @@
         # maybe_setup_dir_quota "11007" "home_u4_7" "$HOME2" "/home"
         # maybe_setup_dir_quota "21003" "opt_c0_3"  "$OPT1"  "/opt"
         # maybe_setup_dir_quota "21007" "opt_c4_7"  "$OPT2"  "/opt"
+
+    - name: create kloigos-apt
+      copy:
+        content: |
+          #!/bin/bash
+          set -euo pipefail
+
+          case "$1" in
+            install|remove|purge|update)
+              ;;
+            *)
+              echo "Unsupported apt action"
+              exit 1
+              ;;
+          esac
+
+          exec /usr/bin/apt "$@"
+        dest: /usr/local/bin/kloigos-apt
+
+    - name: set kloigos-apt permissions and ownership
+      shell: |
+        chown root:root /usr/local/bin/kloigos-apt
+        chmod 0755 /usr/local/bin/kloigos-apt
+
+    - name: make source repos files immutable
+      shell: |
+        # Let’s break down exactly what your command does and why it matters.
+        # The command marks:
+        #   /etc/apt/sources.list
+        #   all files in /etc/apt/sources.list.d/
+        # as immutable.
+        # “Immutable” means:
+        # Once set, the file cannot be modified, deleted, renamed, truncated, 
+        # replaced, have permissions changed, have ownership changed
+        # Even root cannot modify it until the flag is removed.
+
+        chattr +i /etc/apt/sources.list  #/etc/apt/sources.list.d/*.list
+
+    - name: create sudoers directory
+      shell: |
+        mkdir -p /etc/sudoers.d/
+
+    - name: create sudoers files to run kloigos-apt
+      copy:
+        content: |
+          c{{ item }} ALL=(root) NOPASSWD: /usr/local/bin/kloigos-apt
+          Defaults:c{{ item }} env_reset
+          Defaults:c{{ item }} secure_path="/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin"
+
+        dest: /etc/sudoers.d/kloigos-c{{ item }}
+      loop: "{{ cpu_ranges }}"

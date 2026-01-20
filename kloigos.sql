@@ -23,16 +23,17 @@ CREATE TABLE servers (
 );
 
 CREATE TABLE compute_units (
+    compute_id STRING NOT NULL AS (hostname || '_' || cpu_range) STORED,
     hostname STRING NOT NULL,
     cpu_range STRING NOT NULL,
     cpu_count INT2 NOT NULL,
-    cpu_list STRING NOT NULL,
+    cpu_set STRING NOT NULL,
     port_range STRING NOT NULL,
     cu_user STRING NOT NULL,
     STATUS STRING NOT NULL,
     started_at TIMESTAMPTZ NULL,
     tags JSONB NULL,
-    CONSTRAINT pk PRIMARY KEY (hostname ASC, cpu_range ASC),
+    CONSTRAINT pk PRIMARY KEY (compute_id ASC),
     CONSTRAINT hostname_in_servers FOREIGN KEY (hostname) REFERENCES servers(hostname) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
