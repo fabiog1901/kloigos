@@ -1,9 +1,16 @@
+import base64
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Response, status
 
 from ..dep import get_admin_service
-from ..models import DeferredTask, Playbook, ServerInDB, ServerInitRequest
+from ..models import (
+    DeferredTask,
+    Playbook,
+    ServerDecommRequest,
+    ServerInDB,
+    ServerInitRequest,
+)
 from ..services.admin import AdminService
 
 router = APIRouter(
@@ -47,12 +54,15 @@ async def list_servers(
 
 @router.post(
     "/servers/",
+    description="The `ssh_key` parameter must be a base64 encoded string",
 )
 async def init_server(
     sir: ServerInitRequest,
     bg_task: BackgroundTasks,
     service: AdminService = Depends(get_admin_service),
 ) -> Response:
+
+    sir.ssh_key = base64.b64decode(sir.ssh_key).decode()
 
     # add the server to the compute_units table with
     # status='init'
@@ -67,15 +77,18 @@ async def init_server(
 
 
 @router.put(
-    "/servers/{hostname}",
+    "/servers/",
+    description="The `ssh_key` parameter must be a base64 encoded string",
 )
 async def decommission_server(
-    hostname: str,
+    sdr: ServerDecommRequest,
     bg_task: BackgroundTasks,
     service: AdminService = Depends(get_admin_service),
 ) -> Response:
 
-    tasks: list[DeferredTask] = service.decommission_server(hostname)
+    sdr.ssh_key = base64.b64decode(sdr.ssh_key).decode()
+
+    tasks: list[DeferredTask] = service.decommission_server(sdr)
 
     # async, run the decomm task
     for t in tasks:

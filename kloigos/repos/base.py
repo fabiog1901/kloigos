@@ -4,6 +4,7 @@ from ..models import (
     ComputeUnitInDB,
     ComputeUnitOverview,
     ComputeUnitStatus,
+    Event,
     Playbook,
     ServerInDB,
     ServerInitRequest,
@@ -85,5 +86,5 @@ class BaseRepo(ABC):
         pass
 
     @abstractmethod
-    def save_audit_event(db, user_id, action, status, details):
+    def log_event(event: Event):
         pass

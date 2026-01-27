@@ -703,6 +703,7 @@ window.app = function () {
       this.modal.init.cpuRangesPreview = "";
       this.modal.init.cpuSetPreview = "";
       this.modal.init.cpuRangesError = "";
+      this.modal.init.ssh_key = "";
     },
 
     recomputeInitCpuRanges(fromTextarea = false) {
@@ -787,6 +788,7 @@ window.app = function () {
           zone: (this.modal.init.zone || "").trim(),
           hostname: (this.modal.init.hostname || "").trim(),
           user_id: (this.modal.init.user_id || "ubuntu").trim(),
+          ssh_key: (this.modal.init.ssh_key || "").trim(),
           cpu_ranges,
         };
         for (const [k, v] of Object.entries(payload)) {
@@ -817,11 +819,16 @@ window.app = function () {
     async decommissionByHostname() {
       this.loading.decommission = true;
       try {
-        const hostname = (this.modal.decommission.hostname || "").trim();
-        if (!hostname) throw new Error("hostname is required.");
-        await this.apiFetch(`/admin/servers/${encodeURIComponent(hostname)}`, {
+        const payload = {
+          hostname: (this.modal.decommission.hostname || "").trim(),
+          ssh_key: (this.modal.decommission.ssh_key || "").trim(),
+        };
+
+        await this.apiFetch("/admin/servers/", {
           method: "PUT",
+          body: payload,
         });
+
         this.closeDecommissionModal();
         await this.refreshDashboard();
         if (typeof this.refreshServers === "function")

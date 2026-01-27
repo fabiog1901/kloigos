@@ -1,29 +1,43 @@
-from kloigos.models import Playbook, ServerInitRequest
+from kloigos.models import Playbook, ServerDecommRequest, ServerInitRequest
 
 from ..models import (
     ComputeUnitInDB,
     ComputeUnitStatus,
     DeferredTask,
+    Event,
+    EventActions,
     ServerInDB,
     ServerStatus,
 )
 from ..repos.base import BaseRepo
-from ..util import MyRunner, audit_logger, ports_for_cpu_range, to_cpu_set
+from ..util import MyRunner, ports_for_cpu_range, to_cpu_set
 
 
 class AdminService:
     def __init__(self, repo: BaseRepo):
         self.repo = repo
 
-    @audit_logger()
     def update_playbooks(self, playbook: Playbook, b64: str):
+        self.repo.log_event(
+            Event(
+                user_id="fabio",
+                action=EventActions.UPDATE_PLAYBOOK,
+                details={},
+            )
+        )
         return self.repo.playbook_update_content(playbook, b64)
 
     def get_playbook(self, playbook: Playbook):
         return self.repo.playbook_get_content(playbook)
 
-    @audit_logger()
     def init_server(self, sir: ServerInitRequest) -> list[DeferredTask]:
+        self.repo.log_event(
+            Event(
+                user_id="fabio",
+                action=EventActions.SERVER_INIT,
+                details={},
+            )
+        )
 
         self.repo.server_init_new(sir, ServerStatus.INITIALIZING)
 
@@ -37,23 +51,38 @@ class AdminService:
 
         return self.repo.get_servers(hostname)
 
-    @audit_logger()
     def decommission_server(
         self,
-        hostname: str,
+        sdr: ServerDecommRequest,
     ) -> list[DeferredTask]:
 
-        self.repo.server_update_status(hostname, ServerStatus.DECOMMISSIONING)
+        self.repo.log_event(
+            Event(
+                user_id="fabio",
+                action=EventActions.SERVER_DECOMM,
+                details={},
+            )
+        )
 
-        self.repo.delete_compute_units(hostname)
+        self.repo.server_update_status(sdr.hostname, ServerStatus.DECOMMISSIONING)
 
-        srv = self.repo.get_servers(hostname)[0]
+        self.repo.delete_compute_units(sdr.hostname)
+
+        srv = self.repo.get_servers(sdr.hostname)[0]
 
         # async, run the decomm task
-        return [DeferredTask(fn=self._run_decommission_server, args=(srv,))]
+        return [DeferredTask(fn=self._run_decommission_server, args=(srv, sdr.ssh_key))]
 
-    @audit_logger()
     def delete_server(self, hostname: str) -> None:
+
+        self.repo.log_event(
+            Event(
+                user_id="fabio",
+                action=EventActions.SERVER_DELETE,
+                details={},
+            )
+        )
+
         self.repo.delete_server(hostname)
 
     def _run_init_server(self, sir: ServerInitRequest) -> None:
@@ -62,7 +91,7 @@ class AdminService:
         cpu_ranges = [x.replace(":", "-") for x in sir.cpu_ranges]
         port_ranges = [ports_for_cpu_range(i) for i in cpu_ranges]
 
-        job_ok = MyRunner(self.repo).launch_runner(
+        job_ok = MyRunner(self.repo, sir.ssh_key).launch_runner(
             Playbook.SERVER_INIT,
             {
                 "hostname": sir.hostname,
@@ -95,14 +124,14 @@ class AdminService:
         else:
             self.repo.server_update_status(sir.hostname, ServerStatus.INIT_FAIL)
 
-    def _run_decommission_server(self, srv: ServerInDB) -> None:
+    def _run_decommission_server(self, srv: ServerInDB, ssh_key: str) -> None:
         """
         Execute Ansible Playbook `decommission.yaml`
         The playbook decomm the server with the requested
         hostname.
         """
 
-        job_ok = MyRunner(self.repo).launch_runner(
+        job_ok = MyRunner(self.repo, ssh_key).launch_runner(
             Playbook.SERVER_DECOMM,
             {
                 "hostname": srv.hostname,

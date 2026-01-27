@@ -3,19 +3,20 @@ from kloigos.models import (
     ComputeUnitRequest,
     ComputeUnitStatus,
     DeferredTask,
+    Event,
+    EventActions,
     NoFreeComputeUnitError,
     Playbook,
 )
 
 from ..repos.base import BaseRepo
-from ..util import MyRunner, audit_logger
+from ..util import MyRunner
 
 
 class ComputeUnitService:
     def __init__(self, repo: BaseRepo):
         self.repo = repo
 
-    @audit_logger()
     def allocate(self, req: ComputeUnitRequest) -> tuple[str, list[DeferredTask]]:
         """
         Allocate a compute unit.
@@ -25,6 +26,15 @@ class ComputeUnitService:
         Raises:
             NoFreeComputeUnitError: if no matching compute unit is available
         """
+
+        self.repo.log_event(
+            Event(
+                user_id="fabio",
+                action=EventActions.CU_ALLOCATE,
+                details={},
+            )
+        )
+
         # find and return a free instance that matches the allocate request
         cu_list: list[ComputeUnitOverview] = self.repo.get_compute_units(
             compute_id=req.compute_id,
@@ -58,11 +68,18 @@ class ComputeUnitService:
 
         return cu.compute_id, tasks
 
-    @audit_logger()
     def deallocate(
         self,
         compute_id: str,
     ) -> list[DeferredTask]:
+
+        self.repo.log_event(
+            Event(
+                user_id="fabio",
+                action=EventActions.CU_DEALLOCATE,
+                details={},
+            )
+        )
 
         # get details for the compute_unit
 

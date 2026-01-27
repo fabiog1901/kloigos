@@ -1,5 +1,4 @@
 import base64
-import functools
 import json
 import os
 import shutil
@@ -12,36 +11,6 @@ from kloigos.models import Playbook
 from kloigos.repos.base import BaseRepo
 
 from . import BASE_PORT, MAX_CPUS_PER_SERVER, PORTS_PER_CPU
-
-
-def audit_logger():
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # 1. Identify context (assumes 'db' and 'user' are in kwargs or args)
-            # db = kwargs.get('db')
-            # user = kwargs.get('current_user')
-            repo: BaseRepo = args[0].repo
-
-            try:
-                # 2. Execute the actual service logic
-                result = func(*args, **kwargs)
-
-                # 3. Log Success (Optionally via BackgroundTasks)
-                repo.save_audit_event(
-                    "fabio", func.__name__.upper(), "SUCCESS", {"params": str(kwargs)}
-                )
-                return result
-            except Exception as e:
-                # 4. Log Failure
-                repo.save_audit_event(
-                    "error-man", func.__name__.upper(), "FAILED", {"error": str(e)}
-                )
-                raise e
-
-        return wrapper
-
-    return decorator
 
 
 def to_cpu_set(cpu_range: str):
@@ -126,8 +95,9 @@ def ports_for_cpu_range(
 
 
 class MyRunner:
-    def __init__(self, repo: BaseRepo) -> None:
+    def __init__(self, repo: BaseRepo, ssh_key: str) -> None:
         self.repo = repo
+        self.ssh_key = ssh_key
 
     data = {}
 
@@ -220,10 +190,11 @@ class MyRunner:
                 extravars=extra_vars,
                 event_handler=self.my_event_handler,
                 status_handler=self.my_status_handler,
+                ssh_key=self.ssh_key,
             )
 
-        except Exception as e:
-            raise ValueError(f"Error running playbook: {e}")
+        except Exception:
+            return False
 
         # rm -rf job-directory
         shutil.rmtree(f"/tmp/job-{job_id}", ignore_errors=True)

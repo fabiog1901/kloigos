@@ -333,6 +333,7 @@
             </button>
 
             <button class="btn btn-warn" @click="openInitModal()">Init server…</button>
+            <button class="btn btn-warn" @click="openDecommissionModal()">Decomm server…</button>
 
             <label
               style="display:flex; align-items:center; gap:10px; font-size:12px; color: var(--muted); margin-top: 4px;">
@@ -662,13 +663,17 @@
             </div>
 
             <div class="form-row" style="grid-column: 1 / -1;">
-              <div class="label">cpu ranges builder (server cpu count / compute unit cpus)</div>
+              <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                <div class="label">server cpu count</div>
+                <div class="label">desired CPUs per compute unit</div>
+              </div>
               <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
                 <input class="input" type="number" min="0" x-model.number="modal.init.cpuEnd"
-                  @input="recomputeInitCpuRanges()" placeholder="total server cpus (e.g. 15)" />
+                  @input="recomputeInitCpuRanges()" placeholder="total server CPUs (e.g. 16)" />
                 <input class="input" type="number" min="1" x-model.number="modal.init.cpuStep"
-                  @input="recomputeInitCpuRanges()" placeholder="cpu per compute unit" />
+                  @input="recomputeInitCpuRanges()" placeholder="(e.g. 4)" />
               </div>
+
               <div style="margin-top:8px; color: var(--muted); font-size: 12px;">
                 Produces an array of ranges like <span class="ip-pill">["0-3","4-7"]</span> and an expanded CPU set.
               </div>
@@ -691,6 +696,12 @@
                   @input="recomputeInitCpuRanges(true)" placeholder='["0-3","4-7"]'></textarea>
               </div>
             </details>
+
+            <div class="form-row" style="grid-column: 1 / -1;">
+              <div class="label">ssh_key (required)</div>
+              <textarea class="textarea" x-model="modal.init.ssh_key"
+                placeholder="ssh-ed25519 AAAA... user@host"></textarea>
+            </div>
 
           </div>
         </div>
@@ -715,9 +726,6 @@
         </div>
 
         <div class="modal-body">
-          <div style="color: var(--muted); font-size: 13px;">
-            Calls <span class="ip-pill">DELETE /api/admin/decommission_server/{hostname}</span>
-          </div>
 
           <div class="form-grid">
             <div class="form-row" style="grid-column: 1 / -1;">
@@ -725,6 +733,13 @@
               <input class="input" x-model="modal.decommission.hostname" placeholder="server-123" />
             </div>
           </div>
+
+          <div class="form-row" style="grid-column: 1 / -1;">
+            <div class="label">ssh_key (required)</div>
+            <textarea class="textarea" x-model="modal.decommission.ssh_key"
+              placeholder="ssh-ed25519 AAAA... user@host"></textarea>
+          </div>
+
         </div>
 
         <div class="modal-footer">

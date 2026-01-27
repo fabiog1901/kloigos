@@ -1,4 +1,3 @@
-import datetime as dt
 import gzip
 import json
 
@@ -10,6 +9,7 @@ from ..models import (
     ComputeUnitInDB,
     ComputeUnitOverview,
     ComputeUnitStatus,
+    Event,
     Playbook,
     ServerInDB,
     ServerInitRequest,
@@ -295,20 +295,18 @@ class PostgresRepo(BaseRepo):
                 return rs
 
     # AUDIT
-    def save_audit_event(self, user_id, action, status, details):
-
+    def log_event(self, event: Event):
         with self.pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO event_log (ts, user_id, action, status, details)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO event_log (ts, user_id, action, details)
+                    VALUES (%s, %s, %s, %s)
                     """,
                     (
-                        dt.datetime.now(dt.timezone.utc),
-                        user_id,
-                        action,
-                        status,
-                        details,
+                        event.ts,
+                        event.user_id,
+                        event.action,
+                        event.details,
                     ),
                 )

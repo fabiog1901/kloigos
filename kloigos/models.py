@@ -5,6 +5,11 @@ from typing import Any, Callable
 from pydantic import BaseModel
 
 
+class AutoNameStrEnum(StrEnum):
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+
 class NoFreeComputeUnitError(Exception):
     pass
 
@@ -13,15 +18,26 @@ class AllocatePlaybookError(Exception):
     pass
 
 
+class EventActions(AutoNameStrEnum):
+    UPDATE_PLAYBOOK = auto()
+    SERVER_INIT = auto()
+    SERVER_DECOMM = auto()
+    SERVER_DELETE = auto()
+    CU_ALLOCATE = auto()
+    CU_DEALLOCATE = auto()
+
+
+class Event(BaseModel):
+    ts: dt.datetime = dt.datetime.now(dt.timezone.utc)
+    user_id: str
+    action: EventActions
+    details: dict[str, Any] | None = None
+
+
 class DeferredTask(BaseModel):
     fn: Callable[..., None]
     args: tuple | None
     kwargs: dict = {}
-
-
-class AutoNameStrEnum(StrEnum):
-    def _generate_next_value_(name, start, count, last_values):
-        return name
 
 
 class Playbook(AutoNameStrEnum):
@@ -99,4 +115,10 @@ class ServerInDB(BaseServer):
 
 
 class ServerInitRequest(BaseServer):
+    ssh_key: str
     cpu_ranges: list[str]
+
+
+class ServerDecommRequest(BaseModel):
+    ssh_key: str
+    hostname: str
