@@ -4,7 +4,7 @@ from ..models import (
     ComputeUnitInDB,
     ComputeUnitOverview,
     ComputeUnitStatus,
-    Event,
+    LogMsg,
     Playbook,
     ServerInDB,
     ServerInitRequest,
@@ -86,5 +86,5 @@ class BaseRepo(ABC):
         pass
 
     @abstractmethod
-    def log_event(event: Event):
+    def log_event(event: LogMsg):
         pass

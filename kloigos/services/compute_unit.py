@@ -4,7 +4,7 @@ from kloigos.models import (
     ComputeUnitStatus,
     DeferredTask,
     Event,
-    EventActions,
+    LogMsg,
     NoFreeComputeUnitError,
     Playbook,
 )
@@ -28,9 +28,9 @@ class ComputeUnitService:
         """
 
         self.repo.log_event(
-            Event(
+            LogMsg(
                 user_id="fabio",
-                action=EventActions.CU_ALLOCATE,
+                action=Event.CU_ALLOCATION_REQUEST,
                 details={},
             )
         )
@@ -63,7 +63,7 @@ class ComputeUnitService:
                     req.ssh_public_key,
                 ),
                 kwargs={},
-            )
+            ),
         ]
 
         return cu.compute_id, tasks
@@ -74,9 +74,9 @@ class ComputeUnitService:
     ) -> list[DeferredTask]:
 
         self.repo.log_event(
-            Event(
+            LogMsg(
                 user_id="fabio",
-                action=EventActions.CU_DEALLOCATE,
+                action=Event.CU_DEALLOCATION_REQUEST,
                 details={},
             )
         )
@@ -137,6 +137,16 @@ class ComputeUnitService:
             ),
         )
 
+        self.repo.log_event(
+            LogMsg(
+                user_id="fabio",
+                action=(
+                    Event.CU_ALLOCATION_DONE if job_ok else Event.CU_ALLOCATION_FAILED
+                ),
+                details={},
+            ),
+        )
+
     def _run_deallocate(self, cu: ComputeUnitOverview) -> None:
 
         job_ok = MyRunner(self.repo).launch_runner(
@@ -152,4 +162,16 @@ class ComputeUnitService:
         self.repo.update_compute_unit(
             cu.compute_id,
             ComputeUnitStatus.FREE if job_ok else ComputeUnitStatus.DEALLOCATION_FAIL,
+        )
+
+        self.repo.log_event(
+            LogMsg(
+                user_id="fabio",
+                action=(
+                    Event.CU_DEALLOCATION_DONE
+                    if job_ok
+                    else Event.CU_DEALLOCATION_FAILED
+                ),
+                details={},
+            ),
         )

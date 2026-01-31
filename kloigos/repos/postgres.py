@@ -9,7 +9,7 @@ from ..models import (
     ComputeUnitInDB,
     ComputeUnitOverview,
     ComputeUnitStatus,
-    Event,
+    LogMsg,
     Playbook,
     ServerInDB,
     ServerInitRequest,
@@ -295,7 +295,7 @@ class PostgresRepo(BaseRepo):
                 return rs
 
     # AUDIT
-    def log_event(self, event: Event):
+    def log_event(self, event: LogMsg):
         with self.pool.connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(

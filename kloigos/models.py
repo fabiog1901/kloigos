@@ -18,19 +18,29 @@ class AllocatePlaybookError(Exception):
     pass
 
 
-class EventActions(AutoNameStrEnum):
+class Event(AutoNameStrEnum):
     UPDATE_PLAYBOOK = auto()
-    SERVER_INIT = auto()
-    SERVER_DECOMM = auto()
-    SERVER_DELETE = auto()
-    CU_ALLOCATE = auto()
-    CU_DEALLOCATE = auto()
+    SERVER_INIT_REQUEST = auto()
+    SERVER_INIT_DONE = auto()
+    SERVER_INIT_FAILED = auto()
+    SERVER_DECOMM_REQUEST = auto()
+    SERVER_DECOMM_DONE = auto()
+    SERVER_DECOMM_FAILED = auto()
+    SERVER_DELETE_REQUEST = auto()
+    SERVER_DELETE_DONE = auto()
+    SERVER_DELETE_FAILED = auto()
+    CU_ALLOCATION_REQUEST = auto()
+    CU_ALLOCATION_DONE = auto()
+    CU_ALLOCATION_FAILED = auto()
+    CU_DEALLOCATION_REQUEST = auto()
+    CU_DEALLOCATION_DONE = auto()
+    CU_DEALLOCATION_FAILED = auto()
 
 
-class Event(BaseModel):
+class LogMsg(BaseModel):
     ts: dt.datetime = dt.datetime.now(dt.timezone.utc)
     user_id: str
-    action: EventActions
+    action: Event
     details: dict[str, Any] | None = None
 
 

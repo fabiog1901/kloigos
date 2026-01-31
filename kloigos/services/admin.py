@@ -5,7 +5,7 @@ from ..models import (
     ComputeUnitStatus,
     DeferredTask,
     Event,
-    EventActions,
+    LogMsg,
     ServerInDB,
     ServerStatus,
 )
@@ -17,24 +17,26 @@ class AdminService:
     def __init__(self, repo: BaseRepo):
         self.repo = repo
 
-    def update_playbooks(self, playbook: Playbook, b64: str):
+    def update_playbooks(self, playbook: Playbook, b64: str) -> None:
+
+        self.repo.playbook_update_content(playbook, b64)
+
         self.repo.log_event(
-            Event(
+            LogMsg(
                 user_id="fabio",
-                action=EventActions.UPDATE_PLAYBOOK,
+                action=Event.UPDATE_PLAYBOOK,
                 details={},
             )
         )
-        return self.repo.playbook_update_content(playbook, b64)
 
-    def get_playbook(self, playbook: Playbook):
+    def get_playbook(self, playbook: Playbook) -> str:
         return self.repo.playbook_get_content(playbook)
 
     def init_server(self, sir: ServerInitRequest) -> list[DeferredTask]:
         self.repo.log_event(
-            Event(
+            LogMsg(
                 user_id="fabio",
-                action=EventActions.SERVER_INIT,
+                action=Event.SERVER_INIT_REQUEST,
                 details={},
             )
         )
@@ -42,7 +44,12 @@ class AdminService:
         self.repo.server_init_new(sir, ServerStatus.INITIALIZING)
 
         # async, run the init task
-        return [DeferredTask(fn=self._run_init_server, args=(sir,))]
+        return [
+            DeferredTask(
+                fn=self._run_init_server,
+                args=(sir,),
+            ),
+        ]
 
     def list_servers(
         self,
@@ -57,9 +64,9 @@ class AdminService:
     ) -> list[DeferredTask]:
 
         self.repo.log_event(
-            Event(
+            LogMsg(
                 user_id="fabio",
-                action=EventActions.SERVER_DECOMM,
+                action=Event.SERVER_DECOMM_REQUEST,
                 details={},
             )
         )
@@ -71,14 +78,19 @@ class AdminService:
         srv = self.repo.get_servers(sdr.hostname)[0]
 
         # async, run the decomm task
-        return [DeferredTask(fn=self._run_decommission_server, args=(srv, sdr.ssh_key))]
+        return [
+            DeferredTask(
+                fn=self._run_decommission_server,
+                args=(srv, sdr.ssh_key),
+            ),
+        ]
 
     def delete_server(self, hostname: str) -> None:
 
         self.repo.log_event(
-            Event(
+            LogMsg(
                 user_id="fabio",
-                action=EventActions.SERVER_DELETE,
+                action=Event.SERVER_DELETE_REQUEST,
                 details={},
             )
         )
@@ -108,7 +120,7 @@ class AdminService:
             for x in sir.cpu_ranges:
                 self.repo.insert_new_compute_unit(
                     ComputeUnitInDB(
-                        compute_id="",  # not used
+                        compute_id="",  # not used, computed
                         hostname=sir.hostname,
                         cpu_range=x,
                         cpu_count=len(to_cpu_set(x).split(",")),
@@ -118,11 +130,17 @@ class AdminService:
                         status=ComputeUnitStatus.FREE,
                     )
                 )
-
             self.repo.server_update_status(sir.hostname, ServerStatus.READY)
-
         else:
             self.repo.server_update_status(sir.hostname, ServerStatus.INIT_FAIL)
+
+        self.repo.log_event(
+            LogMsg(
+                user_id="fabio",
+                action=Event.SERVER_INIT_DONE if job_ok else Event.SERVER_INIT_FAILED,
+                details={},
+            )
+        )
 
     def _run_decommission_server(self, srv: ServerInDB, ssh_key: str) -> None:
         """
@@ -146,4 +164,14 @@ class AdminService:
         self.repo.server_update_status(
             srv.hostname,
             ServerStatus.DECOMMISSIONED if job_ok else ServerStatus.DECOMMISSION_FAIL,
+        )
+
+        self.repo.log_event(
+            LogMsg(
+                user_id="fabio",
+                action=(
+                    Event.SERVER_DECOMM_DONE if job_ok else Event.SERVER_DECOMM_FAILED
+                ),
+                details={},
+            )
         )
