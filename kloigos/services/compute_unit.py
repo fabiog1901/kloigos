@@ -10,7 +10,7 @@ from kloigos.models import (
 )
 
 from ..repos.base import BaseRepo
-from ..util import MyRunner
+from ..util import MyRunner, request_id_ctx
 
 
 class ComputeUnitService:
@@ -31,7 +31,8 @@ class ComputeUnitService:
             LogMsg(
                 user_id="fabio",
                 action=Event.CU_ALLOCATION_REQUEST,
-                details={},
+                details=req.model_dump(),
+                request_id=request_id_ctx.get(),
             )
         )
 
@@ -77,7 +78,8 @@ class ComputeUnitService:
             LogMsg(
                 user_id="fabio",
                 action=Event.CU_DEALLOCATION_REQUEST,
-                details={},
+                details={"compute_id": compute_id},
+                request_id=request_id_ctx.get(),
             )
         )
 
@@ -143,7 +145,8 @@ class ComputeUnitService:
                 action=(
                     Event.CU_ALLOCATION_DONE if job_ok else Event.CU_ALLOCATION_FAILED
                 ),
-                details={},
+                details=cu.model_dump(),
+                request_id=request_id_ctx.get(),
             ),
         )
 
@@ -172,6 +175,7 @@ class ComputeUnitService:
                     if job_ok
                     else Event.CU_DEALLOCATION_FAILED
                 ),
-                details={},
+                details=cu.model_dump(),
+                request_id=request_id_ctx.get(),
             ),
         )

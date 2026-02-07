@@ -10,7 +10,7 @@ from ..models import (
     ServerStatus,
 )
 from ..repos.base import BaseRepo
-from ..util import MyRunner, ports_for_cpu_range, to_cpu_set
+from ..util import MyRunner, ports_for_cpu_range, request_id_ctx, to_cpu_set
 
 
 class AdminService:
@@ -25,7 +25,8 @@ class AdminService:
             LogMsg(
                 user_id="fabio",
                 action=Event.UPDATE_PLAYBOOK,
-                details={},
+                details={"playbook": playbook},
+                request_id=request_id_ctx.get(),
             )
         )
 
@@ -37,7 +38,8 @@ class AdminService:
             LogMsg(
                 user_id="fabio",
                 action=Event.SERVER_INIT_REQUEST,
-                details={},
+                details=sir.model_dump(),
+                request_id=request_id_ctx.get(),
             )
         )
 
@@ -67,7 +69,8 @@ class AdminService:
             LogMsg(
                 user_id="fabio",
                 action=Event.SERVER_DECOMM_REQUEST,
-                details={},
+                details=sdr.model_dump(),
+                request_id=request_id_ctx.get(),
             )
         )
 
@@ -91,7 +94,8 @@ class AdminService:
             LogMsg(
                 user_id="fabio",
                 action=Event.SERVER_DELETE_REQUEST,
-                details={},
+                details={"hostname": hostname},
+                request_id=request_id_ctx.get(),
             )
         )
 
@@ -138,7 +142,8 @@ class AdminService:
             LogMsg(
                 user_id="fabio",
                 action=Event.SERVER_INIT_DONE if job_ok else Event.SERVER_INIT_FAILED,
-                details={},
+                details=sir.model_dump(),
+                request_id=request_id_ctx.get(),
             )
         )
 
@@ -172,6 +177,7 @@ class AdminService:
                 action=(
                     Event.SERVER_DECOMM_DONE if job_ok else Event.SERVER_DECOMM_FAILED
                 ),
-                details={},
+                details=srv.model_dump(),
+                request_id=request_id_ctx.get(),
             )
         )

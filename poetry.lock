@@ -1772,6 +1772,18 @@ typing-extensions = {version = ">=4.10.0", markers = "python_version < \"3.13\""
 full = ["httpx (>=0.27.0,<0.29.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.18)", "pyyaml"]
 
 [[package]]
+name = "systemd-python"
+version = "235"
+description = "Python interface for libsystemd"
+optional = false
+python-versions = "*"
+groups = ["main"]
+markers = "sys_platform == \"linux\""
+files = [
+    {file = "systemd-python-235.tar.gz", hash = "sha256:4e57f39797fd5d9e2d22b8806a252d7c0106c936039d1e71c8c6b8008e695c0a"},
+]
+
+[[package]]
 name = "typer"
 version = "0.20.0"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
@@ -2185,4 +2197,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "3989b9549aa254db3827f069f58e0e269cde59a6cceab987824c595edcc37547"
+content-hash = "f103342277474b0967fc3e94e30f299c957be0f25ddba147e8a1083a903a234a"

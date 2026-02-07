@@ -300,13 +300,14 @@ class PostgresRepo(BaseRepo):
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO event_log (ts, user_id, action, details)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO event_log (ts, user_id, action, details, request_id)
+                    VALUES (%s, %s, %s, %s, %s)
                     """,
                     (
                         event.ts,
                         event.user_id,
                         event.action,
                         event.details,
+                        event.request_id,
                     ),
                 )

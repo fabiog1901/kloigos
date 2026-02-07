@@ -1,8 +1,10 @@
 import base64
 import json
+import logging
 import os
 import shutil
 import time
+from contextvars import ContextVar
 
 import ansible_runner
 import yaml
@@ -200,3 +202,36 @@ class MyRunner:
         shutil.rmtree(f"/tmp/job-{job_id}", ignore_errors=True)
 
         return runner.status == "successful"
+
+
+class RequestIDFilter(logging.Filter):
+    def filter(self, record):
+        record.request_id = request_id_ctx.get()
+        return True
+
+
+class ShorthandFormatter(logging.Formatter):
+    # Mapping for all standard levels
+    LEVEL_MAP = {
+        "DEBUG": "D",
+        "INFO": "I",
+        "WARNING": "W",
+        "ERROR": "E",
+        "CRITICAL": "C",
+    }
+
+    def format(self, record):
+        # Substitute the levelname with our shorthand
+        original_levelname = record.levelname
+        record.levelname = self.LEVEL_MAP.get(original_levelname, original_levelname)
+
+        # Call the original formatter logic
+        result = super().format(record)
+
+        # Restore the original levelname in case other handlers use it
+        record.levelname = original_levelname
+        return result
+
+
+# Define the variable once here
+request_id_ctx: ContextVar[str] = ContextVar("request_id", default="")

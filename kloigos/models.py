@@ -2,7 +2,7 @@ import datetime as dt
 from enum import StrEnum, auto
 from typing import Any, Callable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AutoNameStrEnum(StrEnum):
@@ -38,10 +38,11 @@ class Event(AutoNameStrEnum):
 
 
 class LogMsg(BaseModel):
-    ts: dt.datetime = dt.datetime.now(dt.timezone.utc)
+    ts: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
     user_id: str
     action: Event
     details: dict[str, Any] | None = None
+    request_id: str | None = None
 
 
 class DeferredTask(BaseModel):
@@ -125,10 +126,10 @@ class ServerInDB(BaseServer):
 
 
 class ServerInitRequest(BaseServer):
-    ssh_key: str
+    ssh_key: str = Field(exclude=True)
     cpu_ranges: list[str]
 
 
 class ServerDecommRequest(BaseModel):
-    ssh_key: str
+    ssh_key: str = Field(exclude=True)
     hostname: str

@@ -48,5 +48,6 @@ CREATE TABLE event_log (
     user_id STRING NOT NULL,
     ACTION STRING NOT NULL,
     details JSONB NULL,
+    request_id UUID NULL,
     CONSTRAINT pk PRIMARY KEY (ts ASC, user_id ASC, ACTION ASC)
 );
