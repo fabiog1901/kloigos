@@ -1,0 +1,136 @@
+KLOIGOS ENTERPRISE LICENSE AGREEMENT
+
+Copyright (c) 2026 Kloigos LLC.
+All rights reserved.
+
+This Enterprise License Agreement ("Agreement") governs the use of the
+enterprise components of the Kloigos software ("Enterprise Software")
+by you ("Licensee").
+
+By using, copying, or modifying the Enterprise Software, you agree to
+the terms of this Agreement.
+
+---------------------------------------------------------------------
+
+1. Scope
+
+This Agreement applies exclusively to the contents of the "enterprise/"
+directory of the Kloigos source code repository and any derivative works
+thereof ("Enterprise Software").
+
+All other files and directories in the repository are licensed under
+the Apache License 2.0 and are not covered by this Agreement.
+
+---------------------------------------------------------------------
+
+2. Evaluation License
+
+Kloigos LLC grants Licensee a limited, non-exclusive, non-transferable,
+non-sublicensable license to use the Enterprise Software for evaluation
+purposes only for a period of **thirty (30) days** from the date the
+Enterprise Software is first used ("Evaluation Period").
+
+During the Evaluation Period, Licensee may:
+- install and use the Enterprise Software for internal evaluation; and
+- modify the Enterprise Software solely for internal evaluation.
+
+Licensee may NOT, during the Evaluation Period:
+- use the Enterprise Software in production;
+- offer the Enterprise Software as a hosted or managed service;
+- redistribute or sublicense the Enterprise Software.
+
+Upon expiration of the Evaluation Period, Licensee must either:
+(a) obtain a valid commercial license from Kloigos LLC; or
+(b) cease all use of the Enterprise Software and destroy all copies.
+
+---------------------------------------------------------------------
+
+3. Commercial License Grant
+
+Subject to the terms of this Agreement and the purchase of a valid
+commercial license from Kloigos LLC, Kloigos LLC grants Licensee a
+non-exclusive, non-transferable, non-sublicensable license to:
+
+- use the Enterprise Software for internal business purposes; and
+- modify the Enterprise Software solely for internal use.
+
+---------------------------------------------------------------------
+
+4. Restrictions
+
+Unless expressly permitted in writing by Kloigos LLC, Licensee may NOT:
+
+- use the Enterprise Software without a valid commercial license beyond
+  the Evaluation Period;
+- redistribute, sublicense, or provide the Enterprise Software to
+  third parties;
+- offer the Enterprise Software as a hosted or managed service;
+- remove or alter copyright notices;
+- use the Enterprise Software for any unlawful purpose.
+
+---------------------------------------------------------------------
+
+5. Ownership
+
+The Enterprise Software is licensed, not sold.
+
+Kloigos LLC retains all right, title, and interest in and to the
+Enterprise Software, including all intellectual property rights.
+
+No rights are granted except as expressly stated in this Agreement.
+
+---------------------------------------------------------------------
+
+6. Contributions
+
+External contributions to the Enterprise Software are not accepted.
+
+Nothing in this Agreement grants Licensee any ownership interest in the
+Enterprise Software.
+
+---------------------------------------------------------------------
+
+7. Termination
+
+This Agreement is effective until terminated.
+
+Kloigos LLC may terminate this Agreement immediately if Licensee breaches
+any term of this Agreement.
+
+Upon termination or expiration of the Evaluation Period without a
+commercial license, Licensee must cease all use of the Enterprise
+Software and destroy all copies in its possession or control.
+
+---------------------------------------------------------------------
+
+8. Disclaimer of Warranty
+
+THE ENTERPRISE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+---------------------------------------------------------------------
+
+9. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL Kloigos LLC BE
+LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR
+PUNITIVE DAMAGES, OR FOR ANY LOSS OF PROFITS, DATA, OR BUSINESS
+INTERRUPTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OF THE
+ENTERPRISE SOFTWARE.
+
+---------------------------------------------------------------------
+
+10. Governing Law
+
+This Agreement shall be governed by and construed in accordance with the
+laws of the jurisdiction in which Kloigos LLC is incorporated, without
+regard to conflict of law principles.
+
+---------------------------------------------------------------------
+
+11. Contact
+
+For licensing inquiries, commercial terms, or enterprise support,
+contact the team by opening a discussion at 
+https://github.com/fabiog1901/kloigos/discussions
