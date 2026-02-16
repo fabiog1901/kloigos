@@ -9,6 +9,10 @@ window.app = function () {
     isAuthenticated: false,
     authClaims: null,
     authLoginPath: "/api/auth/login",
+    authDisplayNameClaim: "preferred_username",
+    authSessionCookieName: "kloigos_session",
+    cookiesSnapshot: "",
+    sessionCookieVisible: false,
     authError: "",
 
     // Shared UTC timestamps
@@ -95,6 +99,7 @@ window.app = function () {
       decommission: { open: false, hostname: "" },
       deallocateConfirm: { open: false, compute_id: "", hostname: "" },
       computeDetails: { open: false, row: null },
+      userInfo: { open: false },
       serverActionConfirm: {
         open: false,
         hostname: "",
@@ -174,9 +179,104 @@ window.app = function () {
     setAuthRequired(loginPath, errorMessage = "Not authenticated.") {
       this.isAuthenticated = false;
       this.authClaims = null;
+      this.authDisplayNameClaim = "preferred_username";
+      this.authSessionCookieName = "kloigos_session";
+      this.cookiesSnapshot = "";
+      this.sessionCookieVisible = false;
       this.authError = String(errorMessage || "Not authenticated.");
       this.stopAutoRefreshTimers();
       if (loginPath) this.authLoginPath = loginPath;
+    },
+
+    syncAuthMeta() {
+      const meta =
+        this.authClaims &&
+        typeof this.authClaims === "object" &&
+        this.authClaims._kloigos &&
+        typeof this.authClaims._kloigos === "object"
+          ? this.authClaims._kloigos
+          : null;
+
+      if (meta && typeof meta.display_name_claim === "string" && meta.display_name_claim.trim()) {
+        this.authDisplayNameClaim = meta.display_name_claim.trim();
+      } else {
+        this.authDisplayNameClaim = "preferred_username";
+      }
+
+      if (meta && typeof meta.session_cookie_name === "string" && meta.session_cookie_name.trim()) {
+        this.authSessionCookieName = meta.session_cookie_name.trim();
+      } else {
+        this.authSessionCookieName = "kloigos_session";
+      }
+    },
+
+    authIsUnauthenticatedMode() {
+      return Boolean(this.authClaims && this.authClaims.auth_disabled);
+    },
+
+    userDisplayName() {
+      const c = this.authClaims && typeof this.authClaims === "object" ? this.authClaims : {};
+      const claim = String(this.authDisplayNameClaim || "preferred_username");
+      const val =
+        c[claim] ||
+        c.preferred_username ||
+        c.name ||
+        c.email ||
+        c.sub ||
+        "";
+      if (this.authIsUnauthenticatedMode()) return "Unauthenticated";
+      return String(val || "Unknown user");
+    },
+
+    userIconTitle() {
+      return this.authIsUnauthenticatedMode()
+        ? "Running in unauthenticated mode"
+        : "Authenticated user";
+    },
+
+    refreshCookieSnapshot() {
+      if (typeof document === "undefined") {
+        this.cookiesSnapshot = "";
+        this.sessionCookieVisible = false;
+        return;
+      }
+
+      const raw = document.cookie || "";
+      this.cookiesSnapshot = raw || "(No non-HttpOnly cookies are visible to JavaScript)";
+      const cookieName = String(this.authSessionCookieName || "").trim();
+      this.sessionCookieVisible = cookieName
+        ? raw
+            .split(";")
+            .map((x) => x.trim())
+            .some((x) => x.startsWith(`${cookieName}=`))
+        : false;
+    },
+
+    async refreshAuthMeSnapshot() {
+      try {
+        const res = await fetch("/api/auth/me", { method: "GET" });
+        const ct = res.headers.get("content-type") || "";
+        const isJson = ct.includes("application/json");
+        const data = isJson
+          ? await res.json().catch(() => null)
+          : await res.text().catch(() => null);
+        if (res.ok && data && typeof data === "object") {
+          this.authClaims = data;
+          this.syncAuthMeta();
+        }
+      } catch (_e) {
+        // keep last known authClaims in the modal when refresh fails
+      }
+    },
+
+    async openUserInfoModal() {
+      await this.refreshAuthMeSnapshot();
+      this.refreshCookieSnapshot();
+      this.modal.userInfo.open = true;
+    },
+
+    closeUserInfoModal() {
+      this.modal.userInfo.open = false;
     },
 
     async checkAuthSession() {
@@ -219,6 +319,7 @@ window.app = function () {
 
       this.isAuthenticated = true;
       this.authClaims = data && typeof data === "object" ? data : null;
+      this.syncAuthMeta();
       this.authError = "";
       this.authChecked = true;
       return true;

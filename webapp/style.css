@@ -111,6 +111,43 @@ body {
   align-items: center;
 }
 
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #e5f4ff;
+  padding: 5px 11px 5px 7px;
+  cursor: pointer;
+  max-width: 240px;
+}
+
+.user-chip:hover {
+  border-color: rgba(56, 189, 248, 0.9);
+}
+
+.user-chip-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #bae6fd;
+  flex: 0 0 24px;
+}
+
+.user-chip-name {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .pill {
   padding: 6px 12px;
   border-radius: 999px;

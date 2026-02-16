@@ -132,6 +132,11 @@ class OIDCConfig:
             os.getenv("OIDC_VERIFY_AUDIENCE"), default=False
         )
     )
+    ui_username_claim: str = field(
+        default_factory=lambda: os.getenv(
+            "OIDC_UI_USERNAME_CLAIM", "preferred_username"
+        ).strip()
+    )
     allowed_groups_raw: str = field(
         default_factory=lambda: os.getenv("OIDC_AUTHZ_ALLOWED_GROUPS", "")
     )
@@ -170,6 +175,11 @@ class OIDCConfig:
         if self.cookie_samesite == "none" and not self.cookie_secure:
             raise RuntimeError(
                 "OIDC_COOKIE_SECURE must be true when OIDC_COOKIE_SAMESITE=none"
+            )
+
+        if not self.ui_username_claim:
+            raise RuntimeError(
+                "OIDC_UI_USERNAME_CLAIM must be set when OIDC is enabled"
             )
 
         if not self.groups_claim_name:
@@ -555,4 +565,5 @@ def oidc_logout():
 
 @router.get("/me")
 def oidc_me(claims: dict[str, Any] = Security(require_authenticated)) -> dict[str, Any]:
-    return claims
+    payload = dict(claims)
+    return payload

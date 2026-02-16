@@ -1,37 +1,39 @@
-# Kloigos Enterprise Features
+# 🧩 Kloigos Enterprise
 
 The contents of this directory are part of **Kloigos Enterprise**.
 
-## License
+## ⚖️ License
 
-All code and materials under the `enterprise/` directory are **source-available** and are
-licensed under the **Kloigos Enterprise License**. They are **not open source**.
+All code and materials under `enterprise/` are **source-available** under the
+**Kloigos Enterprise License** and are **not open source**.
 
-Use of these components in production environments requires a valid commercial license.
-Redistribution or modification is governed by the terms of `LICENSE-ENTERPRISE`.
+Use in production requires a valid commercial license.
+Redistribution and modification are governed by `LICENSE-ENTERPRISE`.
 
-## Contributions
+## 🤝 Contributions
 
 External contributions to this directory are **not accepted**.
 
-If you are interested in contributing to Kloigos, please see the open-source components in the
-main repository and refer to the contribution guidelines for the Apache-licensed core.
+To contribute to Kloigos, please use the Apache-licensed core components in the main repository.
 
-## More information
+## 📬 More Information
 
-For licensing inquiries, commercial use, or enterprise support, please contact the Kloigos team or refer to the project documentation.
+For licensing, commercial use, or enterprise support, refer to project documentation or contact the Kloigos team.
 
-## OIDC Authentication (Enterprise)
+---
 
-Kloigos supports provider-agnostic OIDC authentication (Keycloak, Okta, Entra ID, Google, Auth0, others) via environment variables.
+## 🔐 Enterprise Feature: OIDC AuthN + AuthZ
 
-- OIDC is an enterprise feature and requires a license key.
-- If no valid enterprise license is configured, Kloigos runs in unauthenticated mode (all visitors can access the dashboard and API actions).
-- Protected API routes (when OIDC is active): `/api/admin/*`, `/api/compute_units/*`
+Kloigos supports provider-agnostic OIDC integration (Keycloak, Okta, Entra ID, Google, Auth0, and others).
+
+- OIDC is an enterprise feature and requires a valid license key.
+- If no valid enterprise license is configured, Kloigos runs in unauthenticated mode.
 - Auth routes: `/api/auth/login`, `/api/auth/callback`, `/api/auth/logout`, `/api/auth/me`
-- SPA behavior: when OIDC is active and API returns `401`/`403`, frontend shows a `Login with SSO` button
+- SPA behavior: when OIDC is active and API returns `401`/`403`, the frontend shows a `Login with SSO` button.
 
-Configure values in `.env` (see `.env.example`):
+### ⚙️ Required Configuration
+
+Set these values in `.env` (see `.env.example`):
 
 - `KLOIGOS_ENTERPRISE_LICENSE_KEY`
 - `OIDC_ENABLED`
@@ -41,14 +43,15 @@ Configure values in `.env` (see `.env.example`):
 - `OIDC_SCOPES` (default: `openid profile email`)
 - `OIDC_AUDIENCE` (optional)
 - `OIDC_EXTRA_AUTH_PARAMS` (optional JSON)
+- `OIDC_UI_USERNAME_CLAIM` (claim used by UI for display name; default: `preferred_username`)
 - `OIDC_AUTHZ_ALLOWED_GROUPS` (required when OIDC is enabled; CSV list)
-- `OIDC_AUTHZ_GROUPS_CLAIM` (claim name with user groups; default `groups`)
+- `OIDC_AUTHZ_GROUPS_CLAIM` (claim name with user groups; default: `groups`)
 
-### Authorization via groups
+### 👥 Group-Based Authorization
 
-Authenticated users are allowed only if they belong to at least one group in `OIDC_AUTHZ_ALLOWED_GROUPS`.
+Authenticated users are authorized only if they belong to at least one group listed in `OIDC_AUTHZ_ALLOWED_GROUPS`.
 
-- `OIDC_AUTHZ_ALLOWED_GROUPS`: comma-separated allowed groups (for example: `aa,bb,cc,eng`)
-- `OIDC_AUTHZ_GROUPS_CLAIM`: token claim name that contains user groups (default: `groups`)
+- `OIDC_AUTHZ_ALLOWED_GROUPS`: comma-separated allowed groups (example: `aa,bb,cc,eng`)
+- `OIDC_AUTHZ_GROUPS_CLAIM`: token claim containing user groups (default: `groups`)
 
-If OIDC is disabled (or license key is missing/invalid), Kloigos falls back to unauthenticated mode.
+If OIDC is disabled, or the enterprise license key is missing/invalid, Kloigos falls back to unauthenticated mode.

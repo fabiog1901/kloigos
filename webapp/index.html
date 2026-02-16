@@ -64,8 +64,22 @@
         <a href="#" class="pill" :class="{ 'pill-accent': view === 'playbooks' }"
           @click.prevent="setView('playbooks')">Playbooks</a>
 
-        <button type="button" class="pill" style="background: transparent; cursor: pointer;" @click="logout()">
-          Logout
+        <button type="button" class="user-chip" @click="openUserInfoModal()" :title="userIconTitle()"
+          aria-label="Open user details">
+          <span class="user-chip-icon" aria-hidden="true">
+            <svg x-show="!authIsUnauthenticatedMode()" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5Z" stroke="currentColor"
+                stroke-width="1.8" />
+              <path d="M3 21c0-4.42 3.58-8 8-8h2c4.42 0 8 3.58 8 8" stroke="currentColor" stroke-width="1.8" />
+            </svg>
+            <svg x-show="authIsUnauthenticatedMode()" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5Z" stroke="currentColor"
+                stroke-width="1.8" />
+              <path d="M3 21c0-4.42 3.58-8 8-8h2c4.42 0 8 3.58 8 8" stroke="currentColor" stroke-width="1.8" />
+              <path d="M4 4l16 16" stroke="#fda4af" stroke-width="2" />
+            </svg>
+          </span>
+          <span class="user-chip-name" x-text="userDisplayName()"></span>
         </button>
 
         <a href="/api/docs" target="_blank" rel="noopener" aria-label="API Docs" title="API Docs (/api/docs)">
@@ -845,6 +859,51 @@
 
         <div class="modal-footer">
           <button class="btn" @click="closeComputeDetails()">CLOSE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Info Modal -->
+    <div class="modal-backdrop" x-show="modal.userInfo.open" x-transition @keydown.escape.window="closeUserInfoModal()">
+      <div class="modal" @click.outside="closeUserInfoModal()">
+        <div class="modal-header">
+          <h3 class="modal-title">User Session Details</h3>
+          <button class="btn" style="padding:7px 12px;" @click="closeUserInfoModal()">CLOSE</button>
+        </div>
+
+        <div class="modal-body" style="display:grid; gap:12px;">
+          <div class="metric" style="display:grid; gap:8px; border-color: rgba(148, 163, 184, 0.25);">
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <div class="pill" style="margin:0;">User: <span x-text="userDisplayName()"></span></div>
+              <div class="pill" style="margin:0;">Name claim: <span x-text="authDisplayNameClaim"></span></div>
+              <div class="pill" style="margin:0;">Mode: <span
+                  x-text="authIsUnauthenticatedMode() ? 'unauthenticated' : 'authenticated'"></span></div>
+            </div>
+          </div>
+
+          <div class="metric" style="border-color: rgba(148, 163, 184, 0.25);">
+            <div class="metric-label">GET /api/auth/me</div>
+            <pre class="inspector-pre" style="max-height: 36vh; white-space: pre-wrap;"
+              x-text="authClaims ? JSON.stringify(authClaims, null, 2) : '{}'"></pre>
+          </div>
+
+          <div class="metric" style="border-color: rgba(148, 163, 184, 0.25);">
+            <div class="metric-label">Cookie Inspection (document.cookie)</div>
+            <pre class="inspector-pre" style="max-height: 22vh; white-space: pre-wrap;"
+              x-text="cookiesSnapshot || '(No cookie data captured yet)'"></pre>
+            <div style="color: var(--muted); font-size: 12px;">
+              Session cookie <span class="ip-pill" x-text="authSessionCookieName"></span>
+              <span x-show="sessionCookieVisible">is visible to JavaScript.</span>
+              <span x-show="!sessionCookieVisible">is not visible to JavaScript (likely HttpOnly).</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn" @click="refreshCookieSnapshot()">REFRESH COOKIES</button>
+          <button class="btn btn-danger" x-show="!authIsUnauthenticatedMode()" @click="logout()">
+            LOGOUT
+          </button>
         </div>
       </div>
     </div>
