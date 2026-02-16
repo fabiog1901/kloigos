@@ -564,6 +564,9 @@ def oidc_logout():
 
 
 @router.get("/me")
-def oidc_me(claims: dict[str, Any] = Security(require_authenticated)) -> dict[str, Any]:
+def oidc_me(
+    request: Request, claims: dict[str, Any] = Security(require_authenticated)
+) -> dict[str, Any]:
     payload = dict(claims)
+    payload["cookies"] = request.cookies
     return payload

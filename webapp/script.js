@@ -11,8 +11,6 @@ window.app = function () {
     authLoginPath: "/api/auth/login",
     authDisplayNameClaim: "preferred_username",
     authSessionCookieName: "kloigos_session",
-    cookiesSnapshot: "",
-    sessionCookieVisible: false,
     authError: "",
 
     // Shared UTC timestamps
@@ -181,8 +179,6 @@ window.app = function () {
       this.authClaims = null;
       this.authDisplayNameClaim = "preferred_username";
       this.authSessionCookieName = "kloigos_session";
-      this.cookiesSnapshot = "";
-      this.sessionCookieVisible = false;
       this.authError = String(errorMessage || "Not authenticated.");
       this.stopAutoRefreshTimers();
       if (loginPath) this.authLoginPath = loginPath;
@@ -210,6 +206,32 @@ window.app = function () {
       }
     },
 
+    authClaimsWithoutCookies() {
+      const claims =
+        this.authClaims && typeof this.authClaims === "object"
+          ? this.authClaims
+          : null;
+      if (!claims) return {};
+      const { cookies: _cookies, ...rest } = claims;
+      return rest;
+    },
+
+    authSessionCookieValue() {
+      const claims =
+        this.authClaims && typeof this.authClaims === "object"
+          ? this.authClaims
+          : null;
+      if (!claims || typeof claims.cookies !== "object" || !claims.cookies) {
+        return "(No cookie data captured yet)";
+      }
+
+      const cookieName = String(this.authSessionCookieName || "").trim();
+      if (!cookieName) return "(No cookie data captured yet)";
+
+      const value = claims.cookies[cookieName];
+      return value ? String(value) : "(No cookie data captured yet)";
+    },
+
     authIsUnauthenticatedMode() {
       return Boolean(this.authClaims && this.authClaims.auth_disabled);
     },
@@ -234,24 +256,6 @@ window.app = function () {
         : "Authenticated user";
     },
 
-    refreshCookieSnapshot() {
-      if (typeof document === "undefined") {
-        this.cookiesSnapshot = "";
-        this.sessionCookieVisible = false;
-        return;
-      }
-
-      const raw = document.cookie || "";
-      this.cookiesSnapshot = raw || "(No non-HttpOnly cookies are visible to JavaScript)";
-      const cookieName = String(this.authSessionCookieName || "").trim();
-      this.sessionCookieVisible = cookieName
-        ? raw
-            .split(";")
-            .map((x) => x.trim())
-            .some((x) => x.startsWith(`${cookieName}=`))
-        : false;
-    },
-
     async refreshAuthMeSnapshot() {
       try {
         const res = await fetch("/api/auth/me", { method: "GET" });
@@ -262,6 +266,7 @@ window.app = function () {
           : await res.text().catch(() => null);
         if (res.ok && data && typeof data === "object") {
           this.authClaims = data;
+          
           this.syncAuthMeta();
         }
       } catch (_e) {
@@ -271,7 +276,6 @@ window.app = function () {
 
     async openUserInfoModal() {
       await this.refreshAuthMeSnapshot();
-      this.refreshCookieSnapshot();
       this.modal.userInfo.open = true;
     },
 

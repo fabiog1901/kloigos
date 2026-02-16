@@ -875,7 +875,6 @@
           <div class="metric" style="display:grid; gap:8px; border-color: rgba(148, 163, 184, 0.25);">
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
               <div class="pill" style="margin:0;">User: <span x-text="userDisplayName()"></span></div>
-              <div class="pill" style="margin:0;">Name claim: <span x-text="authDisplayNameClaim"></span></div>
               <div class="pill" style="margin:0;">Mode: <span
                   x-text="authIsUnauthenticatedMode() ? 'unauthenticated' : 'authenticated'"></span></div>
             </div>
@@ -884,23 +883,17 @@
           <div class="metric" style="border-color: rgba(148, 163, 184, 0.25);">
             <div class="metric-label">GET /api/auth/me</div>
             <pre class="inspector-pre" style="max-height: 36vh; white-space: pre-wrap;"
-              x-text="authClaims ? JSON.stringify(authClaims, null, 2) : '{}'"></pre>
+              x-text="toYaml(authClaimsWithoutCookies())"></pre>
           </div>
 
           <div class="metric" style="border-color: rgba(148, 163, 184, 0.25);">
-            <div class="metric-label">Cookie Inspection (document.cookie)</div>
+            <div class="metric-label">JWT id_token</div>
             <pre class="inspector-pre" style="max-height: 22vh; white-space: pre-wrap;"
-              x-text="cookiesSnapshot || '(No cookie data captured yet)'"></pre>
-            <div style="color: var(--muted); font-size: 12px;">
-              Session cookie <span class="ip-pill" x-text="authSessionCookieName"></span>
-              <span x-show="sessionCookieVisible">is visible to JavaScript.</span>
-              <span x-show="!sessionCookieVisible">is not visible to JavaScript (likely HttpOnly).</span>
-            </div>
+              x-text="authSessionCookieValue()"></pre>
           </div>
         </div>
 
         <div class="modal-footer">
-          <button class="btn" @click="refreshCookieSnapshot()">REFRESH COOKIES</button>
           <button class="btn btn-danger" x-show="!authIsUnauthenticatedMode()" @click="logout()">
             LOGOUT
           </button>
