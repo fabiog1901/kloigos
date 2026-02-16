@@ -23,6 +23,25 @@
 
 <body>
   <div class="page" x-data="app()" x-init="init()">
+    <div x-show="!authChecked" style="padding: 48px 24px; color: var(--muted); text-align: center;">
+      Checking session...
+    </div>
+
+    <div x-show="authChecked && !isAuthenticated"
+      style="max-width: 520px; margin: 64px auto 0; padding: 28px; border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 16px; background: rgba(15, 23, 42, 0.75);">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+        <div class="logo-pill">Κ</div>
+        <div>
+          <h2 style="margin:0; font-size:22px;">Κλοηγός / Kloigos</h2>
+          <div style="color: var(--muted); font-size: 13px;">Authenticate to access the dashboard</div>
+        </div>
+      </div>
+      <div x-show="authError" style="margin: 10px 0 14px; color: var(--danger); font-size: 13px;" x-text="authError">
+      </div>
+      <button type="button" class="btn" @click="loginWithSSO()">Login with SSO</button>
+    </div>
+
+    <div x-show="authChecked && isAuthenticated">
 
     <header class="topbar">
       <div class="topbar-title">
@@ -44,6 +63,10 @@
 
         <a href="#" class="pill" :class="{ 'pill-accent': view === 'playbooks' }"
           @click.prevent="setView('playbooks')">Playbooks</a>
+
+        <button type="button" class="pill" style="background: transparent; cursor: pointer;" @click="logout()">
+          Logout
+        </button>
 
         <a href="/api/docs" target="_blank" rel="noopener" aria-label="API Docs" title="API Docs (/api/docs)">
           <!-- code brackets icon -->
@@ -468,6 +491,8 @@
         </div>
 
         <div class="modal-body">
+          <div class="modal-error-banner" x-show="modalErrors.serverActionConfirm"
+            x-text="modalErrors.serverActionConfirm"></div>
           <div style="color: var(--muted); font-size: 13px; line-height: 1.5;">
             <template x-if="modal.serverActionConfirm.action === 'decommission'">
               <div>
@@ -585,6 +610,7 @@
         </div>
 
         <div class="modal-body">
+          <div class="modal-error-banner" x-show="modalErrors.allocate" x-text="modalErrors.allocate"></div>
           <div class="form-grid">
             <div class="form-row">
               <div class="label">deployment id</div>
@@ -640,6 +666,7 @@
         </div>
 
         <div class="modal-body">
+          <div class="modal-error-banner" x-show="modalErrors.init" x-text="modalErrors.init"></div>
           <div class="form-grid">
             <div class="form-row">
               <div class="label">ip</div>
@@ -726,6 +753,7 @@
         </div>
 
         <div class="modal-body">
+          <div class="modal-error-banner" x-show="modalErrors.decommission" x-text="modalErrors.decommission"></div>
 
           <div class="form-grid">
             <div class="form-row" style="grid-column: 1 / -1;">
@@ -762,6 +790,8 @@
         </div>
 
         <div class="modal-body">
+          <div class="modal-error-banner" x-show="modalErrors.deallocateConfirm"
+            x-text="modalErrors.deallocateConfirm"></div>
           <div style="color: var(--muted); font-size: 13px; line-height: 1.5;">
             This will <span style="color:#e5f4ff;">release the compute unit back to the pool</span>.
             Any workload depending on it may be disrupted.
@@ -817,6 +847,7 @@
           <button class="btn" @click="closeComputeDetails()">CLOSE</button>
         </div>
       </div>
+    </div>
     </div>
 
   </div>

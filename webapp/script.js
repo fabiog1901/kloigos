@@ -5,6 +5,11 @@ window.app = function () {
     // Tabs
     view: "dashboard",
     apiBase: "/api",
+    authChecked: false,
+    isAuthenticated: false,
+    authClaims: null,
+    authLoginPath: "/api/auth/login",
+    authError: "",
 
     // Shared UTC timestamps
 
@@ -97,6 +102,13 @@ window.app = function () {
       },
       serverDetails: { open: false, row: null },
     },
+    modalErrors: {
+      allocate: "",
+      init: "",
+      decommission: "",
+      deallocateConfirm: "",
+      serverActionConfirm: "",
+    },
 
     // ---------- Playbooks state ----------
     playbooks: ["CU_ALLOCATE", "CU_DEALLOCATE", "SERVER_INIT", "SERVER_DECOMM"],
@@ -128,8 +140,102 @@ window.app = function () {
         .replace(/\.\d{3}Z$/, "Z");
     },
 
+    errorMessage(err, fallback = "Request failed.") {
+      if (!err) return fallback;
+      const msg =
+        err?.message ||
+        err?.detail ||
+        err?.response?.data?.detail ||
+        err?.response?.data?.message;
+      return String(msg || fallback);
+    },
+
+    clearModalError(modalName) {
+      if (!modalName) return;
+      this.modalErrors[modalName] = "";
+    },
+
+    setModalError(modalName, err, fallback = "Request failed.") {
+      this.modalErrors[modalName] = this.errorMessage(err, fallback);
+    },
+
+    // ---------- Auth ----------
+    stopAutoRefreshTimers() {
+      if (this._autoTimer) {
+        clearInterval(this._autoTimer);
+        this._autoTimer = null;
+      }
+      if (this._serversAutoTimer) {
+        clearInterval(this._serversAutoTimer);
+        this._serversAutoTimer = null;
+      }
+    },
+
+    setAuthRequired(loginPath, errorMessage = "Not authenticated.") {
+      this.isAuthenticated = false;
+      this.authClaims = null;
+      this.authError = String(errorMessage || "Not authenticated.");
+      this.stopAutoRefreshTimers();
+      if (loginPath) this.authLoginPath = loginPath;
+    },
+
+    async checkAuthSession() {
+      let res = null;
+      let data = null;
+      try {
+        res = await fetch("/api/auth/me", { method: "GET" });
+      } catch (e) {
+        this.authError = this.errorMessage(e, "Unable to verify session.");
+        this.authChecked = true;
+        return false;
+      }
+
+      const ct = res.headers.get("content-type") || "";
+      const isJson = ct.includes("application/json");
+      data = isJson
+        ? await res.json().catch(() => null)
+        : await res.text().catch(() => null);
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          const loginPath =
+            res.headers.get("x-auth-login-url") ||
+            (data &&
+              ((data.detail && data.detail.auth_login_url) ||
+                data.auth_login_url)) ||
+            "/api/auth/login";
+          this.setAuthRequired(loginPath);
+          this.authChecked = true;
+          return false;
+        }
+
+        this.authError =
+          (data && (data.detail || data.message)) ||
+          (typeof data === "string" && data) ||
+          `Auth check failed (${res.status})`;
+        this.authChecked = true;
+        return false;
+      }
+
+      this.isAuthenticated = true;
+      this.authClaims = data && typeof data === "object" ? data : null;
+      this.authError = "";
+      this.authChecked = true;
+      return true;
+    },
+
+    loginWithSSO() {
+      if (typeof window === "undefined") return;
+      const loginPath = this.authLoginPath || "/api/auth/login";
+      const next = encodeURIComponent(
+        `${window.location.pathname}${window.location.search}${window.location.hash}`,
+      );
+      const sep = String(loginPath).includes("?") ? "&" : "?";
+      window.location.assign(`${loginPath}${sep}next=${next}`);
+    },
+
     // ---------- Init ----------
-    init() {
+    async init() {
       const sIdx = localStorage.getItem("kloigos_sort_index");
       const sDir = localStorage.getItem("kloigos_sort_dir");
       const sFilter = localStorage.getItem("kloigos_filter");
@@ -151,6 +257,9 @@ window.app = function () {
         this.view = sView;
 
       this.renderedAtUtc = this.utcNowString();
+
+      const hasSession = await this.checkAuthSession();
+      if (!hasSession) return;
 
       // Start dashboard timer (only refresh if dashboard tab is active)
       this._autoTimer = setInterval(() => {
@@ -178,6 +287,18 @@ window.app = function () {
       if (this.view === "playbooks") this.ensurePlaybooksView();
       else if (this.view === "servers") this.ensureServersView();
       else this.ensureDashboardView();
+    },
+
+    async logout() {
+      try {
+        await fetch("/api/auth/logout", { method: "POST" });
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.setAuthRequired(this.authLoginPath, "");
+        this.authChecked = true;
+        if (typeof window !== "undefined") window.location.assign("/");
+      }
     },
 
     // ---------- Shared API fetch (also feeds inspector on dashboard) ----------
@@ -210,6 +331,20 @@ window.app = function () {
       }
 
       if (!res.ok) {
+        if (
+          (res.status === 401 || res.status === 403) &&
+          typeof window !== "undefined"
+        ) {
+          const loginPath =
+            res.headers.get("x-auth-login-url") ||
+            (data &&
+              ((data.detail && data.detail.auth_login_url) ||
+                data.auth_login_url)) ||
+            "/api/auth/login";
+          this.setAuthRequired(loginPath);
+          throw new Error("Not authenticated.");
+        }
+
         const msg =
           (data && (data.detail || data.message)) ||
           (typeof data === "string" && data) ||
@@ -349,11 +484,13 @@ window.app = function () {
     openServerActionConfirm(server, action) {
       this.modal.serverActionConfirm.hostname = server?.hostname || "";
       this.modal.serverActionConfirm.action = action || "decommission";
+      this.clearModalError("serverActionConfirm");
       this.modal.serverActionConfirm.open = true;
     },
 
     closeServerActionConfirm() {
       this.modal.serverActionConfirm.open = false;
+      this.clearModalError("serverActionConfirm");
     },
 
     async confirmServerAction() {
@@ -380,6 +517,12 @@ window.app = function () {
         }
         this.closeServerActionConfirm();
         await this.refreshServers();
+      } catch (e) {
+        this.setModalError(
+          "serverActionConfirm",
+          e,
+          "Failed to run server action.",
+        );
       } finally {
         this.serversLoading.action = false;
       }
@@ -635,14 +778,17 @@ window.app = function () {
     // ---------- Dashboard actions ----------
     openAllocateModal(computeId = "") {
       this.modal.allocate.compute_id = computeId ? String(computeId) : "";
+      this.clearModalError("allocate");
       this.modal.allocate.open = true;
     },
     closeAllocateModal() {
       this.modal.allocate.open = false;
+      this.clearModalError("allocate");
     },
 
     async allocate() {
       this.loading.allocate = true;
+      this.clearModalError("allocate");
       try {
         const tags = JSON.parse(
           (this.modal.allocate.tagsText || "{}").trim() || "{}",
@@ -669,14 +815,14 @@ window.app = function () {
           method: "POST",
           body: payload,
         });
-      } catch (err) {
-        console.log(err);
-      } finally {
-        this.loading.allocate = false;
         this.closeAllocateModal();
         await this.refreshDashboard();
         if (typeof this.refreshServers === "function")
           await this.refreshServers();
+      } catch (err) {
+        this.setModalError("allocate", err, "Allocation failed.");
+      } finally {
+        this.loading.allocate = false;
       }
     },
 
@@ -685,11 +831,13 @@ window.app = function () {
       if (this.modal.init.cpuStep == null || this.modal.init.cpuStep <= 0)
         this.modal.init.cpuStep = null;
 
+      this.clearModalError("init");
       this.modal.init.open = true;
       this.recomputeInitCpuRanges();
     },
     closeInitModal() {
       this.modal.init.open = false;
+      this.clearModalError("init");
       this.modal.init.ip = "";
       this.modal.init.hostname = "";
       this.modal.init.user_id = "ubuntu";
@@ -772,6 +920,7 @@ window.app = function () {
 
     async initServer() {
       this.loading.init = true;
+      this.clearModalError("init");
       try {
         const cpu_ranges = JSON.parse(
           (this.modal.init.cpuRangesText || "[]").trim() || "[]",
@@ -804,20 +953,25 @@ window.app = function () {
         await this.refreshDashboard();
         if (typeof this.refreshServers === "function")
           await this.refreshServers();
+      } catch (e) {
+        this.setModalError("init", e, "Server init failed.");
       } finally {
         this.loading.init = false;
       }
     },
 
     openDecommissionModal() {
+      this.clearModalError("decommission");
       this.modal.decommission.open = true;
     },
     closeDecommissionModal() {
       this.modal.decommission.open = false;
+      this.clearModalError("decommission");
     },
 
     async decommissionByHostname() {
       this.loading.decommission = true;
+      this.clearModalError("decommission");
       try {
         const payload = {
           hostname: (this.modal.decommission.hostname || "").trim(),
@@ -833,6 +987,8 @@ window.app = function () {
         await this.refreshDashboard();
         if (typeof this.refreshServers === "function")
           await this.refreshServers();
+      } catch (e) {
+        this.setModalError("decommission", e, "Server decommission failed.");
       } finally {
         this.loading.decommission = false;
       }
@@ -841,10 +997,12 @@ window.app = function () {
     openDeallocateConfirm(row) {
       this.modal.deallocateConfirm.compute_id = row.compute_id;
       this.modal.deallocateConfirm.hostname = row.hostname || "";
+      this.clearModalError("deallocateConfirm");
       this.modal.deallocateConfirm.open = true;
     },
     closeDeallocateConfirm() {
       this.modal.deallocateConfirm.open = false;
+      this.clearModalError("deallocateConfirm");
     },
 
     openComputeDetails(row) {
@@ -870,6 +1028,7 @@ window.app = function () {
       const computeId = this.modal.deallocateConfirm.compute_id;
       this.loading.deallocateConfirm = true;
       this.busyKey = computeId;
+      this.clearModalError("deallocateConfirm");
       try {
         await this.apiFetch(
           `/compute_units/deallocate/${encodeURIComponent(computeId)}`,
@@ -879,6 +1038,8 @@ window.app = function () {
         await this.refreshDashboard();
         if (typeof this.refreshServers === "function")
           await this.refreshServers();
+      } catch (e) {
+        this.setModalError("deallocateConfirm", e, "Deallocate failed.");
       } finally {
         this.loading.deallocateConfirm = false;
         this.busyKey = null;

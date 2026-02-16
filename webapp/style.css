@@ -677,6 +677,17 @@ td:first-child {
   gap: 12px;
 }
 
+.modal-error-banner {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.65);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

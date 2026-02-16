@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Response, status
 
 from ..dep import get_admin_service
+from ..enterprise.auth import require_authenticated
 from ..models import (
     DeferredTask,
     Playbook,
@@ -15,6 +16,7 @@ from ..services.admin import AdminService
 router = APIRouter(
     prefix="/admin",
     tags=["admin"],
+    dependencies=[Depends(require_authenticated)],
 )
 
 

@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import DB_ENGINE, DB_URL, dep
 from .api import admin, compute_unit
+from .enterprise.auth import oidc, router as auth_router
 from .util import RequestIDFilter, ShorthandFormatter, request_id_ctx
 
 
@@ -53,6 +54,8 @@ setup_logging()
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    oidc.validate_config()
+
     if DB_ENGINE == "postgres":
         from psycopg_pool import ConnectionPool
 
@@ -87,6 +90,7 @@ api = FastAPI(
 )
 
 # all API endpoints are grouped in dedicated routers
+api.include_router(auth_router)
 api.include_router(compute_unit.router)
 api.include_router(admin.router)
 
