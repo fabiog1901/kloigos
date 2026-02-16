@@ -21,7 +21,7 @@ main repository and refer to the contribution guidelines for the Apache-licensed
 
 For licensing inquiries, commercial use, or enterprise support, please contact the Kloigos team or refer to the project documentation.
 
-## OIDC Authentication (FastAPI + SPA)
+## OIDC Authentication (Enterprise)
 
 Kloigos supports provider-agnostic OIDC authentication (Keycloak, Okta, Entra ID, Google, Auth0, others) via environment variables.
 
@@ -41,3 +41,14 @@ Configure values in `.env` (see `.env.example`):
 - `OIDC_SCOPES` (default: `openid profile email`)
 - `OIDC_AUDIENCE` (optional)
 - `OIDC_EXTRA_AUTH_PARAMS` (optional JSON)
+- `OIDC_AUTHZ_ALLOWED_GROUPS` (required when OIDC is enabled; CSV list)
+- `OIDC_AUTHZ_GROUPS_CLAIM` (claim name with user groups; default `groups`)
+
+### Authorization via groups
+
+Authenticated users are allowed only if they belong to at least one group in `OIDC_AUTHZ_ALLOWED_GROUPS`.
+
+- `OIDC_AUTHZ_ALLOWED_GROUPS`: comma-separated allowed groups (for example: `aa,bb,cc,eng`)
+- `OIDC_AUTHZ_GROUPS_CLAIM`: token claim name that contains user groups (default: `groups`)
+
+If OIDC is disabled (or license key is missing/invalid), Kloigos falls back to unauthenticated mode.

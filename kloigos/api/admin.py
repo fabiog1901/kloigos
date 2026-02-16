@@ -1,6 +1,14 @@
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Body,
+    Depends,
+    Response,
+    Security,
+    status,
+)
 
 from ..dep import get_admin_service
 from ..enterprise.auth import require_authenticated
@@ -16,7 +24,7 @@ from ..services.admin import AdminService
 router = APIRouter(
     prefix="/admin",
     tags=["admin"],
-    dependencies=[Depends(require_authenticated)],
+    dependencies=[Security(require_authenticated)],
 )
 
 

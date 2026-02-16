@@ -1,4 +1,12 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Response,
+    Security,
+    status,
+)
 from fastapi.exceptions import RequestErrorModel
 
 from ..dep import get_compute_unit_service
@@ -9,7 +17,7 @@ from ..services.compute_unit import ComputeUnitService, NoFreeComputeUnitError
 router = APIRouter(
     prefix="/compute_units",
     tags=["compute_units"],
-    dependencies=[Depends(require_authenticated)],
+    dependencies=[Security(require_authenticated)],
 )
 
 
