@@ -11,7 +11,7 @@ from fastapi import (
 )
 
 from ..dep import get_admin_service
-from ..enterprise.auth import require_authenticated
+from ..enterprise.auth import require_admin
 from ..models import (
     DeferredTask,
     Playbook,
@@ -24,7 +24,7 @@ from ..services.admin import AdminService
 router = APIRouter(
     prefix="/admin",
     tags=["admin"],
-    dependencies=[Security(require_authenticated)],
+    dependencies=[Security(require_admin)],
 )
 
 

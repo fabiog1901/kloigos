@@ -137,8 +137,14 @@ class OIDCConfig:
             "OIDC_UI_USERNAME_CLAIM", "preferred_username"
         ).strip()
     )
-    allowed_groups_raw: str = field(
-        default_factory=lambda: os.getenv("OIDC_AUTHZ_ALLOWED_GROUPS", "")
+    readonly_groups_raw: str = field(
+        default_factory=lambda: os.getenv("OIDC_AUTHZ_READONLY_GROUPS", "")
+    )
+    user_groups_raw: str = field(
+        default_factory=lambda: os.getenv("OIDC_AUTHZ_USER_GROUPS", "")
+    )
+    admin_groups_raw: str = field(
+        default_factory=lambda: os.getenv("OIDC_AUTHZ_ADMIN_GROUPS", "")
     )
     groups_claim_name: str = field(
         default_factory=lambda: os.getenv("OIDC_AUTHZ_GROUPS_CLAIM", "groups").strip()
@@ -149,8 +155,22 @@ class OIDCConfig:
         return bool(self.enterprise_license_key)
 
     @property
-    def allowed_groups(self) -> set[str]:
-        return _safe_csv_set(self.allowed_groups_raw)
+    def role_groups(self) -> dict[str, set[str]]:
+        return {
+            "kloigos_readonly": _safe_csv_set(self.readonly_groups_raw),
+            "kloigos_user": _safe_csv_set(self.user_groups_raw),
+            "kloigos_admin": _safe_csv_set(self.admin_groups_raw),
+        }
+
+    @property
+    def authorized_groups(self) -> set[str]:
+        role_groups = self.role_groups
+        if not role_groups:
+            return set()
+        groups: set[str] = set()
+        for values in role_groups.values():
+            groups.update(values)
+        return groups
 
     def validate(self) -> None:
         if not self.enabled or not self.license_is_valid:
@@ -187,9 +207,9 @@ class OIDCConfig:
                 "OIDC_AUTHZ_GROUPS_CLAIM must be set when OIDC is enabled"
             )
 
-        if not self.allowed_groups:
+        if not self.authorized_groups:
             raise RuntimeError(
-                "OIDC_AUTHZ_ALLOWED_GROUPS must include at least one group when OIDC is enabled"
+                "At least one of OIDC_AUTHZ_READONLY_GROUPS, OIDC_AUTHZ_USER_GROUPS, OIDC_AUTHZ_ADMIN_GROUPS must include a group when OIDC is enabled"
             )
 
         # Validate this once at startup instead of on first auth request.
@@ -402,13 +422,36 @@ class OIDCManager:
                 detail=f"Forbidden: no groups found in claim '{self.config.groups_claim_name}'.",
             )
 
-        if self.config.allowed_groups.isdisjoint(user_groups):
+        if self.config.authorized_groups.isdisjoint(user_groups):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Forbidden: user is not in any allowed group.",
             )
 
         return claims
+
+    def ensure_any_role(self, claims: dict[str, Any], *roles: str) -> dict[str, Any]:
+        if not self.enabled:
+            return claims
+
+        user_groups = _claim_groups(claims.get(self.config.groups_claim_name))
+        if not user_groups:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Forbidden: no groups found in claim '{self.config.groups_claim_name}'.",
+            )
+
+        effective_roles = self.config.role_groups
+        for role in roles:
+            role_groups = effective_roles.get(role, set())
+            if role_groups and not role_groups.isdisjoint(user_groups):
+                return claims
+
+        role_list = ", ".join(roles)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Forbidden: requires one of roles [{role_list}].",
+        )
 
     def current_claims(
         self,
@@ -454,6 +497,29 @@ def require_authenticated(
         bearer_credentials=bearer_credentials,
         session_token=session_token,
     )
+
+
+def require_user(
+    claims: dict[str, Any] = Security(require_authenticated),
+) -> dict[str, Any]:
+    return oidc.ensure_any_role(claims, "kloigos_user", "kloigos_admin")
+
+
+def require_compute_access(
+    request: Request,
+    claims: dict[str, Any] = Security(require_authenticated),
+) -> dict[str, Any]:
+    if request.method.upper() == "GET":
+        return oidc.ensure_any_role(
+            claims, "kloigos_readonly", "kloigos_user", "kloigos_admin"
+        )
+    return oidc.ensure_any_role(claims, "kloigos_user", "kloigos_admin")
+
+
+def require_admin(
+    claims: dict[str, Any] = Security(require_authenticated),
+) -> dict[str, Any]:
+    return oidc.ensure_any_role(claims, "kloigos_admin")
 
 
 @router.get("/login")

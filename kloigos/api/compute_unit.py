@@ -10,14 +10,14 @@ from fastapi import (
 from fastapi.exceptions import RequestErrorModel
 
 from ..dep import get_compute_unit_service
-from ..enterprise.auth import require_authenticated
+from ..enterprise.auth import require_compute_access
 from ..models import ComputeUnitOverview, ComputeUnitRequest, DeferredTask
 from ..services.compute_unit import ComputeUnitService, NoFreeComputeUnitError
 
 router = APIRouter(
     prefix="/compute_units",
     tags=["compute_units"],
-    dependencies=[Security(require_authenticated)],
+    dependencies=[Security(require_compute_access)],
 )
 
 

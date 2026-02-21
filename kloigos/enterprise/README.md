@@ -44,14 +44,25 @@ Set these values in `.env` (see `.env.example`):
 - `OIDC_AUDIENCE` (optional)
 - `OIDC_EXTRA_AUTH_PARAMS` (optional JSON)
 - `OIDC_UI_USERNAME_CLAIM` (claim used by UI for display name; default: `preferred_username`)
-- `OIDC_AUTHZ_ALLOWED_GROUPS` (required when OIDC is enabled; CSV list)
+- `OIDC_AUTHZ_READONLY_GROUPS` (CSV list for `kloigos_readonly`)
+- `OIDC_AUTHZ_USER_GROUPS` (CSV list for `kloigos_user`)
+- `OIDC_AUTHZ_ADMIN_GROUPS` (CSV list for `kloigos_admin`)
 - `OIDC_AUTHZ_GROUPS_CLAIM` (claim name with user groups; default: `groups`)
 
 ### 👥 Group-Based Authorization
 
-Authenticated users are authorized only if they belong to at least one group listed in `OIDC_AUTHZ_ALLOWED_GROUPS`.
+Authenticated users are authorized only if they belong to at least one allowed group.
 
-- `OIDC_AUTHZ_ALLOWED_GROUPS`: comma-separated allowed groups (example: `aa,bb,cc,eng`)
+- `OIDC_AUTHZ_READONLY_GROUPS`: comma-separated readonly groups
+- `OIDC_AUTHZ_USER_GROUPS`: comma-separated user groups
+- `OIDC_AUTHZ_ADMIN_GROUPS`: comma-separated admin groups
 - `OIDC_AUTHZ_GROUPS_CLAIM`: token claim containing user groups (default: `groups`)
+
+Role checks used by the API:
+
+- `/api/compute_units/*`:
+  - `GET` requires `kloigos_readonly`, `kloigos_user`, or `kloigos_admin`
+  - write methods require `kloigos_user` or `kloigos_admin`
+- `/api/admin/*`: requires `kloigos_admin`
 
 If OIDC is disabled, or the enterprise license key is missing/invalid, Kloigos falls back to unauthenticated mode.
