@@ -10,8 +10,8 @@ from fastapi.staticfiles import StaticFiles
 
 from . import DB_ENGINE, DB_URL, dep
 from .api import admin, compute_unit
-from .enterprise.auth import oidc
-from .enterprise.auth import router as auth_router
+from .auth import oidc
+from .auth import router as auth_router
 from .util import RequestIDFilter, ShorthandFormatter, request_id_ctx
 
 

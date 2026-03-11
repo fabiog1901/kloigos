@@ -126,10 +126,8 @@ class ServerInDB(BaseServer):
 
 
 class ServerInitRequest(BaseServer):
-    ssh_key: str = Field(exclude=True)
     cpu_ranges: list[str]
 
 
 class ServerDecommRequest(BaseModel):
-    ssh_key: str = Field(exclude=True)
     hostname: str

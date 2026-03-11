@@ -779,6 +779,7 @@ td:first-child {
 .editor-shell {
   flex: 1 1 auto;
   min-height: 0;
+  height: clamp(520px, 70vh, 920px);
   display: flex;
   flex-direction: column;
   border-radius: 11px;
@@ -858,6 +859,9 @@ td:first-child {
   .select {
     min-width: 180px;
   }
+  .editor-shell {
+    height: clamp(420px, 58vh, 760px);
+  }
 }
 
 /* --- Ace editor shell tweaks --- */
@@ -885,6 +889,7 @@ td:first-child {
 .editor-shell {
   flex: 1 1 auto;
   min-height: 0;
+  height: clamp(520px, 70vh, 920px);
   border-radius: 11px;
   border: 1px solid rgba(148, 163, 184, 0.4);
   background: rgba(15, 23, 42, 0.95);

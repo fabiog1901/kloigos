@@ -34,6 +34,8 @@ CREATE TABLE playbooks (
     CONSTRAINT pk_playbooks PRIMARY KEY (id)
 );
 
+INSERT INTO playbooks (id) values ('CU_ALLOCATE'), ('CU_DEALLOCATE'), ('SERVER_INIT'), ('SERVER_DECOMM');
+
 CREATE TABLE event_log (
     ts TIMESTAMPTZ NOT NULL,
     user_id TEXT NOT NULL,

@@ -76,7 +76,7 @@ class PostgresRepo(BaseRepo):
         with self.pool.connection() as conn:
             conn.execute(
                 """
-                UPSERT INTO servers (
+                INSERT INTO servers (
                     hostname, ip, user_id, region, zone, status, 
                     cpu_count, mem_gb, disk_count, disk_size_gb, tags
                 )
@@ -84,6 +84,7 @@ class PostgresRepo(BaseRepo):
                     %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s
                 )
+                ON CONFLICT DO NOTHING
                 """,
                 (
                     sir.hostname,
@@ -157,7 +158,7 @@ class PostgresRepo(BaseRepo):
             cur = conn.cursor()
             cur.execute(
                 """
-                UPSERT INTO compute_units (
+                INSERT INTO compute_units (
                     hostname, cpu_range, cpu_count, 
                     cpu_set, port_range, cu_user,
                     status, started_at, tags
@@ -167,6 +168,7 @@ class PostgresRepo(BaseRepo):
                     %s, %s, %s,
                     %s, %s, %s
                 )
+                ON CONFLICT DO NOTHING
                 """,
                 (
                     cudb.hostname,

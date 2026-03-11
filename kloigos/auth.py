@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import secrets
 import time
@@ -66,16 +65,11 @@ def _cookie_secure_default() -> bool:
     return _as_bool(os.getenv("OIDC_COOKIE_SECURE"), default=False)
 
 
-def _license_key_value() -> str:
-    return os.getenv("KLOIGOS_ENTERPRISE_LICENSE_KEY", "").strip()
-
-
 @dataclass(frozen=True)
 class OIDCConfig:
     enabled: bool = field(
         default_factory=lambda: _as_bool(os.getenv("OIDC_ENABLED"), default=False)
     )
-    enterprise_license_key: str = field(default_factory=_license_key_value)
     issuer_url: str = field(
         default_factory=lambda: os.getenv("OIDC_ISSUER_URL", "").strip().rstrip("/")
     )
@@ -151,10 +145,6 @@ class OIDCConfig:
     )
 
     @property
-    def license_is_valid(self) -> bool:
-        return bool(self.enterprise_license_key)
-
-    @property
     def role_groups(self) -> dict[str, set[str]]:
         return {
             "kloigos_readonly": _safe_csv_set(self.readonly_groups_raw),
@@ -173,7 +163,7 @@ class OIDCConfig:
         return groups
 
     def validate(self) -> None:
-        if not self.enabled or not self.license_is_valid:
+        if not self.enabled:
             return
 
         missing = []
@@ -230,14 +220,9 @@ class OIDCManager:
 
     @property
     def enabled(self) -> bool:
-        return self.config.enabled and self.config.license_is_valid
+        return self.config.enabled
 
     def validate_config(self) -> None:
-        if self.config.enabled and not self.config.license_is_valid:
-            logging.warning(
-                "OIDC is enabled but KLOIGOS_ENTERPRISE_LICENSE_KEY is missing or invalid. "
-                "Falling back to unauthenticated mode."
-            )
         self.config.validate()
 
     def _http_json(
@@ -527,7 +512,7 @@ def oidc_login(request: Request, next: str = "/"):  # noqa: A002
     if not oidc.enabled:
         raise HTTPException(
             status_code=404,
-            detail="OIDC is disabled or enterprise license is missing.",
+            detail="OIDC is disabled.",
         )
 
     state = secrets.token_urlsafe(24)
@@ -563,7 +548,7 @@ def oidc_callback(
     if not oidc.enabled:
         raise HTTPException(
             status_code=404,
-            detail="OIDC is disabled or enterprise license is missing.",
+            detail="OIDC is disabled.",
         )
 
     if error:

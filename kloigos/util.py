@@ -97,9 +97,8 @@ def ports_for_cpu_range(
 
 
 class MyRunner:
-    def __init__(self, repo: BaseRepo, ssh_key: str) -> None:
+    def __init__(self, repo: BaseRepo) -> None:
         self.repo = repo
-        self.ssh_key = ssh_key
 
     data = {}
 
@@ -192,7 +191,6 @@ class MyRunner:
                 extravars=extra_vars,
                 event_handler=self.my_event_handler,
                 status_handler=self.my_status_handler,
-                ssh_key=self.ssh_key,
             )
 
         except Exception:

@@ -62,7 +62,7 @@ class ServersAdminService(AdminServiceBase):
         return [
             DeferredTask(
                 fn=self._run_decommission_server,
-                args=(srv, sdr.ssh_key),
+                args=(srv,),
             ),
         ]
 
@@ -83,7 +83,7 @@ class ServersAdminService(AdminServiceBase):
         cpu_ranges = [x.replace(":", "-") for x in sir.cpu_ranges]
         port_ranges = [ports_for_cpu_range(i) for i in cpu_ranges]
 
-        job_ok = MyRunner(self.repo, sir.ssh_key).launch_runner(
+        job_ok = MyRunner(self.repo).launch_runner(
             Playbook.SERVER_INIT,
             {
                 "hostname": sir.hostname,
@@ -123,13 +123,13 @@ class ServersAdminService(AdminServiceBase):
             )
         )
 
-    def _run_decommission_server(self, srv: ServerInDB, ssh_key: str) -> None:
+    def _run_decommission_server(self, srv: ServerInDB) -> None:
         """
         Execute Ansible Playbook `decommission.yaml`.
         The playbook decommissions the server with the requested hostname.
         """
 
-        job_ok = MyRunner(self.repo, ssh_key).launch_runner(
+        job_ok = MyRunner(self.repo).launch_runner(
             Playbook.SERVER_DECOMM,
             {
                 "hostname": srv.hostname,

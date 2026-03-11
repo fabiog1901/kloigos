@@ -956,7 +956,6 @@ window.app = function () {
       this.modal.init.cpuRangesPreview = "";
       this.modal.init.cpuSetPreview = "";
       this.modal.init.cpuRangesError = "";
-      this.modal.init.ssh_key = "";
     },
 
     recomputeInitCpuRanges(fromTextarea = false) {
@@ -1042,7 +1041,6 @@ window.app = function () {
           zone: (this.modal.init.zone || "").trim(),
           hostname: (this.modal.init.hostname || "").trim(),
           user_id: (this.modal.init.user_id || "ubuntu").trim(),
-          ssh_key: (this.modal.init.ssh_key || "").trim(),
           cpu_ranges,
         };
         for (const [k, v] of Object.entries(payload)) {
@@ -1080,7 +1078,6 @@ window.app = function () {
       try {
         const payload = {
           hostname: (this.modal.decommission.hostname || "").trim(),
-          ssh_key: (this.modal.decommission.ssh_key || "").trim(),
         };
 
         await this.apiFetch("/admin/servers/", {

@@ -193,7 +193,7 @@
 
     - name: Set pkgmgr using a lookup map
       set_fact:
-        pkgmgr: "{{ os_to_pkg_map[ansible_os_family | lower ] }}"
+        pkgmgr: "{{ os_to_pkg_map[ansible_facts.os_family | lower ] }}"
       vars:
         os_to_pkg_map:
           redhat: "dnf"
@@ -224,7 +224,7 @@
         chmod 0755 /usr/local/bin/kloigos-{{ pkgmgr }}
 
     - name: make source repos files immutable
-      when: ansible_os_family | lower == "debian"
+      when: ansible_facts.os_family | lower == "debian"
       shell: |
         # Let’s break down exactly what your command does and why it matters.
         # The command marks:
@@ -239,7 +239,7 @@
         chattr +i /etc/apt/sources.list  #/etc/apt/sources.list.d/*.list
     
     - name: make source repos files immutable
-      when: ansible_os_family | lower == "redhat"
+      when: ansible_facts.os_family | lower == "redhat"
       shell: |
         chattr +i /etc/yum.repos.d/*.repo
 

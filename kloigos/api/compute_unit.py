@@ -9,8 +9,8 @@ from fastapi import (
 )
 from fastapi.exceptions import RequestErrorModel
 
+from ..auth import require_compute_access
 from ..dep import get_compute_unit_service
-from ..enterprise.auth import require_compute_access
 from ..models import ComputeUnitOverview, ComputeUnitRequest, DeferredTask
 from ..services.compute_unit import ComputeUnitService, NoFreeComputeUnitError
 

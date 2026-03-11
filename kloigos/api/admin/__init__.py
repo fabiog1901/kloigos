@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Security
 
-from ...enterprise.auth import require_admin
+from ...auth import require_admin
 from . import playbooks, servers
 
 router = APIRouter(
