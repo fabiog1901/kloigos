@@ -4,9 +4,9 @@ import sqlite3
 
 from ..models import (
     ComputeUnitInDB,
-    LogMsg,
     ComputeUnitRequest,
     ComputeUnitStatus,
+    LogMsg,
     Playbook,
     ServerInitRequest,
 )

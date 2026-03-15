@@ -37,26 +37,23 @@ class ComputeUnitService:
         )
 
         # find and return a free instance that matches the allocate request
-        cu_list: list[ComputeUnitOverview] = self.repo.get_compute_units(
+        cu: ComputeUnitOverview = self.repo.lock_compute_unit(
             compute_id=req.compute_id,
             region=req.region,
             zone=req.zone,
             cpu_count=req.cpu_count,
-            status=ComputeUnitStatus.FREE,
-            limit=1,
+            free_status=ComputeUnitStatus.FREE,
+            allocated_status=ComputeUnitStatus.ALLOCATING,
         )
 
         # if the list is empty, raise an HTTPException
-        if cu_list:
-            cu = cu_list[0]
-        else:
+        if not cu:
             raise NoFreeComputeUnitError()
 
-        # mark the compute_unit to allocating
+        # once locked, add tags and other metadata
         self.repo.update_compute_unit(
             cu.compute_id,
-            ComputeUnitStatus.ALLOCATING,
-            req.tags,
+            tags=req.tags,
         )
 
         # async, run the cleanup task

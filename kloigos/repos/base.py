@@ -62,13 +62,25 @@ class BaseRepo(ABC):
     def update_compute_unit(
         self,
         compute_id: str,
-        status: ComputeUnitStatus,
+        status: ComputeUnitStatus | None = None,
         tags: dict | None = None,
     ) -> None:
         pass
 
     @abstractmethod
     def delete_compute_units(self, hostname: str) -> None:
+        pass
+
+    @abstractmethod
+    def lock_compute_unit(
+        self,
+        free_status: ComputeUnitStatus,
+        allocated_status: ComputeUnitStatus,
+        compute_id: str | None = None,
+        region: str | None = None,
+        zone: str | None = None,
+        cpu_count: int | None = None,
+    ) -> ComputeUnitOverview | None:
         pass
 
     @abstractmethod

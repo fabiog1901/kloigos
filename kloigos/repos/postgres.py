@@ -186,7 +186,7 @@ class PostgresRepo(BaseRepo):
     def update_compute_unit(
         self,
         compute_unit: str,
-        status: ComputeUnitStatus | None,
+        status: ComputeUnitStatus | None = None,
         tags: dict | None = None,
     ) -> None:
         # mark the compute_unit to allocating
@@ -218,6 +218,95 @@ class PostgresRepo(BaseRepo):
                 """,
                 (hostname,),
             )
+
+    def lock_compute_unit(
+        self,
+        free_status: ComputeUnitStatus,
+        allocated_status: ComputeUnitStatus,
+        compute_id: str | None = None,
+        region: str | None = None,
+        zone: str | None = None,
+        cpu_count: int | None = None,
+    ) -> ComputeUnitOverview:
+
+        # Prepare the WHERE clause
+        conditions = []
+        params = []
+
+        params.append(free_status)
+
+        if compute_id is not None:
+            conditions.append("c.compute_id = %s")
+            params.append(compute_id)
+
+        if region is not None:
+            conditions.append("s.region = %s")
+            params.append(region)
+
+        if zone is not None:
+            conditions.append("s.zone = %s")
+            params.append(zone)
+
+        if cpu_count is not None:
+            conditions.append("c.cpu_count = %s")
+            params.append(cpu_count)
+
+        params.append(allocated_status)
+
+        sql = """
+            WITH 
+            available_cu AS (
+                SELECT 
+                    c.compute_id,
+                    c.hostname,
+                    c.cpu_range,
+                    s.ip,
+                    s.region,
+                    s.zone,
+                    c.cpu_set,
+                    c.port_range,
+                    c.cu_user,
+                    c.cpu_count,
+                    c.status,
+                    c.started_at,
+                    c.tags 
+                FROM compute_units c JOIN servers s 
+                    ON c.hostname = s.hostname 
+                WHERE c.status = %s """
+
+        if conditions:
+            sql += " AND " + " AND ".join(conditions)
+
+        sql += """ LIMIT 1)
+        UPDATE compute_units
+        SET status = %s
+        FROM available_cu
+        WHERE compute_units.compute_id = available_cu.compute_id
+        RETURNING 
+            compute_units.compute_id,
+            compute_units.hostname,
+            compute_units.cpu_range,
+            available_cu.ip,
+            available_cu.region,
+            available_cu.zone,
+            compute_units.cpu_set,
+            compute_units.port_range,
+            compute_units.cu_user,
+            compute_units.cpu_count,
+            compute_units.status,
+            compute_units.started_at,
+            compute_units.tags 
+        """
+
+        with self.pool.connection() as conn:
+
+            with conn.cursor(
+                row_factory=class_row(ComputeUnitOverview),
+            ) as cur:
+
+                rs = cur.execute(sql, params).fetchone()  # type: ignore
+
+                return rs
 
     def get_compute_units(
         self,
