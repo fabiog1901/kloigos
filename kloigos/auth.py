@@ -29,7 +29,9 @@ from fastapi.security import (
 )
 
 from .dep import get_repo
+from .models import Event, LogMsg
 from .repos.base import BaseRepo
+from .util import request_id_ctx
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
@@ -617,6 +619,22 @@ def get_audit_actor(
     return str(username or "anonymous")
 
 
+def _log_auth_event(
+    repo: BaseRepo,
+    actor_id: str,
+    action: Event,
+    details: dict[str, Any] | None = None,
+) -> None:
+    repo.log_event(
+        LogMsg(
+            user_id=actor_id,
+            action=action,
+            details=details,
+            request_id=request_id_ctx.get(),
+        )
+    )
+
+
 @router.get("/login")
 def oidc_login(request: Request, next: str = "/"):  # noqa: A002
     if not oidc.enabled:
@@ -650,6 +668,7 @@ def oidc_login(request: Request, next: str = "/"):  # noqa: A002
 @router.get("/callback", name="oidc_callback")
 def oidc_callback(
     request: Request,
+    repo: BaseRepo = Depends(get_repo),
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
@@ -691,6 +710,8 @@ def oidc_callback(
         strict_client_audience=True,
     )
     oidc.ensure_authorized(claims)
+    actor_id = str(claims.get(oidc.config.ui_username_claim) or claims.get("sub"))
+    _log_auth_event(repo, actor_id, Event.LOGIN, {"auth_type": "oidc"})
 
     resp = RedirectResponse(next_path, status_code=302)
     cookie_kwargs = {
@@ -716,7 +737,17 @@ def oidc_callback(
 
 
 @router.post("/logout")
-def oidc_logout():
+def oidc_logout(
+    repo: BaseRepo = Depends(get_repo),
+    actor_id: str = Depends(get_audit_actor),
+    claims: dict[str, Any] = Security(require_authenticated),
+):
+    _log_auth_event(
+        repo,
+        actor_id,
+        Event.LOGOUT,
+        {"auth_type": str(claims.get("auth_type") or "oidc")},
+    )
     resp = Response(status_code=204)
     resp.delete_cookie(
         oidc.config.session_cookie_name, path="/", domain=oidc.config.cookie_domain

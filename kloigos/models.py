@@ -19,6 +19,8 @@ class AllocatePlaybookError(Exception):
 
 
 class Event(AutoNameStrEnum):
+    LOGIN = auto()
+    LOGOUT = auto()
     UPDATE_PLAYBOOK = auto()
     SERVER_INIT_REQUEST = auto()
     SERVER_INIT_DONE = auto()
