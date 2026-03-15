@@ -4,6 +4,7 @@ import sqlite3
 
 from ..models import (
     ComputeUnitInDB,
+    LogMsg,
     ComputeUnitRequest,
     ComputeUnitStatus,
     Playbook,
@@ -298,3 +299,9 @@ class SQLiteRepo(BaseRepo):
                 cu_list.append(ComputeUnitInDB(**data))
 
             return cu_list
+
+    def get_events(self) -> list[LogMsg]:
+        return []
+
+    def log_event(self, event: LogMsg):
+        return None

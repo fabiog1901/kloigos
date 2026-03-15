@@ -86,5 +86,9 @@ class BaseRepo(ABC):
         pass
 
     @abstractmethod
+    def get_events(self) -> list[LogMsg]:
+        pass
+
+    @abstractmethod
     def log_event(event: LogMsg):
         pass

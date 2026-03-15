@@ -297,6 +297,17 @@ class PostgresRepo(BaseRepo):
                 return rs
 
     # AUDIT
+    def get_events(self) -> list[LogMsg]:
+        with self.pool.connection() as conn:
+            with conn.cursor(row_factory=class_row(LogMsg)) as cur:
+                return cur.execute(
+                    """
+                    SELECT ts, user_id, action, details, request_id::TEXT
+                    FROM event_log
+                    ORDER BY ts DESC
+                    """
+                ).fetchall()
+
     def log_event(self, event: LogMsg):
         with self.pool.connection() as conn:
             with conn.cursor() as cur:
