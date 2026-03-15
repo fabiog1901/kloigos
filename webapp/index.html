@@ -49,7 +49,13 @@
           <div>
             <h1>Κλοηγός / Kloigos</h1>
             <div class="topbar-sub"
-              x-text="view === 'dashboard' ? 'Compute units &amp; service status overview' : (view === 'servers' ? 'Servers inventory &amp; lifecycle' : 'Playbooks editor')">
+              x-text="view === 'dashboard'
+                ? 'Compute units &amp; service status overview'
+                : (view === 'servers'
+                  ? 'Servers inventory &amp; lifecycle'
+                  : (view === 'events'
+                    ? 'Audit trail of admin and allocation events'
+                    : 'Playbooks editor'))">
             </div>
           </div>
         </div>
@@ -60,6 +66,9 @@
 
           <a href="#" class="pill" :class="{ 'pill-accent': view === 'servers' }"
             @click.prevent="setView('servers')">Servers</a>
+
+          <a href="#" class="pill" :class="{ 'pill-accent': view === 'events' }"
+            @click.prevent="setView('events')">Events</a>
 
           <a href="#" class="pill" :class="{ 'pill-accent': view === 'playbooks' }"
             @click.prevent="setView('playbooks')">Playbooks</a>
@@ -550,6 +559,88 @@
           </div>
         </div>
       </div>
+
+
+      <!-- EVENTS VIEW -->
+      <main class="layout events-layout" x-show="view === 'events'">
+        <aside class="sidebar">
+          <div>
+            <h2>Summary</h2>
+            <div class="metric">
+              <div class="metric-label">Total Events</div>
+              <div class="metric-value" x-text="events.length"></div>
+            </div>
+          </div>
+
+          <div>
+            <h2>Actions</h2>
+            <div class="metric" style="display:flex; flex-direction:column; gap:10px;">
+              <button class="btn" @click="refreshEvents()" :disabled="eventsLoading.list">
+                <span x-show="!eventsLoading.list">Refresh</span>
+                <span x-show="eventsLoading.list">Loading…</span>
+              </button>
+
+              <label
+                style="display:flex; align-items:center; gap:10px; font-size:12px; color: var(--muted); margin-top: 4px;">
+                <input type="checkbox" x-model="eventsAutoRefreshEnabled" />
+                Auto-refresh (15s)
+              </label>
+            </div>
+          </div>
+        </aside>
+
+        <section class="main events-main">
+          <div class="main-header">
+            <div class="main-header-left">
+              <div class="main-title">Events</div>
+              <div class="main-subtitle">Admin-facing event log with request metadata and YAML-formatted details.</div>
+            </div>
+
+            <div class="main-actions">
+              <input type="search" class="search-input" placeholder="Filter by user, action, request id, details…"
+                x-model="eventsFilterQuery" @input="persistEventsFilter(); applyEventsFilterSort();" />
+
+              <div class="pill">Updated (UTC): <span x-text="eventsLastUpdatedUtc"></span></div>
+            </div>
+          </div>
+
+          <div class="table-container events-table-container">
+            <div class="table-scroll events-table-scroll">
+              <table class="events-table">
+                <thead>
+                  <tr>
+                    <th data-sort="date" :class="eventsSortClass(0)" @click="toggleEventsSort(0)">Timestamp</th>
+                    <th data-sort="string" :class="eventsSortClass(1)" @click="toggleEventsSort(1)">User ID</th>
+                    <th data-sort="string" :class="eventsSortClass(2)" @click="toggleEventsSort(2)">Action</th>
+                    <th data-sort="string" :class="eventsSortClass(3)" @click="toggleEventsSort(3)">Details</th>
+                    <th data-sort="string" :class="eventsSortClass(4)" @click="toggleEventsSort(4)">Request ID</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <template x-for="event in eventsVisibleRows" :key="`${event.ts}-${event.user_id}-${event.action}-${event.request_id || ''}`">
+                    <tr>
+                      <td><span x-text="toUtcStringMaybe(event.ts)"></span></td>
+                      <td><span x-text="event.user_id || '-'"></span></td>
+                      <td><span class="service-pill" x-text="event.action || '-'"></span></td>
+                      <td class="events-details-cell">
+                        <pre class="events-yaml" x-text="eventsDetailsText(event)"></pre>
+                      </td>
+                      <td><span x-text="event.request_id || '-'"></span></td>
+                    </tr>
+                  </template>
+
+                  <template x-if="!eventsLoading.list && eventsVisibleRows.length === 0">
+                    <tr>
+                      <td colspan="5" style="padding: 18px; color: var(--muted);">No results.</td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
 
 
       <!-- PLAYBOOKS VIEW -->

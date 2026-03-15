@@ -424,6 +424,44 @@ td {
   white-space: nowrap;
 }
 
+.events-table td.events-details-cell {
+  white-space: normal;
+  min-width: 320px;
+  max-width: 640px;
+}
+
+.events-layout {
+  height: calc(100vh - 96px);
+  max-height: calc(100vh - 96px);
+}
+
+.events-main {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.events-table-container {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.events-table-scroll {
+  height: 100%;
+  max-height: 100%;
+  overflow: auto;
+}
+
+.events-yaml {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #dbeafe;
+}
+
 th {
   font-size: 12px;
   text-transform: uppercase;
@@ -839,6 +877,10 @@ td:first-child {
   .layout {
     flex-direction: column;
     padding: 16px;
+  }
+  .events-layout {
+    height: calc(100vh - 88px);
+    max-height: calc(100vh - 88px);
   }
   .sidebar {
     width: 100%;

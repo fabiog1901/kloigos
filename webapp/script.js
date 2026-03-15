@@ -39,6 +39,24 @@ window.app = function () {
     serversAutoRefreshEnabled: true,
     _serversAutoTimer: null,
 
+    // ---------- Events state ----------
+    events: [],
+    eventsVisibleRows: [],
+    eventsFilterQuery: "",
+    eventsLastUpdatedUtc: null,
+    eventsSortIndex: 0,
+    eventsSortDir: "desc",
+    eventsSortTypeByIndex: {
+      0: "date", // ts
+      1: "string", // user_id
+      2: "string", // action
+      3: "string", // details
+      4: "string", // request_id
+    },
+    eventsLoading: { list: false },
+    eventsAutoRefreshEnabled: true,
+    _eventsAutoTimer: null,
+
     renderedAtUtc: "now",
 
     // ---------- Dashboard state ----------
@@ -171,6 +189,10 @@ window.app = function () {
       if (this._serversAutoTimer) {
         clearInterval(this._serversAutoTimer);
         this._serversAutoTimer = null;
+      }
+      if (this._eventsAutoTimer) {
+        clearInterval(this._eventsAutoTimer);
+        this._eventsAutoTimer = null;
       }
     },
 
@@ -355,16 +377,27 @@ window.app = function () {
       const ssIdx = localStorage.getItem("kloigos_servers_sort_index");
       const ssDir = localStorage.getItem("kloigos_servers_sort_dir");
       const ssFilter = localStorage.getItem("kloigos_servers_filter");
+      const seIdx = localStorage.getItem("kloigos_events_sort_index");
+      const seDir = localStorage.getItem("kloigos_events_sort_dir");
+      const seFilter = localStorage.getItem("kloigos_events_filter");
 
       if (sIdx !== null && !Number.isNaN(+sIdx)) this.sortIndex = +sIdx;
       if (sDir === "desc") this.sortDir = "desc";
       if (sFilter !== null) this.filterQuery = sFilter;
       if (ssFilter !== null) this.serversFilterQuery = ssFilter;
+      if (seFilter !== null) this.eventsFilterQuery = seFilter;
       if (ssIdx !== null && !Number.isNaN(+ssIdx))
         this.serversSortIndex = +ssIdx;
+      if (seIdx !== null && !Number.isNaN(+seIdx)) this.eventsSortIndex = +seIdx;
       if (ssDir === "desc") this.serversSortDir = "desc";
+      if (seDir === "asc" || seDir === "desc") this.eventsSortDir = seDir;
       if (sFmt === "json" || sFmt === "yaml") this.inspectorFormat = sFmt;
-      if (sView === "dashboard" || sView === "playbooks" || sView === "servers")
+      if (
+        sView === "dashboard" ||
+        sView === "playbooks" ||
+        sView === "servers" ||
+        sView === "events"
+      )
         this.view = sView;
 
       this.renderedAtUtc = this.utcNowString();
@@ -384,9 +417,15 @@ window.app = function () {
           this.refreshServers();
       }, 15_000);
 
+      this._eventsAutoTimer = setInterval(() => {
+        if (this.eventsAutoRefreshEnabled && this.view === "events")
+          this.refreshEvents();
+      }, 15_000);
+
       // Load the active tab
       if (this.view === "playbooks") this.ensurePlaybooksView();
       else if (this.view === "servers") this.ensureServersView();
+      else if (this.view === "events") this.ensureEventsView();
       else this.ensureDashboardView();
     },
 
@@ -397,6 +436,7 @@ window.app = function () {
 
       if (this.view === "playbooks") this.ensurePlaybooksView();
       else if (this.view === "servers") this.ensureServersView();
+      else if (this.view === "events") this.ensureEventsView();
       else this.ensureDashboardView();
     },
 
@@ -471,6 +511,12 @@ window.app = function () {
       if (this.servers.length === 0 && !this.serversLoading.list)
         await this.refreshServers();
       else this.applyServersFilterSort();
+    },
+
+    async ensureEventsView() {
+      if (this.events.length === 0 && !this.eventsLoading.list)
+        await this.refreshEvents();
+      else this.applyEventsFilterSort();
     },
 
     serversRowText(s) {
@@ -592,6 +638,98 @@ window.app = function () {
       }
     },
 
+    eventsDetailsText(event) {
+      return this.toYaml(event?.details ?? null);
+    },
+
+    eventsRowText(event) {
+      return [
+        event.ts,
+        event.user_id,
+        event.action,
+        event.request_id,
+        this.eventsDetailsText(event),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+    },
+
+    eventsCellText(event, colIndex) {
+      switch (colIndex) {
+        case 0:
+          return event.ts || "";
+        case 1:
+          return event.user_id || "";
+        case 2:
+          return event.action || "";
+        case 3:
+          return this.eventsDetailsText(event);
+        case 4:
+          return event.request_id || "";
+        default:
+          return "";
+      }
+    },
+
+    eventsSortClass(index) {
+      if (this.eventsSortIndex !== index) return "";
+      return this.eventsSortDir === "asc" ? "sort-asc" : "sort-desc";
+    },
+
+    toggleEventsSort(index) {
+      if (this.eventsSortIndex === index)
+        this.eventsSortDir = this.eventsSortDir === "asc" ? "desc" : "asc";
+      else {
+        this.eventsSortIndex = index;
+        this.eventsSortDir = index === 0 ? "desc" : "asc";
+      }
+
+      localStorage.setItem(
+        "kloigos_events_sort_index",
+        String(this.eventsSortIndex),
+      );
+      localStorage.setItem("kloigos_events_sort_dir", this.eventsSortDir);
+      this.applyEventsFilterSort();
+    },
+
+    applyEventsFilterSort() {
+      const q = (this.eventsFilterQuery || "").toLowerCase().trim();
+      let rows = this.events.slice();
+      if (q) rows = rows.filter((event) => this.eventsRowText(event).includes(q));
+
+      if (this.eventsSortIndex !== null) {
+        const type = this.eventsSortTypeByIndex[this.eventsSortIndex] || "string";
+        const idx = this.eventsSortIndex;
+        const dir = this.eventsSortDir;
+
+        rows.sort((a, b) => {
+          const av = this.parseValue(type, this.eventsCellText(a, idx));
+          const bv = this.parseValue(type, this.eventsCellText(b, idx));
+          if (av < bv) return dir === "asc" ? -1 : 1;
+          if (av > bv) return dir === "asc" ? 1 : -1;
+          return 0;
+        });
+      }
+
+      this.eventsVisibleRows = rows;
+    },
+
+    async refreshEvents() {
+      this.eventsLoading.list = true;
+      try {
+        const data = await this.apiFetch("/admin/events", { method: "GET" });
+        this.events = Array.isArray(data) ? data : [];
+        this.eventsLastUpdatedUtc = this.utcNowString();
+        this.applyEventsFilterSort();
+      } catch (e) {
+        console.error(e);
+        this.eventsLastUpdatedUtc = this.utcNowString();
+      } finally {
+        this.eventsLoading.list = false;
+      }
+    },
+
     openServerActionConfirm(server, action) {
       this.modal.serverActionConfirm.hostname = server?.hostname || "";
       this.modal.serverActionConfirm.action = action || "decommission";
@@ -657,6 +795,9 @@ window.app = function () {
         "kloigos_servers_filter",
         this.serversFilterQuery || "",
       );
+    },
+    persistEventsFilter() {
+      localStorage.setItem("kloigos_events_filter", this.eventsFilterQuery || "");
     },
     persistInspectorFormat() {
       localStorage.setItem("kloigos_inspector_format", this.inspectorFormat);
