@@ -628,6 +628,15 @@ td:first-child {
   font-size: 12px;
 }
 
+.event-action-pill {
+  min-width: 110px;
+  justify-content: center;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
 .tag-list {
   display: flex;
   flex-direction: column;

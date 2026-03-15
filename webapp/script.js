@@ -158,7 +158,96 @@ window.app = function () {
       return d
         .toISOString()
         .replace("T", " ")
-        .replace(/\.\d{3}Z$/, "Z");
+        .replace(/\.\d{3}Z$/, "");
+    },
+
+    actionPillStyle(action) {
+      const name = String(action || "").trim().toUpperCase();
+      const palette = [
+        {
+          background: "rgba(30, 64, 175, 0.92)",
+          borderColor: "rgba(147, 197, 253, 0.55)",
+          color: "#eff6ff",
+        },
+        {
+          background: "rgba(154, 52, 18, 0.92)",
+          borderColor: "rgba(253, 186, 116, 0.55)",
+          color: "#fff7ed",
+        },
+        {
+          background: "rgba(6, 95, 70, 0.92)",
+          borderColor: "rgba(110, 231, 183, 0.5)",
+          color: "#ecfdf5",
+        },
+        {
+          background: "rgba(91, 33, 182, 0.92)",
+          borderColor: "rgba(196, 181, 253, 0.5)",
+          color: "#f5f3ff",
+        },
+        {
+          background: "rgba(190, 24, 93, 0.92)",
+          borderColor: "rgba(251, 182, 206, 0.5)",
+          color: "#fff1f2",
+        },
+        {
+          background: "rgba(15, 23, 42, 0.96)",
+          borderColor: "rgba(148, 163, 184, 0.45)",
+          color: "#e5e7eb",
+        },
+        {
+          background: "rgba(20, 83, 45, 0.92)",
+          borderColor: "rgba(134, 239, 172, 0.45)",
+          color: "#f0fdf4",
+        },
+        {
+          background: "rgba(127, 29, 29, 0.92)",
+          borderColor: "rgba(252, 165, 165, 0.45)",
+          color: "#fef2f2",
+        },
+      ];
+
+      const preferred = [
+        {
+          match: ["LOGIN", "_LOGIN"],
+          style: palette[0],
+        },
+        {
+          match: ["LOGOUT", "_LOGOUT"],
+          style: palette[5],
+        },
+        {
+          match: ["ALLOCATE", "ALLOCATION"],
+          style: palette[1],
+        },
+        {
+          match: ["DEALLOCATE", "DEALLOCATION"],
+          style: palette[3],
+        },
+        {
+          match: ["INIT", "CREATE"],
+          style: palette[2],
+        },
+        {
+          match: ["DECOMM", "DELETE", "REMOVE"],
+          style: palette[7],
+        },
+        {
+          match: ["UPDATE", "PATCH"],
+          style: palette[4],
+        },
+      ];
+
+      for (const entry of preferred) {
+        if (entry.match.some((token) => name.includes(token))) {
+          return entry.style;
+        }
+      }
+
+      let hash = 0;
+      for (let i = 0; i < name.length; i += 1) {
+        hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+      }
+      return palette[hash % palette.length];
     },
 
     errorMessage(err, fallback = "Request failed.") {

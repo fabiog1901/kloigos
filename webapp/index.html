@@ -622,7 +622,12 @@
                     <tr>
                       <td><span x-text="toUtcStringMaybe(event.ts)"></span></td>
                       <td><span x-text="event.user_id || '-'"></span></td>
-                      <td><span class="service-pill" x-text="event.action || '-'"></span></td>
+                      <td>
+                        <span
+                          class="service-pill event-action-pill"
+                          :style="actionPillStyle(event.action)"
+                          x-text="event.action || '-'"></span>
+                      </td>
                       <td class="events-details-cell">
                         <pre class="events-yaml" x-text="eventsDetailsText(event)"></pre>
                       </td>
