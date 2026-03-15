@@ -53,7 +53,11 @@ class ComputeUnitService:
             raise NoFreeComputeUnitError()
 
         # mark the compute_unit to allocating
-        self.repo.update_compute_unit(cu.compute_id, ComputeUnitStatus.ALLOCATING)
+        self.repo.update_compute_unit(
+            cu.compute_id,
+            ComputeUnitStatus.ALLOCATING,
+            req.tags,
+        )
 
         # async, run the cleanup task
         tasks = [
@@ -87,7 +91,11 @@ class ComputeUnitService:
 
         cu = self.repo.get_compute_units(compute_id=compute_id)[0]
 
-        self.repo.update_compute_unit(cu.compute_id, ComputeUnitStatus.DEALLOCATING)
+        self.repo.update_compute_unit(
+            cu.compute_id,
+            ComputeUnitStatus.DEALLOCATING,
+            {},
+        )
 
         # async, run the cleanup task
         tasks = [DeferredTask(fn=self._run_deallocate, args=(cu,), kwargs={})]

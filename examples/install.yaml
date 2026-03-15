@@ -10,7 +10,7 @@
   gather_facts: no
   become: no
   vars:
-    deployment_id: fab8
+    deployment_id: crdb
     kloigos_server: "http://127.0.0.1:8000/api"
   tasks:
     - name: get the previously allocated instances
@@ -19,6 +19,7 @@
         method: GET
         headers:
           Content-Type: application/json
+          Authorization: Bearer ey...
         status_code: 200
       register: instances
 

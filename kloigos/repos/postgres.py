@@ -202,7 +202,7 @@ class PostgresRepo(BaseRepo):
                 """,
                 (
                     status,
-                    json.dumps(tags),
+                    json.dumps(tags) if tags is not None else None,
                     compute_unit,
                 ),
             )

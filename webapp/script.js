@@ -193,13 +193,21 @@ window.app = function () {
           ? this.authClaims._kloigos
           : null;
 
-      if (meta && typeof meta.display_name_claim === "string" && meta.display_name_claim.trim()) {
+      if (
+        meta &&
+        typeof meta.display_name_claim === "string" &&
+        meta.display_name_claim.trim()
+      ) {
         this.authDisplayNameClaim = meta.display_name_claim.trim();
       } else {
         this.authDisplayNameClaim = "preferred_username";
       }
 
-      if (meta && typeof meta.session_cookie_name === "string" && meta.session_cookie_name.trim()) {
+      if (
+        meta &&
+        typeof meta.session_cookie_name === "string" &&
+        meta.session_cookie_name.trim()
+      ) {
         this.authSessionCookieName = meta.session_cookie_name.trim();
       } else {
         this.authSessionCookieName = "kloigos_session";
@@ -237,15 +245,13 @@ window.app = function () {
     },
 
     userDisplayName() {
-      const c = this.authClaims && typeof this.authClaims === "object" ? this.authClaims : {};
+      const c =
+        this.authClaims && typeof this.authClaims === "object"
+          ? this.authClaims
+          : {};
       const claim = String(this.authDisplayNameClaim || "preferred_username");
       const val =
-        c[claim] ||
-        c.preferred_username ||
-        c.name ||
-        c.email ||
-        c.sub ||
-        "";
+        c[claim] || c.preferred_username || c.name || c.email || c.sub || "";
       if (this.authIsUnauthenticatedMode()) return "Unauthenticated";
       return String(val || "Unknown user");
     },
@@ -266,7 +272,7 @@ window.app = function () {
           : await res.text().catch(() => null);
         if (res.ok && data && typeof data === "object") {
           this.authClaims = data;
-          
+
           this.syncAuthMeta();
         }
       } catch (_e) {
