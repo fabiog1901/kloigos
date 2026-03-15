@@ -15,10 +15,10 @@ from .base import AdminServiceBase
 
 
 class ServersAdminService(AdminServiceBase):
-    def init_server(self, sir: ServerInitRequest) -> list[DeferredTask]:
+    def init_server(self, actor_id: str, sir: ServerInitRequest) -> list[DeferredTask]:
         self.repo.log_event(
             LogMsg(
-                user_id="fabio",
+                user_id=actor_id,
                 action=Event.SERVER_INIT_REQUEST,
                 details=sir.model_dump(),
                 request_id=request_id_ctx.get(),
@@ -31,7 +31,7 @@ class ServersAdminService(AdminServiceBase):
         return [
             DeferredTask(
                 fn=self._run_init_server,
-                args=(sir,),
+                args=(sir, actor_id),
             ),
         ]
 
@@ -43,11 +43,12 @@ class ServersAdminService(AdminServiceBase):
 
     def decommission_server(
         self,
+        actor_id: str,
         sdr: ServerDecommRequest,
     ) -> list[DeferredTask]:
         self.repo.log_event(
             LogMsg(
-                user_id="fabio",
+                user_id=actor_id,
                 action=Event.SERVER_DECOMM_REQUEST,
                 details=sdr.model_dump(),
                 request_id=request_id_ctx.get(),
@@ -62,14 +63,14 @@ class ServersAdminService(AdminServiceBase):
         return [
             DeferredTask(
                 fn=self._run_decommission_server,
-                args=(srv,),
+                args=(srv, actor_id),
             ),
         ]
 
-    def delete_server(self, hostname: str) -> None:
+    def delete_server(self, actor_id: str, hostname: str) -> None:
         self.repo.log_event(
             LogMsg(
-                user_id="fabio",
+                user_id=actor_id,
                 action=Event.SERVER_DELETE_REQUEST,
                 details={"hostname": hostname},
                 request_id=request_id_ctx.get(),
@@ -78,7 +79,7 @@ class ServersAdminService(AdminServiceBase):
 
         self.repo.delete_server(hostname)
 
-    def _run_init_server(self, sir: ServerInitRequest) -> None:
+    def _run_init_server(self, sir: ServerInitRequest, actor_id: str) -> None:
         cpu_sets = [to_cpu_set(x) for x in sir.cpu_ranges]
         cpu_ranges = [x.replace(":", "-") for x in sir.cpu_ranges]
         port_ranges = [ports_for_cpu_range(i) for i in cpu_ranges]
@@ -116,14 +117,14 @@ class ServersAdminService(AdminServiceBase):
 
         self.repo.log_event(
             LogMsg(
-                user_id="fabio",
+                user_id=actor_id,
                 action=Event.SERVER_INIT_DONE if job_ok else Event.SERVER_INIT_FAILED,
                 details=sir.model_dump(),
                 request_id=request_id_ctx.get(),
             )
         )
 
-    def _run_decommission_server(self, srv: ServerInDB) -> None:
+    def _run_decommission_server(self, srv: ServerInDB, actor_id: str) -> None:
         """
         Execute Ansible Playbook `decommission.yaml`.
         The playbook decommissions the server with the requested hostname.
@@ -146,7 +147,7 @@ class ServersAdminService(AdminServiceBase):
 
         self.repo.log_event(
             LogMsg(
-                user_id="fabio",
+                user_id=actor_id,
                 action=(
                     Event.SERVER_DECOMM_DONE if job_ok else Event.SERVER_DECOMM_FAILED
                 ),

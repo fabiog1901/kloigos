@@ -4,12 +4,12 @@ from .base import AdminServiceBase
 
 
 class PlaybooksAdminService(AdminServiceBase):
-    def update_playbooks(self, playbook: Playbook, b64: str) -> None:
+    def update_playbooks(self, actor_id: str, playbook: Playbook, b64: str) -> None:
         self.repo.playbook_update_content(playbook, b64)
 
         self.repo.log_event(
             LogMsg(
-                user_id="fabio",
+                user_id=actor_id,
                 action=Event.UPDATE_PLAYBOOK,
                 details={"playbook": playbook},
                 request_id=request_id_ctx.get(),

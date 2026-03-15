@@ -17,7 +17,11 @@ class ComputeUnitService:
     def __init__(self, repo: BaseRepo):
         self.repo = repo
 
-    def allocate(self, req: ComputeUnitRequest) -> tuple[str, list[DeferredTask]]:
+    def allocate(
+        self,
+        actor_id: str,
+        req: ComputeUnitRequest,
+    ) -> tuple[str, list[DeferredTask]]:
         """
         Allocate a compute unit.
 
@@ -29,7 +33,7 @@ class ComputeUnitService:
 
         self.repo.log_event(
             LogMsg(
-                user_id="fabio",
+                user_id=actor_id,
                 action=Event.CU_ALLOCATION_REQUEST,
                 details=req.model_dump(),
                 request_id=request_id_ctx.get(),
@@ -63,6 +67,7 @@ class ComputeUnitService:
                 args=(
                     cu,
                     req.ssh_public_key,
+                    actor_id,
                 ),
                 kwargs={},
             ),
@@ -72,12 +77,13 @@ class ComputeUnitService:
 
     def deallocate(
         self,
+        actor_id: str,
         compute_id: str,
     ) -> list[DeferredTask]:
 
         self.repo.log_event(
             LogMsg(
-                user_id="fabio",
+                user_id=actor_id,
                 action=Event.CU_DEALLOCATION_REQUEST,
                 details={"compute_id": compute_id},
                 request_id=request_id_ctx.get(),
@@ -95,7 +101,13 @@ class ComputeUnitService:
         )
 
         # async, run the cleanup task
-        tasks = [DeferredTask(fn=self._run_deallocate, args=(cu,), kwargs={})]
+        tasks = [
+            DeferredTask(
+                fn=self._run_deallocate,
+                args=(cu, actor_id),
+                kwargs={},
+            )
+        ]
 
         return tasks
 
@@ -120,7 +132,12 @@ class ComputeUnitService:
             status,
         )
 
-    def _run_allocate(self, cu: ComputeUnitOverview, ssh_public_key: str) -> None:
+    def _run_allocate(
+        self,
+        cu: ComputeUnitOverview,
+        ssh_public_key: str,
+        actor_id: str,
+    ) -> None:
 
         job_ok = MyRunner(self.repo).launch_runner(
             Playbook.CU_ALLOCATE,
@@ -146,7 +163,7 @@ class ComputeUnitService:
 
         self.repo.log_event(
             LogMsg(
-                user_id="fabio",
+                user_id=actor_id,
                 action=(
                     Event.CU_ALLOCATION_DONE if job_ok else Event.CU_ALLOCATION_FAILED
                 ),
@@ -155,7 +172,7 @@ class ComputeUnitService:
             ),
         )
 
-    def _run_deallocate(self, cu: ComputeUnitOverview) -> None:
+    def _run_deallocate(self, cu: ComputeUnitOverview, actor_id: str) -> None:
 
         job_ok = MyRunner(self.repo).launch_runner(
             Playbook.CU_DEALLOCATE,
@@ -174,7 +191,7 @@ class ComputeUnitService:
 
         self.repo.log_event(
             LogMsg(
-                user_id="fabio",
+                user_id=actor_id,
                 action=(
                     Event.CU_DEALLOCATION_DONE
                     if job_ok

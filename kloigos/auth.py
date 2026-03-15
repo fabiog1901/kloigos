@@ -607,6 +607,16 @@ def require_admin(
     return oidc.ensure_any_role(claims, "kloigos_admin")
 
 
+def get_audit_actor(
+    claims: dict[str, Any] = Security(require_authenticated),
+) -> str:
+    if claims.get("auth_type") == "api_key":
+        return str(claims.get("access_key") or "anonymous")
+
+    username = claims.get(oidc.config.ui_username_claim) or claims.get("sub")
+    return str(username or "anonymous")
+
+
 @router.get("/login")
 def oidc_login(request: Request, next: str = "/"):  # noqa: A002
     if not oidc.enabled:

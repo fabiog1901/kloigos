@@ -9,7 +9,7 @@ from fastapi import (
 )
 from fastapi.exceptions import RequestErrorModel
 
-from ..auth import require_compute_access
+from ..auth import get_audit_actor, require_compute_access
 from ..dep import get_compute_unit_service
 from ..models import ComputeUnitOverview, ComputeUnitRequest, DeferredTask
 from ..services.compute_unit import ComputeUnitService, NoFreeComputeUnitError
@@ -35,12 +35,13 @@ router = APIRouter(
 async def allocate(
     req: ComputeUnitRequest,
     bg_task: BackgroundTasks,
+    actor_id: str = Depends(get_audit_actor),
     service: ComputeUnitService = Depends(get_compute_unit_service),
 ) -> str:
 
     # find and return a free instance that matches the allocate request
     try:
-        compute_id, tasks = service.allocate(req)
+        compute_id, tasks = service.allocate(actor_id, req)
 
         for t in tasks:
             bg_task.add_task(t.fn, *t.args, **t.kwargs)
@@ -57,10 +58,11 @@ async def allocate(
 async def deallocate(
     compute_id: str,
     bg_task: BackgroundTasks,
+    actor_id: str = Depends(get_audit_actor),
     service: ComputeUnitService = Depends(get_compute_unit_service),
 ) -> Response:
 
-    tasks: list[DeferredTask] = service.deallocate(compute_id)
+    tasks: list[DeferredTask] = service.deallocate(actor_id, compute_id)
 
     for t in tasks:
         bg_task.add_task(t.fn, *t.args, **t.kwargs)
