@@ -5,12 +5,31 @@ import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from hashlib import md5
+from hmac import compare_digest
 from typing import Any
 
 import jwt
-from fastapi import APIRouter, HTTPException, Request, Response, Security, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    Security,
+    status,
+)
 from fastapi.responses import RedirectResponse
-from fastapi.security import APIKeyCookie, HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import (
+    APIKeyCookie,
+    APIKeyHeader,
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+)
+
+from .dep import get_repo
+from .repos.base import BaseRepo
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
@@ -58,6 +77,12 @@ def _claim_groups(claim_value: Any) -> set[str]:
     if isinstance(claim_value, (list, tuple, set)):
         return {str(v).strip() for v in claim_value if str(v).strip()}
     return set()
+
+
+def _claims_groups(
+    claims: dict[str, Any], groups_claim_name: str = "groups"
+) -> set[str]:
+    return _claim_groups(claims.get(groups_claim_name))
 
 
 def _cookie_secure_default() -> bool:
@@ -397,14 +422,17 @@ class OIDCManager:
         return claims
 
     def ensure_authorized(self, claims: dict[str, Any]) -> dict[str, Any]:
-        if not self.enabled:
+        if claims.get("auth_disabled"):
             return claims
 
-        user_groups = _claim_groups(claims.get(self.config.groups_claim_name))
+        groups_claim_name = str(
+            claims.get("_groups_claim_name", self.config.groups_claim_name)
+        )
+        user_groups = _claims_groups(claims, groups_claim_name)
         if not user_groups:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Forbidden: no groups found in claim '{self.config.groups_claim_name}'.",
+                detail=f"Forbidden: no groups found in claim '{groups_claim_name}'.",
             )
 
         if self.config.authorized_groups.isdisjoint(user_groups):
@@ -416,17 +444,24 @@ class OIDCManager:
         return claims
 
     def ensure_any_role(self, claims: dict[str, Any], *roles: str) -> dict[str, Any]:
-        if not self.enabled:
+        if claims.get("auth_disabled"):
             return claims
 
-        user_groups = _claim_groups(claims.get(self.config.groups_claim_name))
+        groups_claim_name = str(
+            claims.get("_groups_claim_name", self.config.groups_claim_name)
+        )
+        user_groups = _claims_groups(claims, groups_claim_name)
         if not user_groups:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Forbidden: no groups found in claim '{self.config.groups_claim_name}'.",
+                detail=f"Forbidden: no groups found in claim '{groups_claim_name}'.",
             )
 
-        effective_roles = self.config.role_groups
+        effective_roles = (
+            claims.get("_role_groups")
+            if isinstance(claims.get("_role_groups"), dict)
+            else self.config.role_groups
+        )
         for role in roles:
             role_groups = effective_roles.get(role, set())
             if role_groups and not role_groups.isdisjoint(user_groups):
@@ -438,13 +473,62 @@ class OIDCManager:
             detail=f"Forbidden: requires one of roles [{role_list}].",
         )
 
+    def validate_api_key(
+        self,
+        repo: BaseRepo,
+        access_key: str,
+        secret_key: str,
+    ) -> dict[str, Any]:
+        api_key = repo.get_api_key(access_key)
+        if api_key is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API key.",
+            )
+
+        if datetime.now(timezone.utc) >= api_key.valid_until:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="API key is expired.",
+            )
+
+        secret_digest = md5(secret_key.encode("utf-8")).digest()  # nosec B324
+        if not compare_digest(secret_digest, api_key.hashed_secret_access_key):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API key secret.",
+            )
+
+        roles = set(api_key.roles or [])
+        role_groups = {role: {role} for role in roles}
+        claims = {
+            "sub": api_key.owner,
+            "access_key": api_key.access_key,
+            "groups": list(roles),
+            "_groups_claim_name": "groups",
+            "_role_groups": role_groups,
+            "auth_type": "api_key",
+        }
+        return claims
+
     def current_claims(
         self,
         request: Request,
+        repo: BaseRepo,
         *,
         bearer_credentials: HTTPAuthorizationCredentials | None = None,
         session_token: str | None = None,
+        access_key: str | None = None,
+        secret_key: str | None = None,
     ) -> dict[str, Any]:
+        if access_key or secret_key:
+            if not access_key or not secret_key:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Both X-Kloigos-Access-Key and X-Kloigos-Secret-Key are required.",
+                )
+            return self.validate_api_key(repo, access_key, secret_key)
+
         if not self.enabled:
             return {"sub": "anonymous", "auth_disabled": True}
 
@@ -470,17 +554,33 @@ oidc = OIDCManager()
 router = APIRouter(prefix="/auth", tags=["auth"])
 bearer_scheme = HTTPBearer(auto_error=False)
 cookie_scheme = APIKeyCookie(name=oidc.config.session_cookie_name, auto_error=False)
+access_key_scheme = APIKeyHeader(
+    name="X-Kloigos-Access-Key",
+    scheme_name="XAccessKey",
+    auto_error=False,
+)
+secret_key_scheme = APIKeyHeader(
+    name="X-Kloigos-Secret-Key",
+    scheme_name="XSecretKey",
+    auto_error=False,
+)
 
 
 def require_authenticated(
     request: Request,
+    repo: BaseRepo = Depends(get_repo),
     bearer_credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
     session_token: str | None = Security(cookie_scheme),
+    access_key: str | None = Security(access_key_scheme),
+    secret_key: str | None = Security(secret_key_scheme),
 ) -> dict[str, Any]:
     return oidc.current_claims(
         request,
+        repo,
         bearer_credentials=bearer_credentials,
         session_token=session_token,
+        access_key=access_key,
+        secret_key=secret_key,
     )
 
 

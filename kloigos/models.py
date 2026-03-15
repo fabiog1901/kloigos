@@ -45,6 +45,14 @@ class LogMsg(BaseModel):
     request_id: str | None = None
 
 
+class ApiKeyRecord(BaseModel):
+    access_key: str
+    hashed_secret_access_key: bytes
+    owner: str
+    valid_until: dt.datetime
+    roles: list[str] | None = None
+
+
 class DeferredTask(BaseModel):
     fn: Callable[..., None]
     args: tuple | None

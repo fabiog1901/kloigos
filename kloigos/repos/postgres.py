@@ -6,6 +6,7 @@ from psycopg.types.json import Jsonb, JsonbDumper
 from psycopg_pool import ConnectionPool
 
 from ..models import (
+    ApiKeyRecord,
     ComputeUnitInDB,
     ComputeUnitOverview,
     ComputeUnitStatus,
@@ -26,6 +27,18 @@ class Dict2JsonbDumper(JsonbDumper):
 class PostgresRepo(BaseRepo):
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool: ConnectionPool = pool
+
+    def get_api_key(self, access_key: str) -> ApiKeyRecord | None:
+        with self.pool.connection() as conn:
+            with conn.cursor(row_factory=class_row(ApiKeyRecord)) as cur:
+                return cur.execute(
+                    """
+                    SELECT access_key, hashed_secret_access_key, owner, valid_until, roles
+                    FROM api_keys
+                    WHERE access_key = %s
+                    """,
+                    (access_key,),
+                ).fetchone()
 
     #
     # ADMIN_SERVICE

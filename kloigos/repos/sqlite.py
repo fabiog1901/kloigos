@@ -3,6 +3,7 @@ import json
 import sqlite3
 
 from ..models import (
+    ApiKeyRecord,
     ComputeUnitInDB,
     ComputeUnitRequest,
     ComputeUnitStatus,
@@ -17,6 +18,36 @@ class SQLiteRepo(BaseRepo):
 
     def __init__(self, db_url: str) -> None:
         self.db_url = db_url
+
+    def get_api_key(self, access_key: str) -> ApiKeyRecord | None:
+        with sqlite3.connect(self.db_url) as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            rs = cur.execute(
+                """
+                SELECT access_key, hashed_secret_access_key, owner, valid_until, roles
+                FROM api_keys
+                WHERE access_key = ?
+                """,
+                (access_key,),
+            ).fetchone()
+
+        if rs is None:
+            return None
+
+        valid_until = dt.datetime.fromisoformat(rs["valid_until"])
+        if valid_until.tzinfo is None:
+            valid_until = valid_until.replace(tzinfo=dt.timezone.utc)
+
+        roles = json.loads(rs["roles"]) if rs["roles"] else None
+
+        return ApiKeyRecord(
+            access_key=rs["access_key"],
+            hashed_secret_access_key=rs["hashed_secret_access_key"],
+            owner=rs["owner"],
+            valid_until=valid_until,
+            roles=roles,
+        )
 
     def playbook_get_content(self, playbook: Playbook) -> str:
 

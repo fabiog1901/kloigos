@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 from ..models import (
+    ApiKeyRecord,
     ComputeUnitInDB,
     ComputeUnitOverview,
     ComputeUnitStatus,
@@ -13,6 +14,9 @@ from ..models import (
 
 
 class BaseRepo(ABC):
+    @abstractmethod
+    def get_api_key(self, access_key: str) -> ApiKeyRecord | None:
+        pass
 
     # PLAYBOOK
     @abstractmethod

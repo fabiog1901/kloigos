@@ -44,3 +44,12 @@ CREATE TABLE event_log (
     request_id UUID NULL,
     CONSTRAINT pk_event_log PRIMARY KEY (ts, user_id, ACTION)
 );
+
+CREATE TABLE api_keys (
+    access_key TEXT NOT NULL,
+    hashed_secret_access_key BYTEA NOT NULL,
+    owner TEXT NOT NULL,
+    valid_until TIMESTAMPTZ NOT NULL,
+    roles TEXT[],
+    CONSTRAINT pk_api_keys PRIMARY KEY (access_key)
+);
