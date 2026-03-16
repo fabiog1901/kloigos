@@ -151,3 +151,34 @@ Optional settings:
 - `OIDC_REDIRECT_URI`
 
 If `OIDC_REDIRECT_URI` is empty, Kloigos derives the callback URL from the incoming request.
+
+## Current Encryption Algorithm
+
+Kloigos currently encrypts API key secrets at rest with `AES-256-GCM`.
+
+- `AES`: the underlying symmetric cipher
+- `256`: the key size, using a 32-byte master key from `API_KEY_MASTER_KEY`
+- `GCM`: Galois/Counter Mode, which provides both encryption and integrity protection
+
+This means the database value is not only unreadable without the master key, but
+also tamper-evident. If the stored bytes are modified, truncated, or decrypted
+with the wrong master key, decryption fails instead of returning corrupted data.
+
+For each encrypted secret, Kloigos generates a fresh random 12-byte nonce and
+stores a versioned payload in this format:
+
+```text
+0x01 || 12-byte nonce || ciphertext+authentication-tag
+```
+
+Notes:
+
+- `0x01` is the payload version, so the encryption format can evolve in the future
+- the nonce is not secret, but it must be unique for each encryption under the same key
+- the authentication tag is produced by AES-GCM and is validated during decryption
+- the application currently uses no additional authenticated data (AAD)
+
+The version byte is especially important for long-term maintenance. If Kloigos
+ever changes the encryption scheme in response to new attacks or updated best
+practices, a new version value can be introduced and documented here without
+breaking the ability to read older records during migration.
