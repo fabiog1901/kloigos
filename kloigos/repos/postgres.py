@@ -33,7 +33,7 @@ class PostgresRepo(BaseRepo):
             with conn.cursor(row_factory=class_row(ApiKeyRecord)) as cur:
                 return cur.execute(
                     """
-                    SELECT access_key, hashed_secret_access_key, owner, valid_until, roles
+                    SELECT access_key, encrypted_secret_access_key, owner, valid_until, roles
                     FROM api_keys
                     WHERE access_key = %s
                     """,

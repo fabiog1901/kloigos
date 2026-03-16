@@ -47,7 +47,7 @@ CREATE TABLE event_log (
 
 CREATE TABLE api_keys (
     access_key TEXT NOT NULL,
-    hashed_secret_access_key BYTEA NOT NULL,
+    encrypted_secret_access_key BYTEA NOT NULL,
     owner TEXT NOT NULL,
     valid_until TIMESTAMPTZ NOT NULL,
     roles TEXT[],

@@ -186,7 +186,11 @@ class ComputeUnitService:
 
         self.repo.update_compute_unit(
             cu.compute_id,
-            status=ComputeUnitStatus.FREE if job_ok else ComputeUnitStatus.DEALLOCATION_FAIL,
+            status=(
+                ComputeUnitStatus.FREE
+                if job_ok
+                else ComputeUnitStatus.DEALLOCATION_FAIL
+            ),
         )
 
         self.repo.log_event(

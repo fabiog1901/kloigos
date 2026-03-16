@@ -29,6 +29,10 @@ request body bytes.
 Requests are rejected when `X-Timestamp` falls outside
 `API_KEY_SIGNATURE_TTL_SECONDS` (default: `300` seconds).
 
+API key secrets are stored encrypted at rest with `API_KEY_MASTER_KEY`, which must
+be a base64-encoded 32-byte key such as the output of `openssl rand -base64 32`.
+Kloigos decrypts the stored secret before verifying the request HMAC.
+
 Here is an example bash client
 
 ```bash
@@ -75,6 +79,7 @@ curl -X "$METHOD" "$API_URL" \
 Set these values in `.env`:
 
 - `OIDC_ENABLED`
+- `API_KEY_MASTER_KEY`
 - `OIDC_ISSUER_URL`
 - `OIDC_CLIENT_ID`
 - `OIDC_CLIENT_SECRET`
@@ -88,6 +93,43 @@ Set these values in `.env`:
 - `OIDC_AUTHZ_ADMIN_GROUPS`
 - `OIDC_AUTHZ_GROUPS_CLAIM` (default: `groups`)
 - `API_KEY_SIGNATURE_TTL_SECONDS` (default: `300`)
+
+## API Key Storage Format
+
+The `api_keys.encrypted_secret_access_key` column stores raw bytes, not text. The
+application expects a versioned AES-GCM payload:
+
+```text
+0x01 || 12-byte nonce || ciphertext+tag
+```
+
+Use a `BYTEA` or `BLOB` column for this value. Existing plaintext secrets need to
+be re-encrypted with `API_KEY_MASTER_KEY` before this change is enabled.
+
+## API Key Migration
+
+Rename the database column to `encrypted_secret_access_key`, then re-encrypt the
+stored secrets using the configured master key.
+
+Postgres:
+
+```sql
+ALTER TABLE api_keys
+RENAME COLUMN hashed_secret_access_key TO encrypted_secret_access_key;
+```
+
+SQLite:
+
+```sql
+ALTER TABLE api_keys
+RENAME COLUMN hashed_secret_access_key TO encrypted_secret_access_key;
+```
+
+Then run:
+
+```bash
+python3 scripts/reencrypt_api_key_secrets.py
+```
 
 ## Group-Based Authorization
 

@@ -4,13 +4,16 @@ import secrets
 import time
 import urllib.parse
 import urllib.request
+from base64 import b64decode
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from hashlib import sha256
-from hmac import compare_digest, new as hmac_new
+from hmac import compare_digest
+from hmac import new as hmac_new
 from typing import Any
 
 import jwt
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi import (
     APIRouter,
     Depends,
@@ -99,6 +102,26 @@ def _api_key_signature_ttl_seconds() -> int:
         return 300
 
 
+def _api_key_master_key() -> bytes:
+    encoded_key = os.getenv("API_KEY_MASTER_KEY", "").strip()
+    if not encoded_key:
+        raise RuntimeError("API_KEY_MASTER_KEY must be set for API key encryption.")
+
+    try:
+        key = b64decode(encoded_key, validate=True)
+    except ValueError as exc:
+        raise RuntimeError("API_KEY_MASTER_KEY must be valid base64.") from exc
+
+    if len(key) != 32:
+        raise RuntimeError("API_KEY_MASTER_KEY must decode to exactly 32 bytes.")
+
+    return key
+
+
+def validate_api_key_crypto_config() -> None:
+    _api_key_master_key()
+
+
 def _parse_api_key_timestamp(timestamp: str) -> datetime:
     raw_timestamp = timestamp.strip()
     if not raw_timestamp:
@@ -108,7 +131,9 @@ def _parse_api_key_timestamp(timestamp: str) -> datetime:
         parsed = datetime.fromtimestamp(float(raw_timestamp), tz=timezone.utc)
     except (OSError, OverflowError, ValueError):
         normalized = (
-            f"{raw_timestamp[:-1]}+00:00" if raw_timestamp.endswith("Z") else raw_timestamp
+            f"{raw_timestamp[:-1]}+00:00"
+            if raw_timestamp.endswith("Z")
+            else raw_timestamp
         )
         parsed = datetime.fromisoformat(normalized)
         if parsed.tzinfo is None:
@@ -123,6 +148,38 @@ def _api_key_secret_bytes(secret: bytes | str) -> bytes:
     if isinstance(secret, bytes):
         return secret
     return secret.encode("utf-8")
+
+
+def encrypt_api_key_secret(secret: bytes | str) -> bytes:
+    nonce = secrets.token_bytes(12)
+    ciphertext = AESGCM(_api_key_master_key()).encrypt(
+        nonce,
+        _api_key_secret_bytes(secret),
+        None,
+    )
+    return b"\x01" + nonce + ciphertext
+
+
+def decrypt_api_key_secret(secret: bytes | str) -> bytes:
+    encrypted_secret = _api_key_secret_bytes(secret)
+    if not encrypted_secret:
+        raise RuntimeError("Encrypted API key secret is empty.")
+    if encrypted_secret[:1] != b"\x01":
+        raise RuntimeError(
+            "Encrypted API key secret has an unsupported format. Migrate stored API keys to the versioned encrypted format."
+        )
+
+    nonce = encrypted_secret[1:13]
+    ciphertext = encrypted_secret[13:]
+    if len(nonce) != 12 or not ciphertext:
+        raise RuntimeError("Encrypted API key secret is malformed.")
+
+    try:
+        return AESGCM(_api_key_master_key()).decrypt(nonce, ciphertext, None)
+    except Exception as exc:
+        raise RuntimeError(
+            "Encrypted API key secret could not be decrypted. Check API_KEY_MASTER_KEY and stored key material."
+        ) from exc
 
 
 def _request_target_bytes(request: Request) -> bytes:
@@ -310,6 +367,7 @@ class OIDCManager:
 
     def validate_config(self) -> None:
         self.config.validate()
+        validate_api_key_crypto_config()
 
     def _http_json(
         self,
@@ -564,9 +622,7 @@ class OIDCManager:
             ) from exc
 
         max_age_seconds = _api_key_signature_ttl_seconds()
-        age_seconds = abs(
-            (datetime.now(timezone.utc) - signed_at).total_seconds()
-        )
+        age_seconds = abs((datetime.now(timezone.utc) - signed_at).total_seconds())
         if age_seconds > max_age_seconds:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -574,16 +630,14 @@ class OIDCManager:
             )
 
         body = await request.body()
-        secret_key = _api_key_secret_bytes(api_key.hashed_secret_access_key)
-        
-        
-        
+        secret_key = decrypt_api_key_secret(api_key.encrypted_secret_access_key)
+
         expected_signature = hmac_new(
             secret_key,
             _build_api_key_signature_payload(request, timestamp, body),
             sha256,
         ).hexdigest()
-        
+
         if not compare_digest(expected_signature, signature.strip().lower()):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

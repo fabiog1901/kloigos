@@ -49,7 +49,7 @@ class LogMsg(BaseModel):
 
 class ApiKeyRecord(BaseModel):
     access_key: str
-    hashed_secret_access_key: bytes
+    encrypted_secret_access_key: bytes
     owner: str
     valid_until: dt.datetime
     roles: list[str] | None = None

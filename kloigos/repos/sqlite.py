@@ -25,7 +25,7 @@ class SQLiteRepo(BaseRepo):
             cur = conn.cursor()
             rs = cur.execute(
                 """
-                SELECT access_key, hashed_secret_access_key, owner, valid_until, roles
+                SELECT access_key, encrypted_secret_access_key, owner, valid_until, roles
                 FROM api_keys
                 WHERE access_key = ?
                 """,
@@ -43,7 +43,7 @@ class SQLiteRepo(BaseRepo):
 
         return ApiKeyRecord(
             access_key=rs["access_key"],
-            hashed_secret_access_key=rs["hashed_secret_access_key"],
+            encrypted_secret_access_key=rs["encrypted_secret_access_key"],
             owner=rs["owner"],
             valid_until=valid_until,
             roles=roles,
