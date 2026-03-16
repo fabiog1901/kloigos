@@ -65,12 +65,15 @@
             @click.prevent="setView('dashboard')">Dashboard</a>
 
           <a href="#" class="pill" :class="{ 'pill-accent': view === 'servers' }"
+            x-show="canViewAdmin()"
             @click.prevent="setView('servers')">Servers</a>
 
           <a href="#" class="pill" :class="{ 'pill-accent': view === 'events' }"
+            x-show="canViewAdmin()"
             @click.prevent="setView('events')">Events</a>
 
           <a href="#" class="pill" :class="{ 'pill-accent': view === 'playbooks' }"
+            x-show="canViewAdmin()"
             @click.prevent="setView('playbooks')">Playbooks</a>
 
           <button type="button" class="user-chip" @click="openUserInfoModal()" :title="userIconTitle()"
@@ -117,6 +120,10 @@
         </div>
       </header>
 
+      <div x-show="viewNotice"
+        style="margin: 16px 24px 0; padding: 14px 16px; border: 1px solid rgba(251, 191, 36, 0.32); border-radius: 14px; background: rgba(120, 53, 15, 0.18); color: #fde68a;"
+        x-text="viewNotice"></div>
+
       <!-- DASHBOARD VIEW -->
       <main class="layout" x-show="view === 'dashboard'">
         <aside class="sidebar">
@@ -150,7 +157,7 @@
 
               </button>
 
-              <button class="btn" @click="openAllocateModal()">Allocate…</button>
+              <button class="btn" x-show="canManageCompute()" @click="openAllocateModal()">Allocate…</button>
 
               <label
                 style="display:flex; align-items:center; gap:10px; font-size:12px; color: var(--muted); margin-top: 4px;">
@@ -255,7 +262,7 @@
                       <!-- actions -->
                       <td>
                         <!-- Deallocate only when ALLOCATED -->
-                        <template x-if="String(row.status || '').toUpperCase() === 'ALLOCATED'">
+                        <template x-if="canManageCompute() && String(row.status || '').toUpperCase() === 'ALLOCATED'">
                           <button class="icon-btn" :disabled="busyKey === row.compute_id"
                             title="Deallocate compute unit (releases the host back to the pool)"
                             @click="openDeallocateConfirm(row)">
@@ -269,7 +276,7 @@
                         </template>
 
                         <!-- Allocate only when FREE -->
-                        <template x-if="String(row.status || '').toUpperCase() === 'FREE'">
+                        <template x-if="canManageCompute() && String(row.status || '').toUpperCase() === 'FREE'">
                           <button class="icon-btn" :disabled="busyKey === row.compute_id"
                             title="Allocate this compute unit" @click="openAllocateModal(row.compute_id)">
                             <!-- plus-in-circle -->
@@ -283,7 +290,7 @@
 
                         <!-- Nothing otherwise -->
                         <template
-                          x-if="String(row.status || '').toUpperCase() !== 'ALLOCATED' && String(row.status || '').toUpperCase() !== 'FREE'">
+                          x-if="!canManageCompute() || (String(row.status || '').toUpperCase() !== 'ALLOCATED' && String(row.status || '').toUpperCase() !== 'FREE')">
                           <span style="color: var(--muted);">-</span>
                         </template>
                       </td>
@@ -361,7 +368,7 @@
 
 
       <!-- SERVERS VIEW -->
-      <main class="layout" x-show="view === 'servers'">
+      <main class="layout" x-show="view === 'servers' && canViewAdmin()">
         <aside class="sidebar">
           <div>
             <h2>Summary</h2>
@@ -505,6 +512,15 @@
         </section>
       </main>
 
+      <main class="layout" x-show="view === 'servers' && !canViewAdmin()">
+        <section class="main">
+          <div class="metric" style="max-width: 720px; margin: 40px auto;">
+            <div class="main-title">Not authorized</div>
+            <div class="main-subtitle" x-text="unauthorizedViewMessage('servers')"></div>
+          </div>
+        </section>
+      </main>
+
       <!-- Server Action Confirm Modal (Decommission / Delete) -->
       <div class="modal-backdrop" x-show="modal.serverActionConfirm.open" x-transition
         @keydown.escape.window="closeServerActionConfirm()">
@@ -562,7 +578,7 @@
 
 
       <!-- EVENTS VIEW -->
-      <main class="layout events-layout" x-show="view === 'events'">
+      <main class="layout events-layout" x-show="view === 'events' && canViewAdmin()">
         <aside class="sidebar">
           <div>
             <h2>Summary</h2>
@@ -647,9 +663,18 @@
         </section>
       </main>
 
+      <main class="layout events-layout" x-show="view === 'events' && !canViewAdmin()">
+        <section class="main events-main">
+          <div class="metric" style="max-width: 720px; margin: 40px auto;">
+            <div class="main-title">Not authorized</div>
+            <div class="main-subtitle" x-text="unauthorizedViewMessage('events')"></div>
+          </div>
+        </section>
+      </main>
+
 
       <!-- PLAYBOOKS VIEW -->
-      <main class="layout" x-show="view === 'playbooks'">
+      <main class="layout" x-show="view === 'playbooks' && canViewAdmin()">
         <aside class="sidebar">
           <div>
             <h2>Summary</h2>
@@ -709,6 +734,15 @@
           <div class="footer">
             <span>Rendered at (UTC) <span x-text="renderedAtUtc"></span></span>
             <span>Κλοηγός playbooks</span>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout" x-show="view === 'playbooks' && !canViewAdmin()">
+        <section class="main">
+          <div class="metric" style="max-width: 720px; margin: 40px auto;">
+            <div class="main-title">Not authorized</div>
+            <div class="main-subtitle" x-text="unauthorizedViewMessage('playbooks')"></div>
           </div>
         </section>
       </main>

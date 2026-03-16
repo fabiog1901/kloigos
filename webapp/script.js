@@ -12,6 +12,7 @@ window.app = function () {
     authDisplayNameClaim: "preferred_username",
     authSessionCookieName: "kloigos_session",
     authError: "",
+    viewNotice: "",
 
     // Shared UTC timestamps
 
@@ -355,6 +356,93 @@ window.app = function () {
       return Boolean(this.authClaims && this.authClaims.auth_disabled);
     },
 
+    authGroupsClaimName() {
+      const claims =
+        this.authClaims && typeof this.authClaims === "object"
+          ? this.authClaims
+          : null;
+      const rawName = claims?._groups_claim_name;
+      return typeof rawName === "string" && rawName.trim()
+        ? rawName.trim()
+        : "groups";
+    },
+
+    authGroups() {
+      const claims =
+        this.authClaims && typeof this.authClaims === "object"
+          ? this.authClaims
+          : null;
+      if (!claims) return [];
+      const groups = claims[this.authGroupsClaimName()];
+      return Array.isArray(groups)
+        ? groups.map((value) => String(value).trim()).filter(Boolean)
+        : [];
+    },
+
+    authRoleGroups() {
+      const roleGroups =
+        this.authClaims &&
+        typeof this.authClaims === "object" &&
+        this.authClaims._role_groups &&
+        typeof this.authClaims._role_groups === "object"
+          ? this.authClaims._role_groups
+          : {};
+      return roleGroups;
+    },
+
+    hasRole(role) {
+      if (this.authIsUnauthenticatedMode()) return true;
+      const roleName = String(role || "").trim();
+      if (!roleName) return false;
+
+      const userGroups = this.authGroups();
+      const roleGroups = this.authRoleGroups()[roleName];
+      if (!Array.isArray(roleGroups)) return false;
+
+      return roleGroups.some((group) => userGroups.includes(String(group)));
+    },
+
+    canManageCompute() {
+      return (
+        this.authIsUnauthenticatedMode() ||
+        this.hasRole("kloigos_user") ||
+        this.hasRole("kloigos_admin")
+      );
+    },
+
+    canViewAdmin() {
+      return this.authIsUnauthenticatedMode() || this.hasRole("kloigos_admin");
+    },
+
+    isViewAccessible(viewName) {
+      if (["servers", "events", "playbooks"].includes(viewName)) {
+        return this.canViewAdmin();
+      }
+      return true;
+    },
+
+    unauthorizedViewMessage(viewName = this.view) {
+      const labels = {
+        servers: "Servers",
+        events: "Events",
+        playbooks: "Playbooks",
+      };
+      const label = labels[viewName] || "This view";
+      return `${label} is available only to admin users.`;
+    },
+
+    handleForbiddenView(viewName, { fallback = true } = {}) {
+      this.viewNotice = this.unauthorizedViewMessage(viewName);
+      if (!fallback) return;
+
+      this.view = "dashboard";
+      localStorage.setItem("kloigos_view", this.view);
+    },
+
+    clearViewNotice() {
+      this.viewNotice = "";
+    },
+
     userDisplayName() {
       const c =
         this.authClaims && typeof this.authClaims === "object"
@@ -443,6 +531,7 @@ window.app = function () {
       this.syncAuthMeta();
       this.authError = "";
       this.authChecked = true;
+      this.clearViewNotice();
       return true;
     },
 
@@ -494,6 +583,10 @@ window.app = function () {
       const hasSession = await this.checkAuthSession();
       if (!hasSession) return;
 
+      if (!this.isViewAccessible(this.view)) {
+        this.handleForbiddenView(this.view);
+      }
+
       // Start dashboard timer (only refresh if dashboard tab is active)
       this._autoTimer = setInterval(() => {
         if (this.autoRefreshEnabled && this.view === "dashboard")
@@ -520,6 +613,12 @@ window.app = function () {
 
     setView(next) {
       if (next === this.view) return;
+      if (!this.isViewAccessible(next)) {
+        this.handleForbiddenView(next, { fallback: false });
+        return;
+      }
+
+      this.clearViewNotice();
       this.view = next;
       localStorage.setItem("kloigos_view", this.view);
 
@@ -571,10 +670,7 @@ window.app = function () {
       }
 
       if (!res.ok) {
-        if (
-          (res.status === 401 || res.status === 403) &&
-          typeof window !== "undefined"
-        ) {
+        if (res.status === 401 && typeof window !== "undefined") {
           const loginPath =
             res.headers.get("x-auth-login-url") ||
             (data &&
@@ -589,7 +685,10 @@ window.app = function () {
           (data && (data.detail || data.message)) ||
           (typeof data === "string" && data) ||
           `Request failed (${res.status})`;
-        throw new Error(msg);
+        const error = new Error(msg);
+        error.status = res.status;
+        error.forbidden = res.status === 403;
+        throw error;
       }
 
       return data;
@@ -597,12 +696,20 @@ window.app = function () {
 
     // ---------- Servers lifecycle ----------
     async ensureServersView() {
+      if (!this.canViewAdmin()) {
+        this.handleForbiddenView("servers", { fallback: false });
+        return;
+      }
       if (this.servers.length === 0 && !this.serversLoading.list)
         await this.refreshServers();
       else this.applyServersFilterSort();
     },
 
     async ensureEventsView() {
+      if (!this.canViewAdmin()) {
+        this.handleForbiddenView("events", { fallback: false });
+        return;
+      }
       if (this.events.length === 0 && !this.eventsLoading.list)
         await this.refreshEvents();
       else this.applyEventsFilterSort();
@@ -812,6 +919,9 @@ window.app = function () {
         this.eventsLastUpdatedUtc = this.utcNowString();
         this.applyEventsFilterSort();
       } catch (e) {
+        if (e?.forbidden) {
+          this.handleForbiddenView("events", { fallback: false });
+        }
         console.error(e);
         this.eventsLastUpdatedUtc = this.utcNowString();
       } finally {
@@ -1386,6 +1496,10 @@ window.app = function () {
 
     // ---------- Playbooks lifecycle ----------
     async ensurePlaybooksView() {
+      if (!this.canViewAdmin()) {
+        this.handleForbiddenView("playbooks", { fallback: false });
+        return;
+      }
       this.ensureAce();
       if (this.playbooks.length === 0 && !this.pbLoading.list)
         await this.reloadPlaybooks();
