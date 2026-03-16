@@ -6,8 +6,8 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from hashlib import md5
-from hmac import compare_digest
+from hashlib import sha256
+from hmac import compare_digest, new as hmac_new
 from typing import Any
 
 import jwt
@@ -90,6 +90,65 @@ def _claims_groups(
 def _cookie_secure_default() -> bool:
     # secure-by-default in production
     return _as_bool(os.getenv("OIDC_COOKIE_SECURE"), default=False)
+
+
+def _api_key_signature_ttl_seconds() -> int:
+    try:
+        return max(0, int(os.getenv("API_KEY_SIGNATURE_TTL_SECONDS", "300")))
+    except ValueError:
+        return 300
+
+
+def _parse_api_key_timestamp(timestamp: str) -> datetime:
+    raw_timestamp = timestamp.strip()
+    if not raw_timestamp:
+        raise ValueError("empty timestamp")
+
+    try:
+        parsed = datetime.fromtimestamp(float(raw_timestamp), tz=timezone.utc)
+    except (OSError, OverflowError, ValueError):
+        normalized = (
+            f"{raw_timestamp[:-1]}+00:00" if raw_timestamp.endswith("Z") else raw_timestamp
+        )
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        else:
+            parsed = parsed.astimezone(timezone.utc)
+
+    return parsed
+
+
+def _api_key_secret_bytes(secret: bytes | str) -> bytes:
+    if isinstance(secret, bytes):
+        return secret
+    return secret.encode("utf-8")
+
+
+def _request_target_bytes(request: Request) -> bytes:
+    raw_path = request.scope.get("raw_path")
+    if isinstance(raw_path, bytes) and raw_path:
+        path = raw_path
+    else:
+        path = request.url.path.encode("utf-8")
+
+    query_string = request.scope.get("query_string")
+    if isinstance(query_string, bytes) and query_string:
+        return path + b"?" + query_string
+    return path
+
+
+def _build_api_key_signature_payload(
+    request: Request, timestamp: str, body: bytes
+) -> bytes:
+    return b"\n".join(
+        [
+            request.method.upper().encode("utf-8"),
+            _request_target_bytes(request),
+            timestamp.strip().encode("utf-8"),
+            body,
+        ]
+    )
 
 
 @dataclass(frozen=True)
@@ -475,11 +534,13 @@ class OIDCManager:
             detail=f"Forbidden: requires one of roles [{role_list}].",
         )
 
-    def validate_api_key(
+    async def validate_api_key(
         self,
+        request: Request,
         repo: BaseRepo,
         access_key: str,
-        secret_key: str,
+        signature: str,
+        timestamp: str,
     ) -> dict[str, Any]:
         api_key = repo.get_api_key(access_key)
         if api_key is None:
@@ -494,11 +555,39 @@ class OIDCManager:
                 detail="API key is expired.",
             )
 
-        secret_digest = md5(secret_key.encode("utf-8")).digest()  # nosec B324
-        if not compare_digest(secret_digest, api_key.hashed_secret_access_key):
+        try:
+            signed_at = _parse_api_key_timestamp(timestamp)
+        except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid API key secret.",
+                detail="Invalid X-Timestamp header.",
+            ) from exc
+
+        max_age_seconds = _api_key_signature_ttl_seconds()
+        age_seconds = abs(
+            (datetime.now(timezone.utc) - signed_at).total_seconds()
+        )
+        if age_seconds > max_age_seconds:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="API request timestamp is expired.",
+            )
+
+        body = await request.body()
+        secret_key = _api_key_secret_bytes(api_key.hashed_secret_access_key)
+        
+        
+        
+        expected_signature = hmac_new(
+            secret_key,
+            _build_api_key_signature_payload(request, timestamp, body),
+            sha256,
+        ).hexdigest()
+        
+        if not compare_digest(expected_signature, signature.strip().lower()):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API key signature.",
             )
 
         roles = set(api_key.roles or [])
@@ -513,7 +602,7 @@ class OIDCManager:
         }
         return claims
 
-    def current_claims(
+    async def current_claims(
         self,
         request: Request,
         repo: BaseRepo,
@@ -521,15 +610,22 @@ class OIDCManager:
         bearer_credentials: HTTPAuthorizationCredentials | None = None,
         session_token: str | None = None,
         access_key: str | None = None,
-        secret_key: str | None = None,
+        signature: str | None = None,
+        timestamp: str | None = None,
     ) -> dict[str, Any]:
-        if access_key or secret_key:
-            if not access_key or not secret_key:
+        if access_key or signature or timestamp:
+            if not access_key or not signature or not timestamp:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Both X-Kloigos-Access-Key and X-Kloigos-Secret-Key are required.",
+                    detail="X-Kloigos-Access-Key, X-Kloigos-Signature, and X-Timestamp are required.",
                 )
-            return self.validate_api_key(repo, access_key, secret_key)
+            return await self.validate_api_key(
+                request,
+                repo,
+                access_key,
+                signature,
+                timestamp,
+            )
 
         if not self.enabled:
             return {"sub": "anonymous", "auth_disabled": True}
@@ -561,28 +657,35 @@ access_key_scheme = APIKeyHeader(
     scheme_name="XAccessKey",
     auto_error=False,
 )
-secret_key_scheme = APIKeyHeader(
-    name="X-Kloigos-Secret-Key",
-    scheme_name="XSecretKey",
+signature_scheme = APIKeyHeader(
+    name="X-Kloigos-Signature",
+    scheme_name="XSignature",
+    auto_error=False,
+)
+timestamp_scheme = APIKeyHeader(
+    name="X-Timestamp",
+    scheme_name="XTimestamp",
     auto_error=False,
 )
 
 
-def require_authenticated(
+async def require_authenticated(
     request: Request,
     repo: BaseRepo = Depends(get_repo),
     bearer_credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
     session_token: str | None = Security(cookie_scheme),
     access_key: str | None = Security(access_key_scheme),
-    secret_key: str | None = Security(secret_key_scheme),
+    signature: str | None = Security(signature_scheme),
+    timestamp: str | None = Security(timestamp_scheme),
 ) -> dict[str, Any]:
-    return oidc.current_claims(
+    return await oidc.current_claims(
         request,
         repo,
         bearer_credentials=bearer_credentials,
         session_token=session_token,
         access_key=access_key,
-        secret_key=secret_key,
+        signature=signature,
+        timestamp=timestamp,
     )
 
 
