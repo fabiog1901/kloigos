@@ -96,8 +96,8 @@ class ComputeUnitService:
 
         self.repo.update_compute_unit(
             cu.compute_id,
-            ComputeUnitStatus.DEALLOCATING,
-            {},
+            status=ComputeUnitStatus.DEALLOCATING,
+            tags={},
         )
 
         # async, run the cleanup task
@@ -154,7 +154,7 @@ class ComputeUnitService:
 
         self.repo.update_compute_unit(
             cu.compute_id,
-            (
+            status=(
                 ComputeUnitStatus.ALLOCATED
                 if job_ok
                 else ComputeUnitStatus.ALLOCATION_FAIL
@@ -186,7 +186,7 @@ class ComputeUnitService:
 
         self.repo.update_compute_unit(
             cu.compute_id,
-            ComputeUnitStatus.FREE if job_ok else ComputeUnitStatus.DEALLOCATION_FAIL,
+            status=ComputeUnitStatus.FREE if job_ok else ComputeUnitStatus.DEALLOCATION_FAIL,
         )
 
         self.repo.log_event(
