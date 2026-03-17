@@ -92,6 +92,13 @@ def _claims_groups(
     return _claim_groups(claims.get(groups_claim_name))
 
 
+def _jsonable_role_groups(role_groups: dict[str, Any]) -> dict[str, list[str]]:
+    normalized: dict[str, list[str]] = {}
+    for role_name, groups in role_groups.items():
+        normalized[str(role_name)] = sorted(_claim_groups(groups))
+    return normalized
+
+
 def _cookie_secure_default() -> bool:
     # secure-by-default in production
     return _as_bool(os.getenv("OIDC_COOKIE_SECURE"), default=False)
@@ -506,10 +513,29 @@ class OIDCManager:
 
         return claims
 
+    def enrich_claims(self, claims: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(claims)
+        payload["_groups_claim_name"] = str(
+            claims.get("_groups_claim_name", self.config.groups_claim_name)
+        )
+        effective_role_groups = (
+            claims.get("_role_groups")
+            if isinstance(claims.get("_role_groups"), dict)
+            else self.config.role_groups
+        )
+        payload["_role_groups"] = _jsonable_role_groups(effective_role_groups)
+
+        existing_meta = (
+            claims.get("_kloigos") if isinstance(claims.get("_kloigos"), dict) else {}
+        )
+        payload["_kloigos"] = {
+            **existing_meta,
+            "display_name_claim": self.config.ui_username_claim,
+            "session_cookie_name": self.config.session_cookie_name,
+        }
+        return payload
+
     def ensure_any_role(self, claims: dict[str, Any], *roles: str) -> dict[str, Any]:
-        print(claims)
-        print()
-        print(roles)
         
         if claims.get("auth_disabled"):
             return claims
@@ -529,9 +555,6 @@ class OIDCManager:
             if isinstance(claims.get("_role_groups"), dict)
             else self.config.role_groups
         )
-        print("===>")
-        print(effective_roles)
-        print("<===")
         for role in roles:
             role_groups = effective_roles.get(role, set())
             if role_groups and not role_groups.isdisjoint(user_groups):
@@ -867,6 +890,6 @@ def oidc_logout(
 def oidc_me(
     request: Request, claims: dict[str, Any] = Security(require_authenticated)
 ) -> dict[str, Any]:
-    payload = dict(claims)
+    payload = oidc.enrich_claims(claims)
     payload["cookies"] = request.cookies
     return payload

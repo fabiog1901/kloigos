@@ -48,8 +48,7 @@
           <div class="logo-pill">Κ</div>
           <div>
             <h1>Κλοηγός / Kloigos</h1>
-            <div class="topbar-sub"
-              x-text="view === 'dashboard'
+            <div class="topbar-sub" x-text="view === 'dashboard'
                 ? 'Compute units &amp; service status overview'
                 : (view === 'servers'
                   ? 'Servers inventory &amp; lifecycle'
@@ -64,16 +63,13 @@
           <a href="#" class="pill" :class="{ 'pill-accent': view === 'dashboard' }"
             @click.prevent="setView('dashboard')">Dashboard</a>
 
-          <a href="#" class="pill" :class="{ 'pill-accent': view === 'servers' }"
-            x-show="canViewAdmin()"
+          <a href="#" class="pill" :class="{ 'pill-accent': view === 'servers' }" x-show="canViewAdmin()"
             @click.prevent="setView('servers')">Servers</a>
 
-          <a href="#" class="pill" :class="{ 'pill-accent': view === 'events' }"
-            x-show="canViewAdmin()"
+          <a href="#" class="pill" :class="{ 'pill-accent': view === 'events' }" x-show="canViewAdmin()"
             @click.prevent="setView('events')">Events</a>
 
-          <a href="#" class="pill" :class="{ 'pill-accent': view === 'playbooks' }"
-            x-show="canViewAdmin()"
+          <a href="#" class="pill" :class="{ 'pill-accent': view === 'playbooks' }" x-show="canViewAdmin()"
             @click.prevent="setView('playbooks')">Playbooks</a>
 
           <button type="button" class="user-chip" @click="openUserInfoModal()" :title="userIconTitle()"
@@ -634,14 +630,13 @@
                 </thead>
 
                 <tbody>
-                  <template x-for="event in eventsVisibleRows" :key="`${event.ts}-${event.user_id}-${event.action}-${event.request_id || ''}`">
+                  <template x-for="event in eventsVisibleRows"
+                    :key="`${event.ts}-${event.user_id}-${event.action}-${event.request_id || ''}`">
                     <tr>
                       <td><span x-text="toUtcStringMaybe(event.ts)"></span></td>
                       <td><span x-text="event.user_id || '-'"></span></td>
                       <td>
-                        <span
-                          class="service-pill event-action-pill"
-                          :style="actionPillStyle(event.action)"
+                        <span class="service-pill event-action-pill" :style="actionPillStyle(event.action)"
                           x-text="event.action || '-'"></span>
                       </td>
                       <td class="events-details-cell">
@@ -999,15 +994,24 @@
               </div>
             </div>
 
+            <div class="metric" style="display:grid; gap:8px; border-color: rgba(148, 163, 184, 0.25);">
+              <div class="metric-label">Kloigos Roles</div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <template x-for="role in authRoles()" :key="role">
+                  <div class="pill" style="margin:0;" x-text="role"></div>
+                </template>
+              </div>
+            </div>
+
             <div class="metric" style="border-color: rgba(148, 163, 184, 0.25);">
               <div class="metric-label">GET /api/auth/me</div>
-              <pre class="inspector-pre" style="max-height: 36vh; white-space: pre-wrap;"
+              <pre class="inspector-pre" style="max-height: 26vh; white-space: pre-wrap;"
                 x-text="toYaml(authClaimsWithoutCookies())"></pre>
             </div>
 
             <div class="metric" style="border-color: rgba(148, 163, 184, 0.25);">
               <div class="metric-label">JWT id_token</div>
-              <pre class="inspector-pre" style="max-height: 22vh; white-space: pre-wrap;"
+              <pre class="inspector-pre" style="max-height: 12vh; white-space: pre-wrap;"
                 x-text="authSessionCookieValue()"></pre>
             </div>
           </div>

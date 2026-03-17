@@ -332,8 +332,11 @@ window.app = function () {
           ? this.authClaims
           : null;
       if (!claims) return {};
-      const { cookies: _cookies, ...rest } = claims;
-      return rest;
+      return Object.fromEntries(
+        Object.entries(claims).filter(
+          ([key]) => key !== "cookies" && !String(key).startsWith("_"),
+        ),
+      );
     },
 
     authSessionCookieValue() {
@@ -373,10 +376,7 @@ window.app = function () {
           ? this.authClaims
           : null;
       if (!claims) return [];
-      const groups = claims[this.authGroupsClaimName()];
-      return Array.isArray(groups)
-        ? groups.map((value) => String(value).trim()).filter(Boolean)
-        : [];
+      return this.normalizeClaimValues(claims[this.authGroupsClaimName()]);
     },
 
     authRoleGroups() {
@@ -390,34 +390,156 @@ window.app = function () {
       return roleGroups;
     },
 
-    hasRole(role) {
+    normalizeClaimValues(input) {
+      if (Array.isArray(input)) {
+        return input.map((value) => String(value).trim()).filter(Boolean);
+      }
+      if (typeof input === "string") {
+        return input
+          .split(",")
+          .map((value) => String(value).trim())
+          .filter(Boolean);
+      }
+      return [];
+    },
+
+    authRoles() {
+      const values = [];
+      const roleGroups = this.authRoleGroups();
+      const userGroups = new Set(this.authGroups());
+
+      Object.entries(roleGroups).forEach(([roleName, groups]) => {
+        const normalizedGroups = this.normalizeClaimValues(groups);
+        if (
+          normalizedGroups.some((group) => userGroups.has(String(group).trim()))
+        ) {
+          values.push(roleName);
+        }
+      });
+
+      return [...new Set(values.map((value) => String(value).trim()).filter(Boolean))];
+    },
+
+    authRoleAnalysis() {
+      const claimName = this.authGroupsClaimName();
+      const claims =
+        this.authClaims && typeof this.authClaims === "object"
+          ? this.authClaims
+          : null;
+      return {
+        groups_claim_name: claimName,
+        groups_claim_value: claims ? claims[claimName] ?? null : null,
+        normalized_groups: this.authGroups(),
+        role_groups: this.authRoleGroups(),
+        kloigos_roles: this.authRoles(),
+      };
+    },
+
+    logRoleCheck({
+      checkType = "role-check",
+      requiredRole = "",
+      viewName = this.view,
+      result = false,
+      detail = "",
+    } = {}) {
+      console.info("[kloigos role check]", {
+        checkType,
+        viewName: String(viewName || "").trim() || this.view,
+        requiredRole: String(requiredRole || "").trim(),
+        result: Boolean(result),
+        detail: detail ? String(detail) : "",
+        ...this.authRoleAnalysis(),
+      });
+    },
+
+    hasRole(role, { viewName = this.view, checkType = "hasRole" } = {}) {
       if (this.authIsUnauthenticatedMode()) return true;
       const roleName = String(role || "").trim();
       if (!roleName) return false;
 
-      const userGroups = this.authGroups();
-      const roleGroups = this.authRoleGroups()[roleName];
-      if (!Array.isArray(roleGroups)) return false;
+      const userRoles = this.authRoles();
+      if (userRoles.includes(roleName)) {
+        this.logRoleCheck({
+          checkType,
+          requiredRole: roleName,
+          viewName,
+          result: true,
+          detail: "Matched direct or inferred effective role.",
+        });
+        return true;
+      }
 
-      return roleGroups.some((group) => userGroups.includes(String(group)));
+      const userGroups = this.authGroups();
+      const roleGroups = this.normalizeClaimValues(
+        this.authRoleGroups()[roleName],
+      );
+      if (roleGroups.length === 0) {
+        this.logRoleCheck({
+          checkType,
+          requiredRole: roleName,
+          viewName,
+          result: false,
+          detail: "No role-to-group mapping found for required role.",
+        });
+        return false;
+      }
+
+      const result = roleGroups.some((group) => userGroups.includes(group));
+      this.logRoleCheck({
+        checkType,
+        requiredRole: roleName,
+        viewName,
+        result,
+        detail: result
+          ? "Matched required role through group membership."
+          : "No matching user group found for required role.",
+      });
+      return result;
     },
 
     canManageCompute() {
       return (
         this.authIsUnauthenticatedMode() ||
-        this.hasRole("kloigos_user") ||
-        this.hasRole("kloigos_admin")
+        this.hasRole("kloigos_user", {
+          viewName: this.view,
+          checkType: "canManageCompute",
+        }) ||
+        this.hasRole("kloigos_admin", {
+          viewName: this.view,
+          checkType: "canManageCompute",
+        })
       );
     },
 
-    canViewAdmin() {
-      return this.authIsUnauthenticatedMode() || this.hasRole("kloigos_admin");
+    canViewAdmin(viewName = this.view) {
+      return (
+        this.authIsUnauthenticatedMode() ||
+        this.hasRole("kloigos_admin", {
+          viewName,
+          checkType: "canViewAdmin",
+        })
+      );
     },
 
     isViewAccessible(viewName) {
       if (["servers", "events", "playbooks"].includes(viewName)) {
-        return this.canViewAdmin();
+        const result = this.canViewAdmin(viewName);
+        this.logRoleCheck({
+          checkType: "isViewAccessible",
+          requiredRole: "kloigos_admin",
+          viewName,
+          result,
+          detail: "Checking admin access for restricted view.",
+        });
+        return result;
       }
+      this.logRoleCheck({
+        checkType: "isViewAccessible",
+        requiredRole: "",
+        viewName,
+        result: true,
+        detail: "View does not require an admin role.",
+      });
       return true;
     },
 
