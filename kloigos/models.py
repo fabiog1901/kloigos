@@ -18,10 +18,6 @@ class AllocatePlaybookError(Exception):
     pass
 
 
-class ApiKeyAlreadyExistsError(Exception):
-    pass
-
-
 class ApiKeyNotFoundError(Exception):
     pass
 
@@ -51,6 +47,12 @@ class Event(AutoNameStrEnum):
     CU_DEALLOCATION_FAILED = auto()
 
 
+class KloigosRole(AutoNameStrEnum):
+    KLOIGOS_READONLY = auto()
+    KLOIGOS_USER = auto()
+    KLOIGOS_ADMIN = auto()
+
+
 class LogMsg(BaseModel):
     ts: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
     user_id: str
@@ -64,20 +66,23 @@ class ApiKeyRecord(BaseModel):
     encrypted_secret_access_key: bytes
     owner: str
     valid_until: dt.datetime
-    roles: list[str] | None = None
+    roles: list[KloigosRole] | None = None
 
 
 class ApiKeySummary(BaseModel):
     access_key: str
     owner: str
     valid_until: dt.datetime
-    roles: list[str] | None = None
+    roles: list[KloigosRole] | None = None
 
 
 class ApiKeyCreateRequest(BaseModel):
-    access_key: str
     valid_until: dt.datetime
-    roles: list[str] | None = None
+    roles: list[KloigosRole] | None = None
+
+
+class ApiKeyCreateRequestInDB(ApiKeyCreateRequest):
+    access_key: str
 
 
 class ApiKeyCreateResponse(ApiKeySummary):

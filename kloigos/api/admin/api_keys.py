@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.exceptions import RequestErrorModel
 
 from ...auth import get_audit_actor
 from ...dep import get_admin_service
 from ...models import (
-    ApiKeyAlreadyExistsError,
     ApiKeyCreateRequest,
     ApiKeyCreateResponse,
     ApiKeyNotFoundError,
@@ -11,7 +11,6 @@ from ...models import (
     InvalidApiKeyValidityError,
 )
 from ...services.admin import AdminService
-from fastapi.exceptions import RequestErrorModel
 
 router = APIRouter(
     prefix="/api_keys",
@@ -35,10 +34,6 @@ async def list_api_keys(
             "model": RequestErrorModel,
             "description": "valid_until must be in the future.",
         },
-        409: {
-            "model": RequestErrorModel,
-            "description": "API key already exists.",
-        },
     },
 )
 async def create_api_key(
@@ -52,11 +47,6 @@ async def create_api_key(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="valid_until must be in the future.",
-        )
-    except ApiKeyAlreadyExistsError:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="API key already exists.",
         )
 
 

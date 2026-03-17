@@ -1,5 +1,6 @@
 import json
 import os
+import secrets
 import time
 import urllib.parse
 import urllib.request
@@ -9,7 +10,6 @@ from hashlib import sha256
 from hmac import compare_digest
 from hmac import new as hmac_new
 from typing import Any
-import secrets
 
 import jwt
 from fastapi import (
@@ -30,13 +30,9 @@ from fastapi.security import (
 )
 
 from .dep import get_repo
-from .models import Event, LogMsg
+from .models import Event, KloigosRole, LogMsg
 from .repos.base import BaseRepo
-from .util import (
-    decrypt_api_key_secret,
-    request_id_ctx,
-    validate_api_key_crypto_config,
-)
+from .util import decrypt_api_key_secret, request_id_ctx, validate_api_key_crypto_config
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
@@ -239,11 +235,11 @@ class OIDCConfig:
     )
 
     @property
-    def role_groups(self) -> dict[str, set[str]]:
+    def role_groups(self) -> dict[KloigosRole, set[str]]:
         return {
-            "kloigos_readonly": _safe_csv_set(self.readonly_groups_raw),
-            "kloigos_user": _safe_csv_set(self.user_groups_raw),
-            "kloigos_admin": _safe_csv_set(self.admin_groups_raw),
+            KloigosRole.KLOIGOS_READONLY: _safe_csv_set(self.readonly_groups_raw),
+            KloigosRole.KLOIGOS_USER: _safe_csv_set(self.user_groups_raw),
+            KloigosRole.KLOIGOS_ADMIN: _safe_csv_set(self.admin_groups_raw),
         }
 
     @property
@@ -535,8 +531,10 @@ class OIDCManager:
         }
         return payload
 
-    def ensure_any_role(self, claims: dict[str, Any], *roles: str) -> dict[str, Any]:
-        
+    def ensure_any_role(
+        self, claims: dict[str, Any], *roles: KloigosRole
+    ) -> dict[str, Any]:
+
         if claims.get("auth_disabled"):
             return claims
 
@@ -560,7 +558,7 @@ class OIDCManager:
             if role_groups and not role_groups.isdisjoint(user_groups):
                 return claims
 
-        role_list = ", ".join(roles)
+        role_list = ", ".join(role.value for role in roles)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Forbidden: requires one of roles [{role_list}].",
@@ -619,11 +617,11 @@ class OIDCManager:
             )
 
         roles = set(api_key.roles or [])
-        role_groups = {role: {role} for role in roles}
+        role_groups = {role: {role.value} for role in roles}
         claims = {
             "sub": api_key.owner,
             "access_key": api_key.access_key,
-            "groups": list(roles),
+            "groups": [role.value for role in roles],
             "_groups_claim_name": "groups",
             "_role_groups": role_groups,
             "auth_type": "api_key",
@@ -720,7 +718,9 @@ async def require_authenticated(
 def require_user(
     claims: dict[str, Any] = Security(require_authenticated),
 ) -> dict[str, Any]:
-    return oidc.ensure_any_role(claims, "kloigos_user", "kloigos_admin")
+    return oidc.ensure_any_role(
+        claims, KloigosRole.KLOIGOS_USER, KloigosRole.KLOIGOS_ADMIN
+    )
 
 
 def require_compute_access(
@@ -729,15 +729,20 @@ def require_compute_access(
 ) -> dict[str, Any]:
     if request.method.upper() == "GET":
         return oidc.ensure_any_role(
-            claims, "kloigos_readonly", "kloigos_user", "kloigos_admin"
+            claims,
+            KloigosRole.KLOIGOS_READONLY,
+            KloigosRole.KLOIGOS_USER,
+            KloigosRole.KLOIGOS_ADMIN,
         )
-    return oidc.ensure_any_role(claims, "kloigos_user", "kloigos_admin")
+    return oidc.ensure_any_role(
+        claims, KloigosRole.KLOIGOS_USER, KloigosRole.KLOIGOS_ADMIN
+    )
 
 
 def require_admin(
     claims: dict[str, Any] = Security(require_authenticated),
 ) -> dict[str, Any]:
-    return oidc.ensure_any_role(claims, "kloigos_admin")
+    return oidc.ensure_any_role(claims, KloigosRole.KLOIGOS_ADMIN)
 
 
 def get_audit_actor(

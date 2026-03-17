@@ -2,8 +2,8 @@ import secrets
 from datetime import datetime, timezone
 
 from ...models import (
-    ApiKeyAlreadyExistsError,
     ApiKeyCreateRequest,
+    ApiKeyCreateRequestInDB,
     ApiKeyCreateResponse,
     ApiKeyNotFoundError,
     ApiKeySummary,
@@ -22,18 +22,19 @@ class ApiKeysAdminService(AdminServiceBase):
         actor_id: str,
         request: ApiKeyCreateRequest,
     ) -> ApiKeyCreateResponse:
+
         valid_until = self._normalize_valid_until(request.valid_until)
+
         if valid_until <= datetime.now(timezone.utc):
             raise InvalidApiKeyValidityError()
 
-        existing_key = self.repo.get_api_key(request.access_key)
-        if existing_key is not None:
-            raise ApiKeyAlreadyExistsError()
-
         secret_access_key = secrets.token_urlsafe(32)
+
+        access_key = "kloigos-" + secrets.token_urlsafe(16)
+
         created = self.repo.create_api_key(
-            ApiKeyCreateRequest(
-                access_key=request.access_key,
+            ApiKeyCreateRequestInDB(
+                access_key=access_key,
                 valid_until=valid_until,
                 roles=request.roles,
             ),
