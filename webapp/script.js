@@ -58,6 +58,28 @@ window.app = function () {
     eventsAutoRefreshEnabled: true,
     _eventsAutoTimer: null,
 
+    // ---------- API keys state ----------
+    apiKeys: [],
+    apiKeysVisibleRows: [],
+    apiKeysFilterQuery: "",
+    apiKeysLastUpdatedUtc: null,
+    apiKeysSortIndex: 2,
+    apiKeysSortDir: "desc",
+    apiKeysSortTypeByIndex: {
+      0: "string", // access_key
+      1: "string", // owner
+      2: "date", // valid_until
+      3: "string", // roles
+    },
+    apiKeysLoading: { list: false, create: false, delete: false },
+    apiKeysAutoRefreshEnabled: true,
+    _apiKeysAutoTimer: null,
+    availableKloigosRoles: [
+      "KLOIGOS_READONLY",
+      "KLOIGOS_USER",
+      "KLOIGOS_ADMIN",
+    ],
+
     renderedAtUtc: "now",
 
     // ---------- Dashboard state ----------
@@ -123,6 +145,26 @@ window.app = function () {
         action: "decommission",
       },
       serverDetails: { open: false, row: null },
+      apiKeyCreate: {
+        open: false,
+        valid_until: "",
+        roles: ["KLOIGOS_ADMIN"],
+      },
+      apiKeyDeleteConfirm: {
+        open: false,
+        access_key: "",
+        owner: "",
+      },
+      apiKeySecret: {
+        open: false,
+        access_key: "",
+        owner: "",
+        valid_until: "",
+        roles: [],
+        secret_access_key: "",
+        reveal: false,
+        copied: false,
+      },
     },
     modalErrors: {
       allocate: "",
@@ -130,6 +172,8 @@ window.app = function () {
       decommission: "",
       deallocateConfirm: "",
       serverActionConfirm: "",
+      apiKeyCreate: "",
+      apiKeyDeleteConfirm: "",
     },
 
     // ---------- Playbooks state ----------
@@ -283,6 +327,10 @@ window.app = function () {
       if (this._eventsAutoTimer) {
         clearInterval(this._eventsAutoTimer);
         this._eventsAutoTimer = null;
+      }
+      if (this._apiKeysAutoTimer) {
+        clearInterval(this._apiKeysAutoTimer);
+        this._apiKeysAutoTimer = null;
       }
     },
 
@@ -500,11 +548,11 @@ window.app = function () {
     canManageCompute() {
       return (
         this.authIsUnauthenticatedMode() ||
-        this.hasRole("kloigos_user", {
+        this.hasRole("KLOIGOS_USER", {
           viewName: this.view,
           checkType: "canManageCompute",
         }) ||
-        this.hasRole("kloigos_admin", {
+        this.hasRole("KLOIGOS_ADMIN", {
           viewName: this.view,
           checkType: "canManageCompute",
         })
@@ -514,7 +562,7 @@ window.app = function () {
     canViewAdmin(viewName = this.view) {
       return (
         this.authIsUnauthenticatedMode() ||
-        this.hasRole("kloigos_admin", {
+        this.hasRole("KLOIGOS_ADMIN", {
           viewName,
           checkType: "canViewAdmin",
         })
@@ -522,11 +570,11 @@ window.app = function () {
     },
 
     isViewAccessible(viewName) {
-      if (["servers", "events", "playbooks"].includes(viewName)) {
+      if (["servers", "events", "playbooks", "api_keys"].includes(viewName)) {
         const result = this.canViewAdmin(viewName);
         this.logRoleCheck({
           checkType: "isViewAccessible",
-          requiredRole: "kloigos_admin",
+          requiredRole: "KLOIGOS_ADMIN",
           viewName,
           result,
           detail: "Checking admin access for restricted view.",
@@ -548,6 +596,7 @@ window.app = function () {
         servers: "Servers",
         events: "Events",
         playbooks: "Playbooks",
+        api_keys: "API Keys",
       };
       const label = labels[viewName] || "This view";
       return `${label} is available only to admin users.`;
@@ -680,23 +729,31 @@ window.app = function () {
       const seIdx = localStorage.getItem("kloigos_events_sort_index");
       const seDir = localStorage.getItem("kloigos_events_sort_dir");
       const seFilter = localStorage.getItem("kloigos_events_filter");
+      const sakIdx = localStorage.getItem("kloigos_api_keys_sort_index");
+      const sakDir = localStorage.getItem("kloigos_api_keys_sort_dir");
+      const sakFilter = localStorage.getItem("kloigos_api_keys_filter");
 
       if (sIdx !== null && !Number.isNaN(+sIdx)) this.sortIndex = +sIdx;
       if (sDir === "desc") this.sortDir = "desc";
       if (sFilter !== null) this.filterQuery = sFilter;
       if (ssFilter !== null) this.serversFilterQuery = ssFilter;
       if (seFilter !== null) this.eventsFilterQuery = seFilter;
+      if (sakFilter !== null) this.apiKeysFilterQuery = sakFilter;
       if (ssIdx !== null && !Number.isNaN(+ssIdx))
         this.serversSortIndex = +ssIdx;
       if (seIdx !== null && !Number.isNaN(+seIdx)) this.eventsSortIndex = +seIdx;
+      if (sakIdx !== null && !Number.isNaN(+sakIdx))
+        this.apiKeysSortIndex = +sakIdx;
       if (ssDir === "desc") this.serversSortDir = "desc";
       if (seDir === "asc" || seDir === "desc") this.eventsSortDir = seDir;
+      if (sakDir === "asc" || sakDir === "desc") this.apiKeysSortDir = sakDir;
       if (sFmt === "json" || sFmt === "yaml") this.inspectorFormat = sFmt;
       if (
         sView === "dashboard" ||
         sView === "playbooks" ||
         sView === "servers" ||
-        sView === "events"
+        sView === "events" ||
+        sView === "api_keys"
       )
         this.view = sView;
 
@@ -726,10 +783,16 @@ window.app = function () {
           this.refreshEvents();
       }, 15_000);
 
+      this._apiKeysAutoTimer = setInterval(() => {
+        if (this.apiKeysAutoRefreshEnabled && this.view === "api_keys")
+          this.refreshApiKeys();
+      }, 20_000);
+
       // Load the active tab
       if (this.view === "playbooks") this.ensurePlaybooksView();
       else if (this.view === "servers") this.ensureServersView();
       else if (this.view === "events") this.ensureEventsView();
+      else if (this.view === "api_keys") this.ensureApiKeysView();
       else this.ensureDashboardView();
     },
 
@@ -747,6 +810,7 @@ window.app = function () {
       if (this.view === "playbooks") this.ensurePlaybooksView();
       else if (this.view === "servers") this.ensureServersView();
       else if (this.view === "events") this.ensureEventsView();
+      else if (this.view === "api_keys") this.ensureApiKeysView();
       else this.ensureDashboardView();
     },
 
@@ -835,6 +899,16 @@ window.app = function () {
       if (this.events.length === 0 && !this.eventsLoading.list)
         await this.refreshEvents();
       else this.applyEventsFilterSort();
+    },
+
+    async ensureApiKeysView() {
+      if (!this.canViewAdmin()) {
+        this.handleForbiddenView("api_keys", { fallback: false });
+        return;
+      }
+      if (this.apiKeys.length === 0 && !this.apiKeysLoading.list)
+        await this.refreshApiKeys();
+      else this.applyApiKeysFilterSort();
     },
 
     serversRowText(s) {
@@ -1048,6 +1122,259 @@ window.app = function () {
         this.eventsLastUpdatedUtc = this.utcNowString();
       } finally {
         this.eventsLoading.list = false;
+      }
+    },
+
+    apiKeysRolesText(row) {
+      return Array.isArray(row?.roles) && row.roles.length
+        ? row.roles.join(", ")
+        : "-";
+    },
+
+    apiKeysRowText(row) {
+      return [
+        row?.access_key,
+        row?.owner,
+        row?.valid_until,
+        this.apiKeysRolesText(row),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+    },
+
+    apiKeysCellText(row, colIndex) {
+      switch (colIndex) {
+        case 0:
+          return row?.access_key || "";
+        case 1:
+          return row?.owner || "";
+        case 2:
+          return row?.valid_until || "";
+        case 3:
+          return this.apiKeysRolesText(row);
+        default:
+          return "";
+      }
+    },
+
+    apiKeysSortClass(index) {
+      if (this.apiKeysSortIndex !== index) return "";
+      return this.apiKeysSortDir === "asc" ? "sort-asc" : "sort-desc";
+    },
+
+    toggleApiKeysSort(index) {
+      if (this.apiKeysSortIndex === index)
+        this.apiKeysSortDir = this.apiKeysSortDir === "asc" ? "desc" : "asc";
+      else {
+        this.apiKeysSortIndex = index;
+        this.apiKeysSortDir = index === 2 ? "desc" : "asc";
+      }
+
+      localStorage.setItem(
+        "kloigos_api_keys_sort_index",
+        String(this.apiKeysSortIndex),
+      );
+      localStorage.setItem("kloigos_api_keys_sort_dir", this.apiKeysSortDir);
+      this.applyApiKeysFilterSort();
+    },
+
+    applyApiKeysFilterSort() {
+      const q = (this.apiKeysFilterQuery || "").toLowerCase().trim();
+      let rows = this.apiKeys.slice();
+      if (q) rows = rows.filter((row) => this.apiKeysRowText(row).includes(q));
+
+      if (this.apiKeysSortIndex !== null) {
+        const type =
+          this.apiKeysSortTypeByIndex[this.apiKeysSortIndex] || "string";
+        const idx = this.apiKeysSortIndex;
+        const dir = this.apiKeysSortDir;
+
+        rows.sort((a, b) => {
+          const av = this.parseValue(type, this.apiKeysCellText(a, idx));
+          const bv = this.parseValue(type, this.apiKeysCellText(b, idx));
+          if (av < bv) return dir === "asc" ? -1 : 1;
+          if (av > bv) return dir === "asc" ? 1 : -1;
+          return 0;
+        });
+      }
+
+      this.apiKeysVisibleRows = rows;
+    },
+
+    persistApiKeysFilter() {
+      localStorage.setItem(
+        "kloigos_api_keys_filter",
+        this.apiKeysFilterQuery || "",
+      );
+    },
+
+    async refreshApiKeys() {
+      this.apiKeysLoading.list = true;
+      try {
+        const data = await this.apiFetch("/admin/api_keys/", { method: "GET" });
+        this.apiKeys = Array.isArray(data) ? data : [];
+        this.apiKeysLastUpdatedUtc = this.utcNowString();
+        this.applyApiKeysFilterSort();
+      } catch (e) {
+        if (e?.forbidden) {
+          this.handleForbiddenView("api_keys", { fallback: false });
+        }
+        console.error(e);
+        this.apiKeysLastUpdatedUtc = this.utcNowString();
+      } finally {
+        this.apiKeysLoading.list = false;
+      }
+    },
+
+    defaultApiKeyValidUntilUtc() {
+      return new Date(Date.now() + 24 * 60 * 60 * 1000)
+        .toISOString()
+        .replace(/\.\d{3}Z$/, "Z");
+    },
+
+    openApiKeyCreateModal() {
+      this.clearModalError("apiKeyCreate");
+      this.modal.apiKeyCreate.valid_until = this.defaultApiKeyValidUntilUtc();
+      this.modal.apiKeyCreate.roles = ["KLOIGOS_ADMIN"];
+      this.modal.apiKeyCreate.open = true;
+    },
+
+    closeApiKeyCreateModal() {
+      this.modal.apiKeyCreate.open = false;
+      this.clearModalError("apiKeyCreate");
+    },
+
+    openApiKeyDeleteConfirm(row) {
+      this.modal.apiKeyDeleteConfirm.access_key = row?.access_key || "";
+      this.modal.apiKeyDeleteConfirm.owner = row?.owner || "";
+      this.clearModalError("apiKeyDeleteConfirm");
+      this.modal.apiKeyDeleteConfirm.open = true;
+    },
+
+    closeApiKeyDeleteConfirm() {
+      this.modal.apiKeyDeleteConfirm.open = false;
+      this.clearModalError("apiKeyDeleteConfirm");
+    },
+
+    closeApiKeySecretModal() {
+      this.modal.apiKeySecret.open = false;
+      this.modal.apiKeySecret.access_key = "";
+      this.modal.apiKeySecret.owner = "";
+      this.modal.apiKeySecret.valid_until = "";
+      this.modal.apiKeySecret.roles = [];
+      this.modal.apiKeySecret.secret_access_key = "";
+      this.modal.apiKeySecret.reveal = false;
+      this.modal.apiKeySecret.copied = false;
+    },
+
+    toggleApiKeySecretVisibility() {
+      this.modal.apiKeySecret.reveal = !this.modal.apiKeySecret.reveal;
+      this.modal.apiKeySecret.copied = false;
+    },
+
+    maskedSecret(secret) {
+      const value = String(secret || "");
+      return value ? "•".repeat(Math.max(24, value.length)) : "";
+    },
+
+    async copyApiKeySecret() {
+      if (!this.modal.apiKeySecret.reveal) return;
+      const secret = String(this.modal.apiKeySecret.secret_access_key || "");
+      if (!secret) return;
+
+      if (
+        typeof navigator !== "undefined" &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === "function"
+      ) {
+        await navigator.clipboard.writeText(secret);
+      } else if (typeof document !== "undefined") {
+        const el = document.createElement("textarea");
+        el.value = secret;
+        el.setAttribute("readonly", "");
+        el.style.position = "absolute";
+        el.style.left = "-9999px";
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+
+      this.modal.apiKeySecret.copied = true;
+    },
+
+    async createApiKey() {
+      this.apiKeysLoading.create = true;
+      this.clearModalError("apiKeyCreate");
+      try {
+        const validUntil = String(this.modal.apiKeyCreate.valid_until || "").trim();
+        if (!validUntil) throw new Error("valid_until is required.");
+        if (!validUntil.endsWith("Z")) {
+          throw new Error("valid_until must be a UTC timestamp ending in Z.");
+        }
+        const parsedValidUntil = new Date(validUntil);
+        if (Number.isNaN(parsedValidUntil.getTime())) {
+          throw new Error("valid_until must be a valid UTC timestamp.");
+        }
+
+        const roles = Array.isArray(this.modal.apiKeyCreate.roles)
+          ? this.modal.apiKeyCreate.roles.filter(Boolean)
+          : [];
+        if (roles.length === 0) throw new Error("Select at least one role.");
+
+        const payload = {
+          valid_until: parsedValidUntil.toISOString(),
+          roles,
+        };
+
+        const created = await this.apiFetch("/admin/api_keys/", {
+          method: "POST",
+          body: payload,
+        });
+
+        this.closeApiKeyCreateModal();
+        this.modal.apiKeySecret.access_key = created?.access_key || "";
+        this.modal.apiKeySecret.owner = created?.owner || "";
+        this.modal.apiKeySecret.valid_until = created?.valid_until || "";
+        this.modal.apiKeySecret.roles = Array.isArray(created?.roles)
+          ? created.roles
+          : [];
+        this.modal.apiKeySecret.secret_access_key =
+          created?.secret_access_key || "";
+        this.modal.apiKeySecret.reveal = false;
+        this.modal.apiKeySecret.copied = false;
+        this.modal.apiKeySecret.open = true;
+        await this.refreshApiKeys();
+      } catch (e) {
+        this.setModalError("apiKeyCreate", e, "Failed to create API key.");
+      } finally {
+        this.apiKeysLoading.create = false;
+      }
+    },
+
+    async confirmApiKeyDelete() {
+      const accessKey = String(
+        this.modal.apiKeyDeleteConfirm.access_key || "",
+      ).trim();
+      if (!accessKey) return;
+
+      this.apiKeysLoading.delete = true;
+      this.clearModalError("apiKeyDeleteConfirm");
+      try {
+        await this.apiFetch(`/admin/api_keys/${encodeURIComponent(accessKey)}`, {
+          method: "DELETE",
+        });
+        this.closeApiKeyDeleteConfirm();
+        await this.refreshApiKeys();
+      } catch (e) {
+        this.setModalError(
+          "apiKeyDeleteConfirm",
+          e,
+          "Failed to delete API key.",
+        );
+      } finally {
+        this.apiKeysLoading.delete = false;
       }
     },
 

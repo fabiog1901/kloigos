@@ -54,7 +54,9 @@
                   ? 'Servers inventory &amp; lifecycle'
                   : (view === 'events'
                     ? 'Audit trail of admin and allocation events'
-                    : 'Playbooks editor'))">
+                    : (view === 'api_keys'
+                      ? 'Manage API keys and one-time secret issuance'
+                      : 'Playbooks editor')))">
             </div>
           </div>
         </div>
@@ -68,6 +70,9 @@
 
           <a href="#" class="pill" :class="{ 'pill-accent': view === 'events' }" x-show="canViewAdmin()"
             @click.prevent="setView('events')">Events</a>
+
+          <a href="#" class="pill" :class="{ 'pill-accent': view === 'api_keys' }" x-show="canViewAdmin()"
+            @click.prevent="setView('api_keys')">API Keys</a>
 
           <a href="#" class="pill" :class="{ 'pill-accent': view === 'playbooks' }" x-show="canViewAdmin()"
             @click.prevent="setView('playbooks')">Playbooks</a>
@@ -666,6 +671,258 @@
           </div>
         </section>
       </main>
+
+      <!-- API KEYS VIEW -->
+      <main class="layout" x-show="view === 'api_keys' && canViewAdmin()">
+        <aside class="sidebar">
+          <div>
+            <h2>Summary</h2>
+            <div class="metric">
+              <div class="metric-label">Total API Keys</div>
+              <div class="metric-value" x-text="apiKeys.length"></div>
+            </div>
+          </div>
+
+          <div>
+            <h2>Actions</h2>
+            <div class="metric" style="display:flex; flex-direction:column; gap:10px;">
+              <button class="btn" @click="refreshApiKeys()" :disabled="apiKeysLoading.list">
+                <span x-show="!apiKeysLoading.list">Refresh</span>
+                <span x-show="apiKeysLoading.list">Loading…</span>
+              </button>
+
+              <button class="btn btn-warn" @click="openApiKeyCreateModal()">Create key…</button>
+
+              <label
+                style="display:flex; align-items:center; gap:10px; font-size:12px; color: var(--muted); margin-top: 4px;">
+                <input type="checkbox" x-model="apiKeysAutoRefreshEnabled" />
+                Auto-refresh (20s)
+              </label>
+            </div>
+          </div>
+        </aside>
+
+        <section class="main">
+          <div class="main-header">
+            <div class="main-header-left">
+              <div class="main-title">API Keys</div>
+              <div class="main-subtitle">Create role-scoped keys, review owners, and delete old credentials.</div>
+            </div>
+
+            <div class="main-actions">
+              <input type="search" class="search-input" placeholder="Filter by access key, owner, or role…"
+                x-model="apiKeysFilterQuery" @input="persistApiKeysFilter(); applyApiKeysFilterSort();" />
+
+              <div class="pill">Updated (UTC): <span x-text="apiKeysLastUpdatedUtc"></span></div>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-sort="string" :class="apiKeysSortClass(0)" @click="toggleApiKeysSort(0)">Access Key</th>
+                    <th data-sort="string" :class="apiKeysSortClass(1)" @click="toggleApiKeysSort(1)">Owner</th>
+                    <th data-sort="date" :class="apiKeysSortClass(2)" @click="toggleApiKeysSort(2)">Valid Until (UTC)
+                    </th>
+                    <th data-sort="string" :class="apiKeysSortClass(3)" @click="toggleApiKeysSort(3)">Roles</th>
+                    <th>Act</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <template x-for="row in apiKeysVisibleRows" :key="row.access_key">
+                    <tr>
+                      <td><span class="ip-pill" x-text="row.access_key || '-'"></span></td>
+                      <td><span x-text="row.owner || '-'"></span></td>
+                      <td><span x-text="toUtcStringMaybe(row.valid_until)"></span></td>
+                      <td>
+                        <div class="roles-wrap" x-show="Array.isArray(row.roles) && row.roles.length > 0">
+                          <template x-for="role in row.roles" :key="`${row.access_key}-${role}`">
+                            <span class="service-pill" x-text="role"></span>
+                          </template>
+                        </div>
+                        <span x-show="!Array.isArray(row.roles) || row.roles.length === 0"
+                          style="color: var(--muted);">-</span>
+                      </td>
+                      <td>
+                        <button class="icon-btn" title="Delete API key" @click="openApiKeyDeleteConfirm(row)">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M3 6h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M8 6V4h8v2" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                            <path d="M19 6l-1 14H6L5 6" stroke="currentColor" stroke-width="2"
+                              stroke-linejoin="round" />
+                            <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2"
+                              stroke-linecap="round" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  </template>
+
+                  <template x-if="!apiKeysLoading.list && apiKeysVisibleRows.length === 0">
+                    <tr>
+                      <td colspan="5" style="padding: 18px; color: var(--muted);">No results.</td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout" x-show="view === 'api_keys' && !canViewAdmin()">
+        <section class="main">
+          <div class="metric" style="max-width: 720px; margin: 40px auto;">
+            <div class="main-title">Not authorized</div>
+            <div class="main-subtitle" x-text="unauthorizedViewMessage('api_keys')"></div>
+          </div>
+        </section>
+      </main>
+
+      <!-- API Key Create Modal -->
+      <div class="modal-backdrop" x-show="modal.apiKeyCreate.open" x-transition
+        @keydown.escape.window="closeApiKeyCreateModal()">
+        <div class="modal" @click.outside="closeApiKeyCreateModal()">
+          <div class="modal-header">
+            <h3 class="modal-title">Create API Key</h3>
+            <button class="btn" style="padding:7px 12px;" @click="closeApiKeyCreateModal()">CLOSE</button>
+          </div>
+
+          <div class="modal-body">
+            <div class="modal-error-banner" x-show="modalErrors.apiKeyCreate" x-text="modalErrors.apiKeyCreate"></div>
+
+            <div class="form-grid">
+              <div class="form-row">
+                <div class="label">valid_until (UTC)</div>
+                <input class="input" x-model="modal.apiKeyCreate.valid_until"
+                  placeholder="2026-03-18T12:00:00Z" />
+                <div class="hint">Use an explicit UTC timestamp ending in <code>Z</code>.</div>
+              </div>
+
+              <div class="form-row">
+                <div class="label">roles</div>
+                <div class="roles-editor">
+                  <template x-for="role in availableKloigosRoles" :key="role">
+                    <label class="check-card">
+                      <input type="checkbox" :value="role" x-model="modal.apiKeyCreate.roles" />
+                      <span x-text="role"></span>
+                    </label>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <div class="metric" style="display:grid; gap:8px;">
+              <div class="metric-label">Protection Notice</div>
+              <div class="main-subtitle">
+                The secret access key is returned only once. After creation, it will stay visually masked until you
+                explicitly reveal it.
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn" @click="closeApiKeyCreateModal()">CANCEL</button>
+            <button class="btn btn-warn" :disabled="apiKeysLoading.create" @click="createApiKey()">
+              <span x-show="!apiKeysLoading.create">CREATE KEY</span>
+              <span x-show="apiKeysLoading.create">CREATING…</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Key Delete Confirm Modal -->
+      <div class="modal-backdrop" x-show="modal.apiKeyDeleteConfirm.open" x-transition
+        @keydown.escape.window="closeApiKeyDeleteConfirm()">
+        <div class="modal" @click.outside="closeApiKeyDeleteConfirm()">
+          <div class="modal-header">
+            <h3 class="modal-title">Confirm API Key Delete</h3>
+            <button class="btn" style="padding:7px 12px;" @click="closeApiKeyDeleteConfirm()">CLOSE</button>
+          </div>
+
+          <div class="modal-body">
+            <div class="modal-error-banner" x-show="modalErrors.apiKeyDeleteConfirm"
+              x-text="modalErrors.apiKeyDeleteConfirm"></div>
+
+            <div style="color: var(--muted); font-size: 13px; line-height: 1.5;">
+              This will permanently delete <span class="ip-pill" x-text="modal.apiKeyDeleteConfirm.access_key"></span>.
+            </div>
+
+            <div class="metric" style="display:grid; gap:8px;">
+              <div class="metric-label">Owner</div>
+              <div><span class="service-pill" x-text="modal.apiKeyDeleteConfirm.owner || '-'"></span></div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn" @click="closeApiKeyDeleteConfirm()">CANCEL</button>
+            <button class="btn btn-danger" :disabled="apiKeysLoading.delete" @click="confirmApiKeyDelete()">
+              <span x-show="!apiKeysLoading.delete">YES, DELETE</span>
+              <span x-show="apiKeysLoading.delete">DELETING…</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Key Secret Modal -->
+      <div class="modal-backdrop" x-show="modal.apiKeySecret.open" x-transition
+        @keydown.escape.window="closeApiKeySecretModal()">
+        <div class="modal" @click.outside="closeApiKeySecretModal()">
+          <div class="modal-header">
+            <h3 class="modal-title">API Key Created</h3>
+            <button class="btn" style="padding:7px 12px;" @click="closeApiKeySecretModal()">CLOSE</button>
+          </div>
+
+          <div class="modal-body">
+            <div class="metric" style="display:grid; gap:8px;">
+              <div class="metric-label">Access Key</div>
+              <div><span class="ip-pill" x-text="modal.apiKeySecret.access_key || '-'"></span></div>
+            </div>
+
+            <div class="metric" style="display:grid; gap:8px;">
+              <div class="metric-label">Secret Access Key</div>
+              <div class="secret-panel">
+                <div class="secret-value" :class="{ 'secret-value-hidden': !modal.apiKeySecret.reveal }"
+                  x-text="modal.apiKeySecret.reveal ? modal.apiKeySecret.secret_access_key : maskedSecret(modal.apiKeySecret.secret_access_key)">
+                </div>
+                <div class="secret-actions">
+                  <button class="btn" @click="toggleApiKeySecretVisibility()"
+                    x-text="modal.apiKeySecret.reveal ? 'Hide secret' : 'Reveal secret'"></button>
+                  <button class="btn btn-warn" :disabled="!modal.apiKeySecret.reveal" @click="copyApiKeySecret()">Copy
+                    to clipboard</button>
+                </div>
+                <div class="secret-hint" x-show="!modal.apiKeySecret.reveal">
+                  Plaintext stays masked until you explicitly reveal it. Reveal first to enable copying.
+                </div>
+                <div class="secret-hint" x-show="modal.apiKeySecret.copied">
+                  Secret copied to clipboard.
+                </div>
+              </div>
+            </div>
+
+            <div class="metric" style="display:grid; gap:8px;">
+              <div class="metric-label">Metadata</div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <span class="pill" style="margin:0;">Owner: <span x-text="modal.apiKeySecret.owner || '-'"></span></span>
+                <span class="pill" style="margin:0;">Valid until: <span
+                    x-text="toUtcStringMaybe(modal.apiKeySecret.valid_until)"></span></span>
+              </div>
+              <div class="roles-wrap" x-show="Array.isArray(modal.apiKeySecret.roles) && modal.apiKeySecret.roles.length > 0">
+                <template x-for="role in modal.apiKeySecret.roles" :key="`secret-${role}`">
+                  <span class="service-pill" x-text="role"></span>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn" @click="closeApiKeySecretModal()">DONE</button>
+          </div>
+        </div>
+      </div>
 
 
       <!-- PLAYBOOKS VIEW -->
