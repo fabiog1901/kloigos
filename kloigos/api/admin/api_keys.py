@@ -61,10 +61,11 @@ async def create_api_key(
 )
 async def delete_api_key(
     access_key: str,
+    actor_id: str = Depends(get_audit_actor),
     service: AdminService = Depends(get_admin_service),
 ) -> Response:
     try:
-        service.delete_api_key(access_key)
+        service.delete_api_key(actor_id, access_key)
     except ApiKeyNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

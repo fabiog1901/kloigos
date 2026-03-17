@@ -5,11 +5,13 @@ from ...models import (
     ApiKeyCreateRequest,
     ApiKeyCreateRequestInDB,
     ApiKeyCreateResponse,
+    Event,
+    LogMsg,
     ApiKeyNotFoundError,
     ApiKeySummary,
     InvalidApiKeyValidityError,
 )
-from ...util import encrypt_api_key_secret
+from ...util import encrypt_api_key_secret, request_id_ctx
 from .base import AdminServiceBase
 
 
@@ -42,6 +44,19 @@ class ApiKeysAdminService(AdminServiceBase):
             encrypted_secret_access_key=encrypt_api_key_secret(secret_access_key),
         )
 
+        self.repo.log_event(
+            LogMsg(
+                user_id=actor_id,
+                action=Event.API_KEY_CREATE,
+                details={
+                    "access_key": created.access_key,
+                    "valid_until": created.valid_until.isoformat(),
+                    "roles": [role.value for role in created.roles or []],
+                },
+                request_id=request_id_ctx.get(),
+            )
+        )
+
         return ApiKeyCreateResponse(
             access_key=created.access_key,
             owner=created.owner,
@@ -50,12 +65,25 @@ class ApiKeysAdminService(AdminServiceBase):
             secret_access_key=secret_access_key,
         )
 
-    def delete_api_key(self, access_key: str) -> None:
+    def delete_api_key(self, actor_id: str, access_key: str) -> None:
         existing_key = self.repo.get_api_key(access_key)
         if existing_key is None:
             raise ApiKeyNotFoundError()
 
         self.repo.delete_api_key(access_key)
+        self.repo.log_event(
+            LogMsg(
+                user_id=actor_id,
+                action=Event.API_KEY_DELETE,
+                details={
+                    "access_key": existing_key.access_key,
+                    "owner": existing_key.owner,
+                    "valid_until": existing_key.valid_until.isoformat(),
+                    "roles": [role.value for role in existing_key.roles or []],
+                },
+                request_id=request_id_ctx.get(),
+            )
+        )
 
     @staticmethod
     def _normalize_valid_until(value: datetime) -> datetime:

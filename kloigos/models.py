@@ -30,6 +30,8 @@ class Event(AutoNameStrEnum):
     LOGIN = auto()
     LOGOUT = auto()
     UPDATE_PLAYBOOK = auto()
+    API_KEY_CREATE = auto()
+    API_KEY_DELETE = auto()
     SERVER_INIT_REQUEST = auto()
     SERVER_INIT_DONE = auto()
     SERVER_INIT_FAILED = auto()
