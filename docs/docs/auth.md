@@ -39,8 +39,8 @@ Here is an example bash client
 #!/bin/bash
 
 # --- Configuration ---
-ACCESS_KEY="b"
-SECRET_KEY="0"
+ACCESS_KEY="kloigos-1234567890"
+SECRET_KEY="xxxxxxyyyyyyzzzzzz"
 API_URL="http://localhost:8000/api/compute_units/?compute_id=ec2-15.156.145.186_4-5"
 
 # --- 1. Extract Path and Query from URL ---
@@ -52,9 +52,7 @@ PATH_AND_QUERY=$(echo "$API_URL" | cut -d'/' -f4-)
 # --- 2. Prepare Request Data ---
 METHOD="GET"
 TIMESTAMP=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
-
-BODY='{"action": "delete", "target": "database_01"}'
-BODY='{}'
+BODY=' '
 
 # --- 3. Create the String-to-Sign ---
 # Order: Method + PathAndQuery + Timestamp + Body
@@ -93,43 +91,6 @@ Set these values in `.env`:
 - `OIDC_AUTHZ_ADMIN_GROUPS`
 - `OIDC_AUTHZ_GROUPS_CLAIM` (default: `groups`)
 - `API_KEY_SIGNATURE_TTL_SECONDS` (default: `300`)
-
-## API Key Storage Format
-
-The `api_keys.encrypted_secret_access_key` column stores raw bytes, not text. The
-application expects a versioned AES-GCM payload:
-
-```text
-0x01 || 12-byte nonce || ciphertext+tag
-```
-
-Use a `BYTEA` or `BLOB` column for this value. Existing plaintext secrets need to
-be re-encrypted with `API_KEY_MASTER_KEY` before this change is enabled.
-
-## API Key Migration
-
-Rename the database column to `encrypted_secret_access_key`, then re-encrypt the
-stored secrets using the configured master key.
-
-Postgres:
-
-```sql
-ALTER TABLE api_keys
-RENAME COLUMN hashed_secret_access_key TO encrypted_secret_access_key;
-```
-
-SQLite:
-
-```sql
-ALTER TABLE api_keys
-RENAME COLUMN hashed_secret_access_key TO encrypted_secret_access_key;
-```
-
-Then run:
-
-```bash
-python3 scripts/reencrypt_api_key_secrets.py
-```
 
 ## Group-Based Authorization
 
