@@ -1,19 +1,17 @@
 import json
 import os
-import secrets
 import time
 import urllib.parse
 import urllib.request
-from base64 import b64decode
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from hashlib import sha256
 from hmac import compare_digest
 from hmac import new as hmac_new
 from typing import Any
+import secrets
 
 import jwt
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi import (
     APIRouter,
     Depends,
@@ -34,7 +32,11 @@ from fastapi.security import (
 from .dep import get_repo
 from .models import Event, LogMsg
 from .repos.base import BaseRepo
-from .util import request_id_ctx
+from .util import (
+    decrypt_api_key_secret,
+    request_id_ctx,
+    validate_api_key_crypto_config,
+)
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
@@ -102,26 +104,6 @@ def _api_key_signature_ttl_seconds() -> int:
         return 300
 
 
-def _api_key_master_key() -> bytes:
-    encoded_key = os.getenv("API_KEY_MASTER_KEY", "").strip()
-    if not encoded_key:
-        raise RuntimeError("API_KEY_MASTER_KEY must be set for API key encryption.")
-
-    try:
-        key = b64decode(encoded_key, validate=True)
-    except ValueError as exc:
-        raise RuntimeError("API_KEY_MASTER_KEY must be valid base64.") from exc
-
-    if len(key) != 32:
-        raise RuntimeError("API_KEY_MASTER_KEY must decode to exactly 32 bytes.")
-
-    return key
-
-
-def validate_api_key_crypto_config() -> None:
-    _api_key_master_key()
-
-
 def _parse_api_key_timestamp(timestamp: str) -> datetime:
     raw_timestamp = timestamp.strip()
     if not raw_timestamp:
@@ -142,44 +124,6 @@ def _parse_api_key_timestamp(timestamp: str) -> datetime:
             parsed = parsed.astimezone(timezone.utc)
 
     return parsed
-
-
-def _api_key_secret_bytes(secret: bytes | str) -> bytes:
-    if isinstance(secret, bytes):
-        return secret
-    return secret.encode("utf-8")
-
-
-def encrypt_api_key_secret(secret: bytes | str) -> bytes:
-    nonce = secrets.token_bytes(12)
-    ciphertext = AESGCM(_api_key_master_key()).encrypt(
-        nonce,
-        _api_key_secret_bytes(secret),
-        None,
-    )
-    return b"\x01" + nonce + ciphertext
-
-
-def decrypt_api_key_secret(secret: bytes | str) -> bytes:
-    encrypted_secret = _api_key_secret_bytes(secret)
-    if not encrypted_secret:
-        raise RuntimeError("Encrypted API key secret is empty.")
-    if encrypted_secret[:1] != b"\x01":
-        raise RuntimeError(
-            "Encrypted API key secret has an unsupported format. Migrate stored API keys to the versioned encrypted format."
-        )
-
-    nonce = encrypted_secret[1:13]
-    ciphertext = encrypted_secret[13:]
-    if len(nonce) != 12 or not ciphertext:
-        raise RuntimeError("Encrypted API key secret is malformed.")
-
-    try:
-        return AESGCM(_api_key_master_key()).decrypt(nonce, ciphertext, None)
-    except Exception as exc:
-        raise RuntimeError(
-            "Encrypted API key secret could not be decrypted. Check API_KEY_MASTER_KEY and stored key material."
-        ) from exc
 
 
 def _request_target_bytes(request: Request) -> bytes:
@@ -563,6 +507,10 @@ class OIDCManager:
         return claims
 
     def ensure_any_role(self, claims: dict[str, Any], *roles: str) -> dict[str, Any]:
+        print(claims)
+        print()
+        print(roles)
+        
         if claims.get("auth_disabled"):
             return claims
 
@@ -581,6 +529,9 @@ class OIDCManager:
             if isinstance(claims.get("_role_groups"), dict)
             else self.config.role_groups
         )
+        print("===>")
+        print(effective_roles)
+        print("<===")
         for role in roles:
             role_groups = effective_roles.get(role, set())
             if role_groups and not role_groups.isdisjoint(user_groups):

@@ -6,7 +6,9 @@ from psycopg.types.json import Jsonb, JsonbDumper
 from psycopg_pool import ConnectionPool
 
 from ..models import (
+    ApiKeyCreateRequest,
     ApiKeyRecord,
+    ApiKeySummary,
     ComputeUnitInDB,
     ComputeUnitOverview,
     ComputeUnitStatus,
@@ -39,6 +41,64 @@ class PostgresRepo(BaseRepo):
                     """,
                     (access_key,),
                 ).fetchone()
+
+    def list_api_keys(self, access_key: str | None = None) -> list[ApiKeySummary]:
+        params: list[str] = []
+        sql = """
+            SELECT access_key, owner, valid_until, roles
+            FROM api_keys
+        """
+
+        if access_key is not None:
+            sql += " WHERE access_key = %s"
+            params.append(access_key)
+
+        sql += " ORDER BY access_key"
+
+        with self.pool.connection() as conn:
+            with conn.cursor(row_factory=class_row(ApiKeySummary)) as cur:
+                return cur.execute(sql, params).fetchall()
+
+    def create_api_key(
+        self,
+        api_key: ApiKeyCreateRequest,
+        *,
+        owner: str,
+        encrypted_secret_access_key: bytes,
+    ) -> ApiKeySummary:
+        with self.pool.connection() as conn:
+            with conn.cursor(row_factory=class_row(ApiKeySummary)) as cur:
+                return cur.execute(
+                    """
+                    INSERT INTO api_keys (
+                        access_key,
+                        encrypted_secret_access_key,
+                        owner,
+                        valid_until,
+                        roles
+                    )
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING access_key, owner, valid_until, roles
+                    """,
+                    (
+                        api_key.access_key,
+                        encrypted_secret_access_key,
+                        owner,
+                        api_key.valid_until,
+                        api_key.roles,
+                    ),
+                ).fetchone()
+
+    def delete_api_key(self, access_key: str) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                DELETE
+                FROM api_keys
+                WHERE access_key = %s
+                """,
+                (access_key,),
+            )
 
     #
     # ADMIN_SERVICE

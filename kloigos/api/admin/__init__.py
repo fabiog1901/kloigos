@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Security
 
 from ...auth import require_admin
-from . import events, playbooks, servers
+from . import api_keys, events, playbooks, servers
 
 router = APIRouter(
     prefix="/admin",
@@ -11,3 +11,4 @@ router = APIRouter(
 router.include_router(playbooks.router)
 router.include_router(servers.router)
 router.include_router(events.router)
+router.include_router(api_keys.router)

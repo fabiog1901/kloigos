@@ -2,17 +2,77 @@ import base64
 import json
 import logging
 import os
+import secrets
 import shutil
 import time
 from contextvars import ContextVar
 
 import ansible_runner
 import yaml
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from kloigos.models import Playbook
 from kloigos.repos.base import BaseRepo
 
 from . import BASE_PORT, MAX_CPUS_PER_SERVER, PORTS_PER_CPU
+
+
+def _api_key_master_key() -> bytes:
+    encoded_key = os.getenv("API_KEY_MASTER_KEY", "").strip()
+    if not encoded_key:
+        raise RuntimeError("API_KEY_MASTER_KEY must be set for API key encryption.")
+
+    try:
+        key = base64.b64decode(encoded_key, validate=True)
+    except ValueError as exc:
+        raise RuntimeError("API_KEY_MASTER_KEY must be valid base64.") from exc
+
+    if len(key) != 32:
+        raise RuntimeError("API_KEY_MASTER_KEY must decode to exactly 32 bytes.")
+
+    return key
+
+
+def validate_api_key_crypto_config() -> None:
+    _api_key_master_key()
+
+
+def _api_key_secret_bytes(secret: bytes | str) -> bytes:
+    if isinstance(secret, bytes):
+        return secret
+    return secret.encode("utf-8")
+
+
+def encrypt_api_key_secret(secret: bytes | str) -> bytes:
+    nonce = secrets.token_bytes(12)
+    ciphertext = AESGCM(_api_key_master_key()).encrypt(
+        nonce,
+        _api_key_secret_bytes(secret),
+        None,
+    )
+    return b"\x01" + nonce + ciphertext
+
+
+def decrypt_api_key_secret(secret: bytes | str) -> bytes:
+    encrypted_secret = _api_key_secret_bytes(secret)
+    if not encrypted_secret:
+        raise RuntimeError("Encrypted API key secret is empty.")
+    if encrypted_secret[:1] != b"\x01":
+        raise RuntimeError(
+            "Encrypted API key secret has an unsupported format. Migrate stored API keys to the versioned encrypted format."
+        )
+
+    nonce = encrypted_secret[1:13]
+    ciphertext = encrypted_secret[13:]
+    if len(nonce) != 12 or not ciphertext:
+        raise RuntimeError("Encrypted API key secret is malformed.")
+
+    try:
+        return AESGCM(_api_key_master_key()).decrypt(nonce, ciphertext, None)
+    except Exception as exc:
+        raise RuntimeError(
+            "Encrypted API key secret could not be decrypted. Check API_KEY_MASTER_KEY and stored key material."
+        ) from exc
 
 
 def to_cpu_set(cpu_range: str):

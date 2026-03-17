@@ -3,7 +3,9 @@ import json
 import sqlite3
 
 from ..models import (
+    ApiKeyCreateRequest,
     ApiKeyRecord,
+    ApiKeySummary,
     ComputeUnitInDB,
     ComputeUnitRequest,
     ComputeUnitStatus,
@@ -48,6 +50,94 @@ class SQLiteRepo(BaseRepo):
             valid_until=valid_until,
             roles=roles,
         )
+
+    def list_api_keys(self, access_key: str | None = None) -> list[ApiKeySummary]:
+        conditions = []
+        params = []
+
+        if access_key is not None:
+            conditions.append("access_key = ?")
+            params.append(access_key)
+
+        sql = """
+            SELECT access_key, owner, valid_until, roles
+            FROM api_keys
+        """
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += " ORDER BY access_key"
+
+        with sqlite3.connect(self.db_url) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(sql, params).fetchall()
+
+        summaries: list[ApiKeySummary] = []
+        for row in rows:
+            valid_until = dt.datetime.fromisoformat(row["valid_until"])
+            if valid_until.tzinfo is None:
+                valid_until = valid_until.replace(tzinfo=dt.timezone.utc)
+            roles = json.loads(row["roles"]) if row["roles"] else None
+            summaries.append(
+                ApiKeySummary(
+                    access_key=row["access_key"],
+                    owner=row["owner"],
+                    valid_until=valid_until,
+                    roles=roles,
+                )
+            )
+        return summaries
+
+    def create_api_key(
+        self,
+        api_key: ApiKeyCreateRequest,
+        *,
+        owner: str,
+        encrypted_secret_access_key: bytes,
+    ) -> ApiKeySummary:
+        valid_until = api_key.valid_until
+        if valid_until.tzinfo is None:
+            valid_until = valid_until.replace(tzinfo=dt.timezone.utc)
+
+        with sqlite3.connect(self.db_url) as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO api_keys (
+                    access_key,
+                    encrypted_secret_access_key,
+                    owner,
+                    valid_until,
+                    roles
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    api_key.access_key,
+                    encrypted_secret_access_key,
+                    owner,
+                    valid_until.isoformat(),
+                    json.dumps(api_key.roles) if api_key.roles is not None else None,
+                ),
+            )
+
+        return ApiKeySummary(
+            access_key=api_key.access_key,
+            owner=owner,
+            valid_until=valid_until,
+            roles=api_key.roles,
+        )
+
+    def delete_api_key(self, access_key: str) -> None:
+        with sqlite3.connect(self.db_url) as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                DELETE
+                FROM api_keys
+                WHERE access_key = ?
+                """,
+                (access_key,),
+            )
 
     def playbook_get_content(self, playbook: Playbook) -> str:
 

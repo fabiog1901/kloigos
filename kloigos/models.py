@@ -18,6 +18,18 @@ class AllocatePlaybookError(Exception):
     pass
 
 
+class ApiKeyAlreadyExistsError(Exception):
+    pass
+
+
+class ApiKeyNotFoundError(Exception):
+    pass
+
+
+class InvalidApiKeyValidityError(Exception):
+    pass
+
+
 class Event(AutoNameStrEnum):
     LOGIN = auto()
     LOGOUT = auto()
@@ -53,6 +65,23 @@ class ApiKeyRecord(BaseModel):
     owner: str
     valid_until: dt.datetime
     roles: list[str] | None = None
+
+
+class ApiKeySummary(BaseModel):
+    access_key: str
+    owner: str
+    valid_until: dt.datetime
+    roles: list[str] | None = None
+
+
+class ApiKeyCreateRequest(BaseModel):
+    access_key: str
+    valid_until: dt.datetime
+    roles: list[str] | None = None
+
+
+class ApiKeyCreateResponse(ApiKeySummary):
+    secret_access_key: str
 
 
 class DeferredTask(BaseModel):
