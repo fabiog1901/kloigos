@@ -25,55 +25,29 @@ from fastapi.responses import RedirectResponse
 from fastapi.security import (
     APIKeyCookie,
     APIKeyHeader,
-    HTTPAuthorizationCredentials,
-    HTTPBearer,
 )
 
 from .dep import get_repo
 from .models import Event, KloigosRole, LogMsg
 from .repos.base import BaseRepo
-from .util import decrypt_api_key_secret, request_id_ctx, validate_api_key_crypto_config
-
-
-def _as_bool(value: str | None, default: bool = False) -> bool:
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _safe_json_loads(
-    value: str | None, *, default: dict[str, str] | None = None
-) -> dict[str, str]:
-    if not value:
-        return default or {}
-    parsed = json.loads(value)
-    if not isinstance(parsed, dict):
-        raise ValueError("OIDC_EXTRA_AUTH_PARAMS must be a JSON object")
-    return {str(k): str(v) for k, v in parsed.items()}
-
-
-def _safe_next_path(next_path: str | None) -> str:
-    if not next_path:
-        return "/"
-    if not next_path.startswith("/"):
-        return "/"
-    if next_path.startswith("//"):
-        return "/"
-    return next_path
-
-
-def _safe_csv_set(raw_value: str | None) -> set[str]:
-    if not raw_value:
-        return set()
-    return {part.strip() for part in raw_value.split(",") if part and part.strip()}
+from .util import (
+    as_bool,
+    decrypt_api_key_secret,
+    request_id_ctx,
+    safe_csv_set,
+    safe_json_string_dict,
+    safe_next_path,
+    validate_api_key_crypto_config,
+)
 
 
 def _claim_groups(claim_value: Any) -> set[str]:
+    """Normalize a groups claim into a trimmed set of group names."""
     if claim_value is None:
         return set()
     if isinstance(claim_value, str):
         return (
-            _safe_csv_set(claim_value)
+            safe_csv_set(claim_value)
             if "," in claim_value
             else ({claim_value.strip()} if claim_value.strip() else set())
         )
@@ -85,10 +59,12 @@ def _claim_groups(claim_value: Any) -> set[str]:
 def _claims_groups(
     claims: dict[str, Any], groups_claim_name: str = "groups"
 ) -> set[str]:
+    """Extract the configured groups claim from a JWT or synthetic claims payload."""
     return _claim_groups(claims.get(groups_claim_name))
 
 
 def _jsonable_role_groups(role_groups: dict[str, Any]) -> dict[str, list[str]]:
+    """Convert role-to-groups mappings into JSON-friendly sorted lists."""
     normalized: dict[str, list[str]] = {}
     for role_name, groups in role_groups.items():
         normalized[str(role_name)] = sorted(_claim_groups(groups))
@@ -96,11 +72,12 @@ def _jsonable_role_groups(role_groups: dict[str, Any]) -> dict[str, list[str]]:
 
 
 def _cookie_secure_default() -> bool:
-    # secure-by-default in production
-    return _as_bool(os.getenv("OIDC_COOKIE_SECURE"), default=False)
+    """Return the configured secure-cookie default for OIDC session cookies."""
+    return as_bool(os.getenv("OIDC_COOKIE_SECURE"), default=False)
 
 
 def _api_key_signature_ttl_seconds() -> int:
+    """Return the maximum allowed age for signed API key requests."""
     try:
         return max(0, int(os.getenv("API_KEY_SIGNATURE_TTL_SECONDS", "300")))
     except ValueError:
@@ -108,6 +85,7 @@ def _api_key_signature_ttl_seconds() -> int:
 
 
 def _parse_api_key_timestamp(timestamp: str) -> datetime:
+    """Parse either epoch seconds or an ISO-8601 timestamp into UTC."""
     raw_timestamp = timestamp.strip()
     if not raw_timestamp:
         raise ValueError("empty timestamp")
@@ -130,6 +108,7 @@ def _parse_api_key_timestamp(timestamp: str) -> datetime:
 
 
 def _request_target_bytes(request: Request) -> bytes:
+    """Return the exact path and query bytes that are covered by the request signature."""
     raw_path = request.scope.get("raw_path")
     if isinstance(raw_path, bytes) and raw_path:
         path = raw_path
@@ -145,6 +124,7 @@ def _request_target_bytes(request: Request) -> bytes:
 def _build_api_key_signature_payload(
     request: Request, timestamp: str, body: bytes
 ) -> bytes:
+    """Build the canonical payload used for HMAC request signing."""
     return b"\n".join(
         [
             request.method.upper().encode("utf-8"),
@@ -157,8 +137,10 @@ def _build_api_key_signature_payload(
 
 @dataclass(frozen=True)
 class OIDCConfig:
+    """Configuration derived from environment variables for OIDC login and authz."""
+
     enabled: bool = field(
-        default_factory=lambda: _as_bool(os.getenv("OIDC_ENABLED"), default=False)
+        default_factory=lambda: as_bool(os.getenv("OIDC_ENABLED"), default=False)
     )
     issuer_url: str = field(
         default_factory=lambda: os.getenv("OIDC_ISSUER_URL", "").strip().rstrip("/")
@@ -212,7 +194,7 @@ class OIDCConfig:
         default_factory=lambda: os.getenv("OIDC_COOKIE_DOMAIN")
     )
     verify_audience: bool = field(
-        default_factory=lambda: _as_bool(
+        default_factory=lambda: as_bool(
             os.getenv("OIDC_VERIFY_AUDIENCE"), default=False
         )
     )
@@ -236,14 +218,16 @@ class OIDCConfig:
 
     @property
     def role_groups(self) -> dict[KloigosRole, set[str]]:
+        """Map each application role to the configured OIDC groups that grant it."""
         return {
-            KloigosRole.KLOIGOS_READONLY: _safe_csv_set(self.readonly_groups_raw),
-            KloigosRole.KLOIGOS_USER: _safe_csv_set(self.user_groups_raw),
-            KloigosRole.KLOIGOS_ADMIN: _safe_csv_set(self.admin_groups_raw),
+            KloigosRole.KLOIGOS_READONLY: safe_csv_set(self.readonly_groups_raw),
+            KloigosRole.KLOIGOS_USER: safe_csv_set(self.user_groups_raw),
+            KloigosRole.KLOIGOS_ADMIN: safe_csv_set(self.admin_groups_raw),
         }
 
     @property
     def authorized_groups(self) -> set[str]:
+        """Return the union of all OIDC groups allowed to access the application."""
         role_groups = self.role_groups
         if not role_groups:
             return set()
@@ -253,6 +237,7 @@ class OIDCConfig:
         return groups
 
     def validate(self) -> None:
+        """Validate startup configuration before the app begins serving requests."""
         if not self.enabled:
             return
 
@@ -296,10 +281,16 @@ class OIDCConfig:
         self.extra_auth_params()
 
     def extra_auth_params(self) -> dict[str, str]:
-        return _safe_json_loads(self.extra_auth_params_raw, default={})
+        """Return extra authorization request parameters as a string dictionary."""
+        try:
+            return safe_json_string_dict(self.extra_auth_params_raw, default={})
+        except ValueError as exc:
+            raise ValueError("OIDC_EXTRA_AUTH_PARAMS must be a JSON object") from exc
 
 
 class OIDCManager:
+    """Coordinate OIDC metadata loading, token validation, and request auth resolution."""
+
     def __init__(self) -> None:
         self.config = OIDCConfig()
         self._metadata: dict[str, Any] | None = None
@@ -310,9 +301,11 @@ class OIDCManager:
 
     @property
     def enabled(self) -> bool:
+        """Expose whether OIDC-backed authentication is enabled for the app."""
         return self.config.enabled
 
     def validate_config(self) -> None:
+        """Validate auth configuration at startup, including API key crypto settings."""
         self.config.validate()
         validate_api_key_crypto_config()
 
@@ -350,6 +343,7 @@ class OIDCManager:
         return f"{self.config.issuer_url}/.well-known/openid-configuration"
 
     def get_metadata(self) -> dict[str, Any]:
+        """Return cached OIDC discovery metadata, refreshing it when the cache expires."""
         if (
             self._metadata
             and (time.time() - self._meta_loaded_at) < self._cache_ttl_seconds
@@ -360,6 +354,7 @@ class OIDCManager:
         return self._metadata
 
     def get_jwks(self) -> dict[str, Any]:
+        """Return cached provider signing keys, refreshing them when needed."""
         if (
             self._jwks
             and (time.time() - self._jwks_loaded_at) < self._cache_ttl_seconds
@@ -376,6 +371,7 @@ class OIDCManager:
         return self._jwks
 
     def build_authorization_url(self, redirect_uri: str, state: str, nonce: str) -> str:
+        """Build the provider authorization URL for starting the OIDC login flow."""
         metadata = self.get_metadata()
         auth_endpoint = str(metadata.get("authorization_endpoint") or "")
         if not auth_endpoint:
@@ -400,6 +396,7 @@ class OIDCManager:
         return f"{auth_endpoint}?{urllib.parse.urlencode(params)}"
 
     def exchange_code(self, code: str, redirect_uri: str) -> dict[str, Any]:
+        """Exchange an OIDC authorization code for a token response."""
         metadata = self.get_metadata()
         token_endpoint = str(metadata.get("token_endpoint") or "")
         if not token_endpoint:
@@ -449,6 +446,7 @@ class OIDCManager:
         expected_nonce: str | None = None,
         strict_client_audience: bool = False,
     ) -> dict[str, Any]:
+        """Validate a JWT against the provider configuration and optional nonce."""
         key = self._select_jwk(token)
 
         options = {
@@ -488,6 +486,7 @@ class OIDCManager:
         return claims
 
     def ensure_authorized(self, claims: dict[str, Any]) -> dict[str, Any]:
+        """Ensure the caller belongs to at least one configured application group."""
         if claims.get("auth_disabled"):
             return claims
 
@@ -510,6 +509,7 @@ class OIDCManager:
         return claims
 
     def enrich_claims(self, claims: dict[str, Any]) -> dict[str, Any]:
+        """Add Kloigos-specific metadata that helps the webapp render auth state."""
         payload = dict(claims)
         payload["_groups_claim_name"] = str(
             claims.get("_groups_claim_name", self.config.groups_claim_name)
@@ -534,6 +534,7 @@ class OIDCManager:
     def ensure_any_role(
         self, claims: dict[str, Any], *roles: KloigosRole
     ) -> dict[str, Any]:
+        """Ensure the caller has at least one of the requested application roles."""
 
         if claims.get("auth_disabled"):
             return claims
@@ -572,6 +573,7 @@ class OIDCManager:
         signature: str,
         timestamp: str,
     ) -> dict[str, Any]:
+        """Authenticate an API request using the HMAC-signed API key headers."""
         api_key = repo.get_api_key(access_key)
         if api_key is None:
             raise HTTPException(
@@ -633,12 +635,12 @@ class OIDCManager:
         request: Request,
         repo: BaseRepo,
         *,
-        bearer_credentials: HTTPAuthorizationCredentials | None = None,
         session_token: str | None = None,
         access_key: str | None = None,
         signature: str | None = None,
         timestamp: str | None = None,
     ) -> dict[str, Any]:
+        """Resolve request claims from API-key headers or the OIDC session cookie."""
         if access_key or signature or timestamp:
             if not access_key or not signature or not timestamp:
                 raise HTTPException(
@@ -656,10 +658,6 @@ class OIDCManager:
         if not self.enabled:
             return {"sub": "anonymous", "auth_disabled": True}
 
-        if bearer_credentials and bearer_credentials.credentials:
-            claims = self.validate_jwt(bearer_credentials.credentials)
-            return self.ensure_authorized(claims)
-
         if session_token:
             claims = self.validate_jwt(session_token)
             return self.ensure_authorized(claims)
@@ -668,15 +666,24 @@ class OIDCManager:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated.",
             headers={
-                "WWW-Authenticate": "Bearer",
                 "X-Auth-Login-Url": self.config.login_path,
             },
         )
 
 
+def _oidc_cookie_kwargs() -> dict[str, Any]:
+    """Return the shared cookie settings used across the OIDC browser flow."""
+    return {
+        "httponly": True,
+        "secure": oidc.config.cookie_secure,
+        "samesite": oidc.config.cookie_samesite,
+        "domain": oidc.config.cookie_domain,
+        "path": "/",
+    }
+
+
 oidc = OIDCManager()
 router = APIRouter(prefix="/auth", tags=["auth"])
-bearer_scheme = HTTPBearer(auto_error=False)
 cookie_scheme = APIKeyCookie(name=oidc.config.session_cookie_name, auto_error=False)
 access_key_scheme = APIKeyHeader(
     name="X-Kloigos-Access-Key",
@@ -698,16 +705,15 @@ timestamp_scheme = APIKeyHeader(
 async def require_authenticated(
     request: Request,
     repo: BaseRepo = Depends(get_repo),
-    bearer_credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
     session_token: str | None = Security(cookie_scheme),
     access_key: str | None = Security(access_key_scheme),
     signature: str | None = Security(signature_scheme),
     timestamp: str | None = Security(timestamp_scheme),
 ) -> dict[str, Any]:
+    """Return claims for the current caller, regardless of auth transport."""
     return await oidc.current_claims(
         request,
         repo,
-        bearer_credentials=bearer_credentials,
         session_token=session_token,
         access_key=access_key,
         signature=signature,
@@ -718,6 +724,7 @@ async def require_authenticated(
 def require_user(
     claims: dict[str, Any] = Security(require_authenticated),
 ) -> dict[str, Any]:
+    """Require a role that permits mutating compute-unit operations."""
     return oidc.ensure_any_role(
         claims, KloigosRole.KLOIGOS_USER, KloigosRole.KLOIGOS_ADMIN
     )
@@ -727,6 +734,7 @@ def require_compute_access(
     request: Request,
     claims: dict[str, Any] = Security(require_authenticated),
 ) -> dict[str, Any]:
+    """Allow read-only users on GET, and require user/admin on write operations."""
     if request.method.upper() == "GET":
         return oidc.ensure_any_role(
             claims,
@@ -742,12 +750,14 @@ def require_compute_access(
 def require_admin(
     claims: dict[str, Any] = Security(require_authenticated),
 ) -> dict[str, Any]:
+    """Require the admin role."""
     return oidc.ensure_any_role(claims, KloigosRole.KLOIGOS_ADMIN)
 
 
 def get_audit_actor(
     claims: dict[str, Any] = Security(require_authenticated),
 ) -> str:
+    """Return the identifier that should be written into audit logs."""
     if claims.get("auth_type") == "api_key":
         return str(claims.get("access_key") or "anonymous")
 
@@ -761,6 +771,7 @@ def _log_auth_event(
     action: Event,
     details: dict[str, Any] | None = None,
 ) -> None:
+    """Persist a login or logout event using the current request id context."""
     repo.log_event(
         LogMsg(
             user_id=actor_id,
@@ -773,6 +784,7 @@ def _log_auth_event(
 
 @router.get("/login")
 def oidc_login(request: Request, next: str = "/"):  # noqa: A002
+    """Start the browser OIDC login flow and store anti-CSRF cookies."""
     if not oidc.enabled:
         raise HTTPException(
             status_code=404,
@@ -781,18 +793,12 @@ def oidc_login(request: Request, next: str = "/"):  # noqa: A002
 
     state = secrets.token_urlsafe(24)
     nonce = secrets.token_urlsafe(24)
-    next_path = _safe_next_path(next)
+    next_path = safe_next_path(next)
     redirect_uri = oidc.config.redirect_uri or str(request.url_for("oidc_callback"))
     auth_url = oidc.build_authorization_url(redirect_uri, state, nonce)
 
     resp = RedirectResponse(auth_url, status_code=302)
-    cookie_kwargs = {
-        "httponly": True,
-        "secure": oidc.config.cookie_secure,
-        "samesite": oidc.config.cookie_samesite,
-        "domain": oidc.config.cookie_domain,
-        "path": "/",
-    }
+    cookie_kwargs = _oidc_cookie_kwargs()
     resp.set_cookie(oidc.config.state_cookie_name, state, max_age=300, **cookie_kwargs)
     resp.set_cookie(oidc.config.nonce_cookie_name, nonce, max_age=300, **cookie_kwargs)
     resp.set_cookie(
@@ -810,6 +816,7 @@ def oidc_callback(
     error: str | None = None,
     error_description: str | None = None,
 ):
+    """Finish the OIDC login flow, validate the ID token, and set the session cookie."""
     if not oidc.enabled:
         raise HTTPException(
             status_code=404,
@@ -822,7 +829,7 @@ def oidc_callback(
 
     expected_state = request.cookies.get(oidc.config.state_cookie_name)
     expected_nonce = request.cookies.get(oidc.config.nonce_cookie_name)
-    next_path = _safe_next_path(request.cookies.get(oidc.config.next_cookie_name))
+    next_path = safe_next_path(request.cookies.get(oidc.config.next_cookie_name))
 
     if not code:
         raise HTTPException(status_code=400, detail="Missing authorization code.")
@@ -850,13 +857,7 @@ def oidc_callback(
     _log_auth_event(repo, actor_id, Event.LOGIN, {"auth_type": "oidc"})
 
     resp = RedirectResponse(next_path, status_code=302)
-    cookie_kwargs = {
-        "httponly": True,
-        "secure": oidc.config.cookie_secure,
-        "samesite": oidc.config.cookie_samesite,
-        "domain": oidc.config.cookie_domain,
-        "path": "/",
-    }
+    cookie_kwargs = _oidc_cookie_kwargs()
     resp.set_cookie(
         oidc.config.session_cookie_name, id_token, max_age=3600, **cookie_kwargs
     )
@@ -878,6 +879,7 @@ def oidc_logout(
     actor_id: str = Depends(get_audit_actor),
     claims: dict[str, Any] = Security(require_authenticated),
 ):
+    """Clear the OIDC session cookie and write a logout audit event."""
     _log_auth_event(
         repo,
         actor_id,
@@ -895,6 +897,7 @@ def oidc_logout(
 def oidc_me(
     request: Request, claims: dict[str, Any] = Security(require_authenticated)
 ) -> dict[str, Any]:
+    """Return the current caller's claims plus Kloigos-specific auth metadata."""
     payload = oidc.enrich_claims(claims)
     payload["cookies"] = request.cookies
     return payload

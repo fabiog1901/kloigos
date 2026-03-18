@@ -17,6 +17,45 @@ from kloigos.repos.base import BaseRepo
 from . import BASE_PORT, MAX_CPUS_PER_SERVER, PORTS_PER_CPU
 
 
+def as_bool(value: str | None, default: bool = False) -> bool:
+    """Parse common truthy environment-style values into a boolean."""
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def safe_json_string_dict(
+    value: str | None, *, default: dict[str, str] | None = None
+) -> dict[str, str]:
+    """Parse a JSON object and coerce its keys and values to strings."""
+    if not value:
+        return default or {}
+
+    parsed = json.loads(value)
+    if not isinstance(parsed, dict):
+        raise ValueError("Expected a JSON object.")
+
+    return {str(k): str(v) for k, v in parsed.items()}
+
+
+def safe_next_path(next_path: str | None) -> str:
+    """Normalize redirect targets so only in-app absolute paths are allowed."""
+    if not next_path:
+        return "/"
+    if not next_path.startswith("/"):
+        return "/"
+    if next_path.startswith("//"):
+        return "/"
+    return next_path
+
+
+def safe_csv_set(raw_value: str | None) -> set[str]:
+    """Split a comma-delimited string into a trimmed set of values."""
+    if not raw_value:
+        return set()
+    return {part.strip() for part in raw_value.split(",") if part and part.strip()}
+
+
 def _api_key_master_key() -> bytes:
     encoded_key = os.getenv("API_KEY_MASTER_KEY", "").strip()
     if not encoded_key:
