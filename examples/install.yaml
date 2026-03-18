@@ -3,6 +3,10 @@
 # to use provisioned compute units to
 # deploy a CockroachDB cluster.
 #
+# You need to export these 2 env vars:
+# - KLOIGOS_ACCESS_KEY
+# - KLOIGOS_SECRET_ACCESS_KEY
+#
 ---
 - name: PROVISION COMPUTE UNITS
   hosts: localhost
@@ -13,14 +17,36 @@
     deployment_id: crdb
     kloigos_server: "http://127.0.0.1:8000/api"
   tasks:
+    - name: register timestamp for kloigos signature
+      shell: |
+        date -u "+%Y-%m-%dT%H:%M:%SZ"
+      register: ts
+
+    - name: calculate kloigos signature
+      vars:
+        API_URL: "{{ kloigos_server }}/compute_units/?deployment_id={{ deployment_id }}"
+        METHOD: GET
+        BODY: " "
+      shell: |
+        PATH_AND_QUERY=$(echo "{{ API_URL }}" | cut -d'/' -f4-)
+        [ -z "$PATH_AND_QUERY" ] && PATH_AND_QUERY="/"
+        STRING_TO_SIGN=$(printf "%s\n%s\n%s\n%s" "{{ METHOD }}" "/$PATH_AND_QUERY" "{{ ts.stdout }}" "{{ BODY }}")
+        printf "%s" "$STRING_TO_SIGN" | \
+          openssl dgst -sha256 -hmac "$KLOIGOS_SECRET_ACCESS_KEY" -hex | \
+          sed 's/^.* //'
+      register: sig
+
     - name: get the previously allocated instances
       ansible.builtin.uri:
-        url: "{{ kloigos_server }}/compute_units?deployment_id={{ deployment_id }}"
+        url: "{{ kloigos_server }}/compute_units/?deployment_id={{ deployment_id }}"
         method: GET
         headers:
           Content-Type: application/json
-          Authorization: Bearer ey...
+          X-Kloigos-Access-Key: "{{ lookup('env', 'KLOIGOS_ACCESS_KEY') }}"
+          X-Timestamp: "{{ ts.stdout }}"
+          X-Kloigos-Signature: "{{ sig.stdout }}"
         status_code: 200
+        body: " "
       register: instances
 
     - name: print list of instances
@@ -34,7 +60,7 @@
         public_hostname: "{{ item.hostname }}"
         ansible_host: "{{ item.ip }}"
         public_ip: "{{ item.ip }}"
-        cpu_list: "{{ item.cpu_list }}"
+        cpu_set: "{{ item.cpu_set }}"
         cpu_range: "{{ item.cpu_range.replace(':', '-') }}"
         cu_user: "c{{ item.cpu_range.replace(':', '-') }}"
         port_range: "{{ item.port_range }}"
@@ -64,7 +90,7 @@
   gather_facts: yes
   become: no
   vars:
-    cockroachdb_version: v25.4.0
+    cockroachdb_version: v26.1.1 # do not use 'latest'
     cockroachdb_secure: no
     cockroachdb_certificates_dir: certs
     cockroachdb_certificates_clients:
@@ -214,19 +240,7 @@
             | map('items2dict')    | list              
           }}
 
-    # - name: Collect cloud, region and public_ip for haproxy servers
-    #   set_fact:
-    #     haproxy: >-
-    #       {{
-    #         groups['haproxy']
-    #         | map('extract', hostvars) 
-    #         | map('dict2items')                  
-    #         | map('selectattr', 'key', 'in', ['ansible_host', 'cloud', 'region', 'public_ip'])
-    #         | map('items2dict')    | list              
-    #       }}
-
     - name: Data
       debug:
         msg:
           cockroachdb: "{{ cockroachdb }}"
-          # haproxy: "{{ haproxy }}"
