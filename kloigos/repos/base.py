@@ -12,6 +12,8 @@ from ..models import (
     ServerInDB,
     ServerInitRequest,
     ServerStatus,
+    SettingKey,
+    SettingRecord,
 )
 
 
@@ -36,6 +38,33 @@ class BaseRepo(ABC):
 
     @abstractmethod
     def delete_api_key(self, access_key: str) -> None:
+        pass
+
+    @abstractmethod
+    def list_settings(self) -> list[SettingRecord]:
+        pass
+
+    @abstractmethod
+    def get_setting(self, key: SettingKey) -> SettingRecord | None:
+        pass
+
+    @abstractmethod
+    def update_setting(
+        self,
+        key: SettingKey,
+        value,
+        *,
+        updated_by: str | None = None,
+    ) -> SettingRecord | None:
+        pass
+
+    @abstractmethod
+    def reset_setting(
+        self,
+        key: SettingKey,
+        *,
+        updated_by: str | None = None,
+    ) -> SettingRecord | None:
         pass
 
     # PLAYBOOK

@@ -56,7 +56,9 @@
                     ? 'Audit trail of admin and allocation events'
                     : (view === 'api_keys'
                       ? 'Manage API keys and one-time secret issuance'
-                      : 'Playbooks editor')))">
+                      : (view === 'settings'
+                        ? 'Manage dynamic configuration settings'
+                        : 'Playbooks editor'))))">
             </div>
           </div>
         </div>
@@ -73,6 +75,9 @@
 
           <a href="#" class="pill" :class="{ 'pill-accent': view === 'api_keys' }" x-show="canViewAdmin()"
             @click.prevent="setView('api_keys')">API Keys</a>
+
+          <a href="#" class="pill" :class="{ 'pill-accent': view === 'settings' }" x-show="canViewAdmin()"
+            @click.prevent="setView('settings')">Settings</a>
 
           <a href="#" class="pill" :class="{ 'pill-accent': view === 'playbooks' }" x-show="canViewAdmin()"
             @click.prevent="setView('playbooks')">Playbooks</a>
@@ -920,6 +925,158 @@
 
           <div class="modal-footer">
             <button class="btn" @click="closeApiKeySecretModal()">DONE</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS VIEW -->
+      <main class="layout" x-show="view === 'settings' && canViewAdmin()">
+        <aside class="sidebar">
+          <div>
+            <h2>Summary</h2>
+            <div class="metric">
+              <div class="metric-label">Total Settings</div>
+              <div class="metric-value" x-text="settings.length"></div>
+            </div>
+          </div>
+
+          <div>
+            <h2>Actions</h2>
+            <div class="metric" style="display:flex; flex-direction:column; gap:10px;">
+              <button class="btn" @click="refreshSettings()" :disabled="settingsLoading.list">
+                <span x-show="!settingsLoading.list">Refresh</span>
+                <span x-show="settingsLoading.list">Loading…</span>
+              </button>
+
+              <label
+                style="display:flex; align-items:center; gap:10px; font-size:12px; color: var(--muted); margin-top: 4px;">
+                <input type="checkbox" x-model="settingsAutoRefreshEnabled" />
+                Auto-refresh (20s)
+              </label>
+            </div>
+          </div>
+        </aside>
+
+        <section class="main">
+          <div class="main-header">
+            <div class="main-header-left">
+              <div class="main-title">Settings</div>
+              <div class="main-subtitle">Edit the effective value inline, then save or reset a setting back to its default.</div>
+            </div>
+
+            <div class="main-actions">
+              <input type="search" class="search-input" placeholder="Filter by key, category, type, or value…"
+                x-model="settingsFilterQuery" @input="persistSettingsFilter(); applySettingsFilterSort();" />
+
+              <div class="pill">Updated (UTC): <span x-text="settingsLastUpdatedUtc"></span></div>
+            </div>
+          </div>
+
+          <div class="modal-error-banner" x-show="settingsError" x-text="settingsError" style="margin-bottom: 14px;"></div>
+
+          <div class="table-container">
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-sort="string" :class="settingsSortClass(0)" @click="toggleSettingsSort(0)">Key</th>
+                    <th data-sort="string" :class="settingsSortClass(1)" @click="toggleSettingsSort(1)">Category</th>
+                    <th data-sort="string" :class="settingsSortClass(2)" @click="toggleSettingsSort(2)">Type</th>
+                    <th data-sort="string" :class="settingsSortClass(3)" @click="toggleSettingsSort(3)">Value</th>
+                    <th data-sort="string" :class="settingsSortClass(4)" @click="toggleSettingsSort(4)">Default</th>
+                    <th data-sort="date" :class="settingsSortClass(5)" @click="toggleSettingsSort(5)">Updated (UTC)</th>
+                    <th>Act</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <template x-for="row in settingsVisibleRows" :key="row.key">
+                    <tr>
+                      <td>
+                        <div style="display:grid; gap:6px;">
+                          <span class="ip-pill" x-text="row.key"></span>
+                          <span class="setting-source-pill" x-text="settingSourceLabel(row)"></span>
+                        </div>
+                      </td>
+                      <td><span x-text="row.category || '-'"></span></td>
+                      <td><span class="service-pill" x-text="row.value_type || '-'"></span></td>
+                      <td>
+                        <div style="display:grid; gap:8px; min-width: 260px;">
+                          <input class="input setting-table-input"
+                            :type="row.is_secret ? 'password' : 'text'"
+                            :value="settingDraftValue(row)"
+                            @input="setSettingDraft(row.key, $event.target.value)"
+                            :placeholder="row.is_secret ? 'Hidden secret value' : ''" />
+                          <div class="metric-sub" x-show="row.description" x-text="row.description"></div>
+                        </div>
+                      </td>
+                      <td>
+                        <span x-text="settingValuePreview(row, row.default_value)"></span>
+                      </td>
+                      <td><span x-text="toUtcStringMaybe(row.updated_at)"></span></td>
+                      <td>
+                        <div class="table-actions">
+                          <button class="btn" :disabled="settingsLoading.update || !isSettingDirty(row)"
+                            @click="saveSetting(row)">Save</button>
+                          <button class="btn btn-danger" :disabled="settingsLoading.reset"
+                            @click="openSettingResetConfirm(row)">Reset</button>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+
+                  <template x-if="!settingsLoading.list && settingsVisibleRows.length === 0">
+                    <tr>
+                      <td colspan="7" style="padding: 18px; color: var(--muted);">No results.</td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <main class="layout" x-show="view === 'settings' && !canViewAdmin()">
+        <section class="main">
+          <div class="metric" style="max-width: 720px; margin: 40px auto;">
+            <div class="main-title">Not authorized</div>
+            <div class="main-subtitle" x-text="unauthorizedViewMessage('settings')"></div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Setting Reset Confirm Modal -->
+      <div class="modal-backdrop" x-show="modal.settingResetConfirm.open" x-transition
+        @keydown.escape.window="closeSettingResetConfirm()">
+        <div class="modal" @click.outside="closeSettingResetConfirm()">
+          <div class="modal-header">
+            <h3 class="modal-title">Confirm Setting Reset</h3>
+            <button class="btn" style="padding:7px 12px;" @click="closeSettingResetConfirm()">CLOSE</button>
+          </div>
+
+          <div class="modal-body">
+            <div class="modal-error-banner" x-show="modalErrors.settingResetConfirm"
+              x-text="modalErrors.settingResetConfirm"></div>
+
+            <div style="color: var(--muted); font-size: 13px; line-height: 1.5;">
+              Reset <span class="ip-pill" x-text="modal.settingResetConfirm.key"></span> to its default value?
+            </div>
+
+            <div class="metric" style="display:grid; gap:8px;">
+              <div class="metric-label">Default Value</div>
+              <div class="secret-preview"
+                x-text="modal.settingResetConfirm.is_secret ? '(hidden secret value)' : (modal.settingResetConfirm.default_value || '-')">
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn" @click="closeSettingResetConfirm()">CANCEL</button>
+            <button class="btn btn-danger" :disabled="settingsLoading.reset" @click="confirmSettingReset()">
+              <span x-show="!settingsLoading.reset">YES, RESET</span>
+              <span x-show="settingsLoading.reset">RESETTING…</span>
+            </button>
           </div>
         </div>
       </div>

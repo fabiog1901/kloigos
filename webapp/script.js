@@ -80,6 +80,27 @@ window.app = function () {
       "KLOIGOS_ADMIN",
     ],
 
+    // ---------- Settings state ----------
+    settings: [],
+    settingsVisibleRows: [],
+    settingsFilterQuery: "",
+    settingsLastUpdatedUtc: null,
+    settingsSortIndex: 1,
+    settingsSortDir: "asc",
+    settingsSortTypeByIndex: {
+      0: "string", // key
+      1: "string", // category
+      2: "string", // value_type
+      3: "string", // effective_value
+      4: "string", // default_value
+      5: "date", // updated_at
+    },
+    settingsLoading: { list: false, update: false, reset: false },
+    settingsAutoRefreshEnabled: true,
+    _settingsAutoTimer: null,
+    settingsDrafts: {},
+    settingsError: "",
+
     renderedAtUtc: "now",
 
     // ---------- Dashboard state ----------
@@ -165,6 +186,14 @@ window.app = function () {
         reveal: false,
         copied: false,
       },
+      settingResetConfirm: {
+        open: false,
+        key: "",
+        category: "",
+        value_type: "",
+        default_value: "",
+        is_secret: false,
+      },
     },
     modalErrors: {
       allocate: "",
@@ -174,6 +203,7 @@ window.app = function () {
       serverActionConfirm: "",
       apiKeyCreate: "",
       apiKeyDeleteConfirm: "",
+      settingResetConfirm: "",
     },
 
     // ---------- Playbooks state ----------
@@ -331,6 +361,10 @@ window.app = function () {
       if (this._apiKeysAutoTimer) {
         clearInterval(this._apiKeysAutoTimer);
         this._apiKeysAutoTimer = null;
+      }
+      if (this._settingsAutoTimer) {
+        clearInterval(this._settingsAutoTimer);
+        this._settingsAutoTimer = null;
       }
     },
 
@@ -570,7 +604,11 @@ window.app = function () {
     },
 
     isViewAccessible(viewName) {
-      if (["servers", "events", "playbooks", "api_keys"].includes(viewName)) {
+      if (
+        ["servers", "events", "playbooks", "api_keys", "settings"].includes(
+          viewName,
+        )
+      ) {
         const result = this.canViewAdmin(viewName);
         this.logRoleCheck({
           checkType: "isViewAccessible",
@@ -597,6 +635,7 @@ window.app = function () {
         events: "Events",
         playbooks: "Playbooks",
         api_keys: "API Keys",
+        settings: "Settings",
       };
       const label = labels[viewName] || "This view";
       return `${label} is available only to admin users.`;
@@ -732,6 +771,9 @@ window.app = function () {
       const sakIdx = localStorage.getItem("kloigos_api_keys_sort_index");
       const sakDir = localStorage.getItem("kloigos_api_keys_sort_dir");
       const sakFilter = localStorage.getItem("kloigos_api_keys_filter");
+      const setIdx = localStorage.getItem("kloigos_settings_sort_index");
+      const setDir = localStorage.getItem("kloigos_settings_sort_dir");
+      const setFilter = localStorage.getItem("kloigos_settings_filter");
 
       if (sIdx !== null && !Number.isNaN(+sIdx)) this.sortIndex = +sIdx;
       if (sDir === "desc") this.sortDir = "desc";
@@ -739,21 +781,26 @@ window.app = function () {
       if (ssFilter !== null) this.serversFilterQuery = ssFilter;
       if (seFilter !== null) this.eventsFilterQuery = seFilter;
       if (sakFilter !== null) this.apiKeysFilterQuery = sakFilter;
+      if (setFilter !== null) this.settingsFilterQuery = setFilter;
       if (ssIdx !== null && !Number.isNaN(+ssIdx))
         this.serversSortIndex = +ssIdx;
       if (seIdx !== null && !Number.isNaN(+seIdx)) this.eventsSortIndex = +seIdx;
       if (sakIdx !== null && !Number.isNaN(+sakIdx))
         this.apiKeysSortIndex = +sakIdx;
+      if (setIdx !== null && !Number.isNaN(+setIdx))
+        this.settingsSortIndex = +setIdx;
       if (ssDir === "desc") this.serversSortDir = "desc";
       if (seDir === "asc" || seDir === "desc") this.eventsSortDir = seDir;
       if (sakDir === "asc" || sakDir === "desc") this.apiKeysSortDir = sakDir;
+      if (setDir === "asc" || setDir === "desc") this.settingsSortDir = setDir;
       if (sFmt === "json" || sFmt === "yaml") this.inspectorFormat = sFmt;
       if (
         sView === "dashboard" ||
         sView === "playbooks" ||
         sView === "servers" ||
         sView === "events" ||
-        sView === "api_keys"
+        sView === "api_keys" ||
+        sView === "settings"
       )
         this.view = sView;
 
@@ -788,11 +835,17 @@ window.app = function () {
           this.refreshApiKeys();
       }, 20_000);
 
+      this._settingsAutoTimer = setInterval(() => {
+        if (this.settingsAutoRefreshEnabled && this.view === "settings")
+          this.refreshSettings();
+      }, 20_000);
+
       // Load the active tab
       if (this.view === "playbooks") this.ensurePlaybooksView();
       else if (this.view === "servers") this.ensureServersView();
       else if (this.view === "events") this.ensureEventsView();
       else if (this.view === "api_keys") this.ensureApiKeysView();
+      else if (this.view === "settings") this.ensureSettingsView();
       else this.ensureDashboardView();
     },
 
@@ -811,6 +864,7 @@ window.app = function () {
       else if (this.view === "servers") this.ensureServersView();
       else if (this.view === "events") this.ensureEventsView();
       else if (this.view === "api_keys") this.ensureApiKeysView();
+      else if (this.view === "settings") this.ensureSettingsView();
       else this.ensureDashboardView();
     },
 
@@ -909,6 +963,16 @@ window.app = function () {
       if (this.apiKeys.length === 0 && !this.apiKeysLoading.list)
         await this.refreshApiKeys();
       else this.applyApiKeysFilterSort();
+    },
+
+    async ensureSettingsView() {
+      if (!this.canViewAdmin()) {
+        this.handleForbiddenView("settings", { fallback: false });
+        return;
+      }
+      if (this.settings.length === 0 && !this.settingsLoading.list)
+        await this.refreshSettings();
+      else this.applySettingsFilterSort();
     },
 
     serversRowText(s) {
@@ -1375,6 +1439,234 @@ window.app = function () {
         );
       } finally {
         this.apiKeysLoading.delete = false;
+      }
+    },
+
+    settingsRowText(row) {
+      return [
+        row?.key,
+        row?.category,
+        row?.value_type,
+        row?.effective_value,
+        row?.default_value,
+        row?.updated_by,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+    },
+
+    settingsCellText(row, colIndex) {
+      switch (colIndex) {
+        case 0:
+          return row?.key || "";
+        case 1:
+          return row?.category || "";
+        case 2:
+          return row?.value_type || "";
+        case 3:
+          return row?.effective_value || "";
+        case 4:
+          return row?.default_value || "";
+        case 5:
+          return row?.updated_at || "";
+        default:
+          return "";
+      }
+    },
+
+    settingsSortClass(index) {
+      if (this.settingsSortIndex !== index) return "";
+      return this.settingsSortDir === "asc" ? "sort-asc" : "sort-desc";
+    },
+
+    toggleSettingsSort(index) {
+      if (this.settingsSortIndex === index)
+        this.settingsSortDir = this.settingsSortDir === "asc" ? "desc" : "asc";
+      else {
+        this.settingsSortIndex = index;
+        this.settingsSortDir = index === 5 ? "desc" : "asc";
+      }
+
+      localStorage.setItem(
+        "kloigos_settings_sort_index",
+        String(this.settingsSortIndex),
+      );
+      localStorage.setItem("kloigos_settings_sort_dir", this.settingsSortDir);
+      this.applySettingsFilterSort();
+    },
+
+    applySettingsFilterSort() {
+      const q = (this.settingsFilterQuery || "").toLowerCase().trim();
+      let rows = this.settings.slice();
+      if (q) rows = rows.filter((row) => this.settingsRowText(row).includes(q));
+
+      if (this.settingsSortIndex !== null) {
+        const type =
+          this.settingsSortTypeByIndex[this.settingsSortIndex] || "string";
+        const idx = this.settingsSortIndex;
+        const dir = this.settingsSortDir;
+
+        rows.sort((a, b) => {
+          const av = this.parseValue(type, this.settingsCellText(a, idx));
+          const bv = this.parseValue(type, this.settingsCellText(b, idx));
+          if (av < bv) return dir === "asc" ? -1 : 1;
+          if (av > bv) return dir === "asc" ? 1 : -1;
+          return 0;
+        });
+      }
+
+      this.settingsVisibleRows = rows;
+    },
+
+    persistSettingsFilter() {
+      localStorage.setItem("kloigos_settings_filter", this.settingsFilterQuery || "");
+    },
+
+    settingDraftValue(row) {
+      const key = row?.key;
+      if (!key) return "";
+      if (Object.prototype.hasOwnProperty.call(this.settingsDrafts, key)) {
+        return this.settingsDrafts[key];
+      }
+      return row?.effective_value || "";
+    },
+
+    setSettingDraft(key, value) {
+      if (!key) return;
+      this.settingsDrafts = {
+        ...this.settingsDrafts,
+        [key]: String(value ?? ""),
+      };
+    },
+
+    isSettingDirty(row) {
+      return this.settingDraftValue(row) !== String(row?.effective_value || "");
+    },
+
+    settingValuePreview(row, value) {
+      if (row?.is_secret) return "(hidden)";
+      return String(value ?? "") || "-";
+    },
+
+    settingSourceLabel(row) {
+      return row?.value === null || row?.value === undefined ? "Default" : "Override";
+    },
+
+    async refreshSettings() {
+      this.settingsLoading.list = true;
+      this.settingsError = "";
+      try {
+        const existingRowsByKey = Object.fromEntries(
+          this.settings.map((row) => [row.key, row]),
+        );
+        const data = await this.apiFetch("/admin/settings", { method: "GET" });
+        const rows = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.items)
+            ? data.items
+            : Array.isArray(data?.settings)
+              ? data.settings
+              : [];
+        this.settings = rows;
+        this.settingsDrafts = Object.fromEntries(
+          this.settings.map((row) => {
+            const existing = existingRowsByKey[row.key];
+            const existingDraft = this.settingsDrafts[row.key];
+            const existingEffective = String(existing?.effective_value || "");
+            const nextEffective = String(row.effective_value || "");
+            if (
+              existingDraft !== undefined &&
+              existingDraft !== existingEffective
+            ) {
+              return [row.key, existingDraft];
+            }
+            return [row.key, nextEffective];
+          }),
+        );
+        this.settingsLastUpdatedUtc = this.utcNowString();
+        this.applySettingsFilterSort();
+      } catch (e) {
+        if (e?.forbidden) {
+          this.handleForbiddenView("settings", { fallback: false });
+        }
+        this.settingsError = this.errorMessage(
+          e,
+          "Failed to load settings.",
+        );
+        console.error(e);
+        this.settingsLastUpdatedUtc = this.utcNowString();
+      } finally {
+        this.settingsLoading.list = false;
+      }
+    },
+
+    async saveSetting(row) {
+      const key = row?.key;
+      if (!key) return;
+
+      this.settingsLoading.update = true;
+      try {
+        const updated = await this.apiFetch(
+          `/admin/settings/${encodeURIComponent(key)}`,
+          {
+            method: "PATCH",
+            body: { value: this.settingDraftValue(row) },
+          },
+        );
+        this.settings = this.settings.map((entry) =>
+          entry.key === updated.key ? updated : entry,
+        );
+        this.setSettingDraft(updated.key, updated.effective_value || "");
+        this.settingsLastUpdatedUtc = this.utcNowString();
+        this.applySettingsFilterSort();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.settingsLoading.update = false;
+      }
+    },
+
+    openSettingResetConfirm(row) {
+      this.modal.settingResetConfirm.key = row?.key || "";
+      this.modal.settingResetConfirm.category = row?.category || "";
+      this.modal.settingResetConfirm.value_type = row?.value_type || "";
+      this.modal.settingResetConfirm.default_value = row?.default_value || "";
+      this.modal.settingResetConfirm.is_secret = Boolean(row?.is_secret);
+      this.clearModalError("settingResetConfirm");
+      this.modal.settingResetConfirm.open = true;
+    },
+
+    closeSettingResetConfirm() {
+      this.modal.settingResetConfirm.open = false;
+      this.clearModalError("settingResetConfirm");
+    },
+
+    async confirmSettingReset() {
+      const key = String(this.modal.settingResetConfirm.key || "").trim();
+      if (!key) return;
+
+      this.settingsLoading.reset = true;
+      try {
+        const updated = await this.apiFetch(
+          `/admin/settings/${encodeURIComponent(key)}`,
+          { method: "PUT" },
+        );
+        this.settings = this.settings.map((entry) =>
+          entry.key === updated.key ? updated : entry,
+        );
+        this.setSettingDraft(updated.key, updated.effective_value || "");
+        this.closeSettingResetConfirm();
+        this.settingsLastUpdatedUtc = this.utcNowString();
+        this.applySettingsFilterSort();
+      } catch (e) {
+        this.setModalError(
+          "settingResetConfirm",
+          e,
+          "Failed to reset setting.",
+        );
+      } finally {
+        this.settingsLoading.reset = false;
       }
     },
 

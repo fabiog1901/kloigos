@@ -17,6 +17,8 @@ from ..models import (
     ServerInDB,
     ServerInitRequest,
     ServerStatus,
+    SettingKey,
+    SettingRecord,
 )
 from .base import BaseRepo
 
@@ -29,6 +31,24 @@ class Dict2JsonbDumper(JsonbDumper):
 class PostgresRepo(BaseRepo):
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool: ConnectionPool = pool
+
+    @staticmethod
+    def _setting_from_row(row) -> SettingRecord:
+        value = row[1]
+        default_value = row[2]
+        effective_value = default_value if value is None else value
+        return SettingRecord(
+            key=row[0],
+            value=value,
+            default_value=default_value,
+            effective_value=effective_value,
+            value_type=row[3],
+            category=row[4],
+            is_secret=row[5],
+            description=row[6] or "",
+            updated_at=row[7],
+            updated_by=row[8],
+        )
 
     def get_api_key(self, access_key: str) -> ApiKeyRecord | None:
         with self.pool.connection() as conn:
@@ -99,6 +119,116 @@ class PostgresRepo(BaseRepo):
                 """,
                 (access_key,),
             )
+
+    def list_settings(self) -> list[SettingRecord]:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                rows = cur.execute(
+                    """
+                    SELECT
+                        key,
+                        value,
+                        default_value,
+                        value_type,
+                        category,
+                        is_secret,
+                        description,
+                        updated_at,
+                        updated_by
+                    FROM settings
+                    ORDER BY category, key
+                    """
+                ).fetchall()
+
+        return [self._setting_from_row(row) for row in rows]
+
+    def get_setting(self, key: SettingKey) -> SettingRecord | None:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                row = cur.execute(
+                    """
+                    SELECT
+                        key,
+                        value,
+                        default_value,
+                        value_type,
+                        category,
+                        is_secret,
+                        description,
+                        updated_at,
+                        updated_by
+                    FROM settings
+                    WHERE key = %s
+                    """,
+                    (key,),
+                ).fetchone()
+
+        return self._setting_from_row(row) if row is not None else None
+
+    def update_setting(
+        self,
+        key: SettingKey,
+        value,
+        *,
+        updated_by: str | None = None,
+    ) -> SettingRecord | None:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                row = cur.execute(
+                    """
+                    UPDATE settings
+                    SET
+                        value = %s,
+                        updated_at = CURRENT_TIMESTAMP,
+                        updated_by = %s
+                    WHERE key = %s
+                    RETURNING
+                        key,
+                        value,
+                        default_value,
+                        value_type,
+                        category,
+                        is_secret,
+                        description,
+                        updated_at,
+                        updated_by
+                    """,
+                    (value, updated_by, key),
+                ).fetchone()
+
+        return self._setting_from_row(row) if row is not None else None
+
+    def reset_setting(
+        self,
+        key: SettingKey,
+        *,
+        updated_by: str | None = None,
+    ) -> SettingRecord | None:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cur:
+                row = cur.execute(
+                    """
+                    UPDATE settings
+                    SET
+                        value = NULL,
+                        updated_at = CURRENT_TIMESTAMP,
+                        updated_by = %s
+                    WHERE key = %s
+                    RETURNING
+                        key,
+                        value,
+                        default_value,
+                        value_type,
+                        category,
+                        is_secret,
+                        description,
+                        updated_at,
+                        updated_by
+                    """,
+                    (updated_by, key),
+                ).fetchone()
+
+        return self._setting_from_row(row) if row is not None else None
 
     #
     # ADMIN_SERVICE

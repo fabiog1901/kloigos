@@ -848,6 +848,48 @@ td:first-child {
   font-size: 12px;
 }
 
+.setting-table-input {
+  min-width: 220px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.setting-source-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  color: var(--muted);
+  background: rgba(15, 23, 42, 0.68);
+}
+
+.secret-preview {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.55);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  word-break: break-word;
+}
+
 .label {
   font-size: 12px;
   color: var(--muted);

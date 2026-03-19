@@ -12,6 +12,8 @@ from ..models import (
     LogMsg,
     Playbook,
     ServerInitRequest,
+    SettingKey,
+    SettingRecord,
 )
 from .base import BaseRepo
 
@@ -20,6 +22,29 @@ class SQLiteRepo(BaseRepo):
 
     def __init__(self, db_url: str) -> None:
         self.db_url = db_url
+
+    @staticmethod
+    def _setting_from_row(row: sqlite3.Row) -> SettingRecord:
+        updated_at = dt.datetime.fromisoformat(row["updated_at"])
+        if updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=dt.timezone.utc)
+
+        value = row["value"]
+        default_value = row["default_value"]
+        effective_value = default_value if value is None else value
+
+        return SettingRecord(
+            key=row["key"],
+            value=value,
+            default_value=default_value,
+            effective_value=effective_value,
+            value_type=row["value_type"],
+            category=row["category"],
+            is_secret=bool(row["is_secret"]),
+            description=row["description"] or "",
+            updated_at=updated_at,
+            updated_by=row["updated_by"],
+        )
 
     def get_api_key(self, access_key: str) -> ApiKeyRecord | None:
         with sqlite3.connect(self.db_url) as conn:
@@ -138,6 +163,140 @@ class SQLiteRepo(BaseRepo):
                 """,
                 (access_key,),
             )
+
+    def list_settings(self) -> list[SettingRecord]:
+        with sqlite3.connect(self.db_url) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT
+                    key,
+                    value,
+                    default_value,
+                    value_type,
+                    category,
+                    is_secret,
+                    description,
+                    updated_at,
+                    updated_by
+                FROM settings
+                ORDER BY category, key
+                """
+            ).fetchall()
+
+        return [self._setting_from_row(row) for row in rows]
+
+    def get_setting(self, key: SettingKey) -> SettingRecord | None:
+        with sqlite3.connect(self.db_url) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                """
+                SELECT
+                    key,
+                    value,
+                    default_value,
+                    value_type,
+                    category,
+                    is_secret,
+                    description,
+                    updated_at,
+                    updated_by
+                FROM settings
+                WHERE key = ?
+                """,
+                (key,),
+            ).fetchone()
+
+        return self._setting_from_row(row) if row is not None else None
+
+    def update_setting(
+        self,
+        key: SettingKey,
+        value,
+        *,
+        updated_by: str | None = None,
+    ) -> SettingRecord | None:
+        timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
+
+        with sqlite3.connect(self.db_url) as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE settings
+                SET
+                    value = ?,
+                    updated_at = ?,
+                    updated_by = ?
+                WHERE key = ?
+                """,
+                (value, timestamp, updated_by, key),
+            )
+            if cur.rowcount == 0:
+                return None
+            row = cur.execute(
+                """
+                SELECT
+                    key,
+                    value,
+                    default_value,
+                    value_type,
+                    category,
+                    is_secret,
+                    description,
+                    updated_at,
+                    updated_by
+                FROM settings
+                WHERE key = ?
+                """,
+                (key,),
+            ).fetchone()
+
+        return self._setting_from_row(row) if row is not None else None
+
+    def reset_setting(
+        self,
+        key: SettingKey,
+        *,
+        updated_by: str | None = None,
+    ) -> SettingRecord | None:
+        timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
+
+        with sqlite3.connect(self.db_url) as conn:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE settings
+                SET
+                    value = NULL,
+                    updated_at = ?,
+                    updated_by = ?
+                WHERE key = ?
+                """,
+                (timestamp, updated_by, key),
+            )
+            if cur.rowcount == 0:
+                return None
+            row = cur.execute(
+                """
+                SELECT
+                    key,
+                    value,
+                    default_value,
+                    value_type,
+                    category,
+                    is_secret,
+                    description,
+                    updated_at,
+                    updated_by
+                FROM settings
+                WHERE key = ?
+                """,
+                (key,),
+            ).fetchone()
+
+        return self._setting_from_row(row) if row is not None else None
 
     def playbook_get_content(self, playbook: Playbook) -> str:
 
