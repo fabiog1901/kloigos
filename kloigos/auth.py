@@ -22,10 +22,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import RedirectResponse
-from fastapi.security import (
-    APIKeyCookie,
-    APIKeyHeader,
-)
+from fastapi.security import APIKeyCookie, APIKeyHeader
 
 from .dep import get_repo
 from .models import Event, KloigosRole, LogMsg

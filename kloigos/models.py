@@ -14,6 +14,18 @@ class NoFreeComputeUnitError(Exception):
     pass
 
 
+class ComputeUnitNotFoundError(Exception):
+    pass
+
+
+class ComputeUnitStateError(Exception):
+    pass
+
+
+class ComputeUnitOperationError(Exception):
+    pass
+
+
 class AllocatePlaybookError(Exception):
     pass
 
