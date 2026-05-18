@@ -1,5 +1,5 @@
 site_name: kloigos
-site_description: Simulator utility for DBMS workloads.
+site_description: Linux-native control plane for managing lightweight, VM-like execution environments
 repo_name: fabiog1901/kloigos
 repo_url: https://github.com/fabiog1901/kloigos
 

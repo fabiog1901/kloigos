@@ -53,3 +53,16 @@ CREATE TABLE api_keys (
     roles TEXT[],
     CONSTRAINT pk_api_keys PRIMARY KEY (access_key)
 );
+
+CREATE TABLE settings (
+    key TEXT NOT NULL,
+    value TEXT,
+    default_value TEXT,
+    value_type TEXT,
+    category TEXT,
+    is_secret bool default 'FALSE',
+    description TEXT DEFAULT '',
+    updated_at TIMESTAMPTZ,
+    updated_by TEXT,
+    CONSTRAINT pk_settings PRIMARY KEY (key)
+);
