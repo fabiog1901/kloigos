@@ -2,7 +2,7 @@ import datetime as dt
 from enum import StrEnum, auto
 from typing import Any, Callable
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class AutoNameStrEnum(StrEnum):
@@ -74,9 +74,6 @@ class KloigosRole(AutoNameStrEnum):
 
 
 class SettingKey(AutoNameStrEnum):
-    PORTS_PER_CPU = auto()
-    BASE_PORT = auto()
-    MAX_CPUS_PER_SERVER = auto()
     KLOIGOS_ENTERPRISE_LICENSE_KEY = auto()
     OIDC_ENABLED = auto()
     OIDC_ISSUER_URL = auto()
@@ -196,7 +193,7 @@ class ComputeUnitInDB(BaseModel):
     cpu_range: str
     cpu_count: int
     cpu_set: str
-    port_range: str
+    ip_alias: str
     cu_user: str
     status: str
     started_at: dt.datetime | None = None
@@ -237,6 +234,15 @@ class ServerInDB(BaseServer):
 
 class ServerInitRequest(BaseServer):
     cpu_ranges: list[str]
+    ip_aliases: list[str]
+
+    @model_validator(mode="after")
+    def validate_ip_aliases(self):
+        if len(self.cpu_ranges) != len(self.ip_aliases):
+            raise ValueError("cpu_ranges and ip_aliases must have the same length.")
+        if len(set(self.ip_aliases)) != len(self.ip_aliases):
+            raise ValueError("ip_aliases must be unique.")
+        return self
 
 
 class ServerDecommRequest(BaseModel):

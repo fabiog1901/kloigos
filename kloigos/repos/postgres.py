@@ -362,7 +362,7 @@ class PostgresRepo:
                 """
                 INSERT INTO compute_units (
                     hostname, cpu_range, cpu_count, 
-                    cpu_set, port_range, cu_user,
+                    cpu_set, ip_alias, cu_user,
                     status, started_at, tags
                 ) 
                 VALUES (
@@ -377,7 +377,7 @@ class PostgresRepo:
                     cudb.cpu_range,
                     cudb.cpu_count,
                     cudb.cpu_set,
-                    cudb.port_range,
+                    cudb.ip_alias,
                     cudb.cu_user,
                     cudb.status,
                     cudb.started_at,
@@ -466,7 +466,7 @@ class PostgresRepo:
                     s.region,
                     s.zone,
                     c.cpu_set,
-                    c.port_range,
+                    c.ip_alias,
                     c.cu_user,
                     c.cpu_count,
                     c.status,
@@ -492,7 +492,7 @@ class PostgresRepo:
             available_cu.region,
             available_cu.zone,
             compute_units.cpu_set,
-            compute_units.port_range,
+            compute_units.ip_alias,
             compute_units.cu_user,
             compute_units.cpu_count,
             compute_units.status,
@@ -562,7 +562,7 @@ class PostgresRepo:
                 s.region,
                 s.zone,
                 c.cpu_set,
-                c.port_range,
+                c.ip_alias,
                 c.cu_user,
                 c.cpu_count,
                 c.status,

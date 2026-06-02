@@ -8,7 +8,7 @@
 #   user_id
 #   cpu_ranges
 #   cpu_sets
-#   port_ranges
+#   ip_aliases
 #
 - name: GATHER NEW SERVER TO INIT
   hosts: localhost
@@ -49,6 +49,49 @@
       args:
         executable: /bin/bash
       register: disks
+
+    - name: Detect primary network interface
+      shell: |
+        ip -o route show default | awk '{for (i=1; i<=NF; i++) if ($i == "dev") print $(i+1)}' | head -1
+      args:
+        executable: /bin/bash
+      register: primary_iface
+
+    - name: install kloigos IP alias boot script
+      copy:
+        content: |
+          #!/bin/bash
+          set -euo pipefail
+
+          IFACE="{{ primary_iface.stdout }}"
+          {% for ip_alias in ip_aliases %}
+          ip addr show dev "$IFACE" | grep -q "{{ ip_alias }}/" || ip addr add {{ ip_alias }}/32 dev "$IFACE"
+          {% endfor %}
+        dest: /usr/local/sbin/kloigos-ip-aliases
+        mode: "0755"
+
+    - name: install kloigos IP alias systemd unit
+      copy:
+        content: |
+          [Unit]
+          Description=Kloigos compute unit IP aliases
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/kloigos-ip-aliases
+          RemainAfterExit=yes
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/kloigos-ip-aliases.service
+
+    - name: enable and apply kloigos IP aliases
+      shell: |
+        systemctl daemon-reload
+        systemctl enable kloigos-ip-aliases.service
+        systemctl restart kloigos-ip-aliases.service
 
     - name: Create a ext4 filesystem
       shell: |
@@ -148,24 +191,29 @@
           MemoryHigh={{ (item.1.split(',') | length * mem_kb_per_cpu.stdout | int / 1024 / 1024) | round(0, 'floor') | int }}G
           MemoryMax={{ (item.1.split(',') | length * mem_kb_per_cpu.stdout | int * 0.9 / 1024 / 1024) | round(0, 'floor') | int }}G
 
-          # BIND PORTS
-          # 
-          # SocketBindAllow/Deny is implemented using systemd’s BPF framework.
-          # If your systemd is not built with that support, 
-          # the settings will appear in `systemctl show ...`,
-          # but won’t be enforced. 
-          # This is a known real-world case (e.g., certain Debian builds).
-          # Quickly check support by executing `systemd --version` and
-          # look for +BPF / +BPF_FRAMEWORK in the feature list.
-          #
-          SocketBindDeny=any
-          SocketBindAllow=ipv4:tcp:{{ item.2 }}
-          SocketBindAllow=ipv4:udp:{{ item.2 }}
-          SocketBindAllow=ipv6:tcp:{{ item.2 }}
-          SocketBindAllow=ipv6:udp:{{ item.2 }}
-
         dest: /etc/systemd/system/user-{{ item.0.stdout }}.slice.d/50-kloigos.conf
-      loop: "{{ user_ids.results | zip(cpu_sets, port_ranges) | list }}"
+      loop: "{{ user_ids.results | zip(cpu_sets, ip_aliases) | list }}"
+
+    - name: write nftables compute unit source-IP enforcement
+      copy:
+        content: |
+          table inet kloigos_compute_units {
+            chain egress_control {
+              type filter hook output priority filter; policy accept;
+
+              {% for item in user_ids.results | zip(ip_aliases) %}
+              meta skuid {{ item.0.stdout }} ip saddr != {{ item.1 }} drop
+              meta skuid {{ item.0.stdout }} ip6 drop
+              {% endfor %}
+            }
+          }
+        dest: /etc/nftables.d/kloigos-compute-units.nft
+
+    - name: ensure nftables includes kloigos rules
+      shell: |
+        touch /etc/nftables.conf
+        grep -qxF 'include "/etc/nftables.d/*.nft"' /etc/nftables.conf || echo 'include "/etc/nftables.d/*.nft"' >> /etc/nftables.conf
+        nft -f /etc/nftables.d/kloigos-compute-units.nft
 
     - name: restart logind
       shell: |
@@ -226,12 +274,12 @@
     - name: make source repos files immutable
       when: ansible_facts.os_family | lower == "debian"
       shell: |
-        # Let’s break down exactly what your command does and why it matters.
+        # Let's break down exactly what your command does and why it matters.
         # The command marks:
         #   /etc/apt/sources.list
         #   all files in /etc/apt/sources.list.d/
         # as immutable.
-        # “Immutable” means:
+        # "Immutable" means:
         # Once set, the file cannot be modified, deleted, renamed, truncated, 
         # replaced, have permissions changed, have ownership changed
         # Even root cannot modify it until the flag is removed.

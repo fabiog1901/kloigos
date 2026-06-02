@@ -49,6 +49,7 @@ Returns a list of all servers.
 Optionally filter the results by 'deployment_id' or 'status' query parameters.
 
 Example:
+
 - /servers
 - /servers?deployment_id=web_app_v1
 - /servers?status=free
@@ -124,7 +125,7 @@ Decommission Server
 
 - `started_at 🔤 🚫`
 - `ip 🔤`
-- `ports_range 🔤 🚫`
+- `ip_alias 🔤`
 - `cpu_range 🔤`
 - `tags 📦 🚫`
 - `compute_id 🔤`
@@ -149,6 +150,7 @@ Decommission Server
 - `region 🔤`
 - `zone 🔤`
 - `cpu_ranges array[🔤]`
+- `ip_aliases array[🔤]`
 - `hostname 🔤`
 
 ### ValidationError

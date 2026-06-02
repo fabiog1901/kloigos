@@ -19,7 +19,7 @@ CREATE TABLE compute_units (
     cpu_range TEXT NOT NULL,
     cpu_count INT2 NOT NULL,
     cpu_set TEXT NOT NULL,
-    port_range TEXT NOT NULL,
+    ip_alias TEXT NOT NULL,
     cu_user TEXT NOT NULL,
     STATUS TEXT NOT NULL,
     started_at TIMESTAMPTZ NULL,

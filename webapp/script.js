@@ -155,6 +155,7 @@ window.app = function () {
         zone: "",
         hostname: "",
         cpuRangesText: '["0-3"]',
+        ipAliasesText: '["10.0.0.101"]',
       },
       decommission: { open: false, hostname: "" },
       deallocateConfirm: { open: false, compute_id: "", hostname: "" },
@@ -1812,13 +1813,13 @@ window.app = function () {
         case 3:
           return row.hostname || "";
         case 4:
-          return row.ip || "";
+          return row.ip_alias || row.ip || "";
         case 5:
           return row.cpu_count;
         case 6:
           return row.cpu_range || "";
         case 7:
-          return row.ports_range || "";
+          return row.ip_alias || "";
         case 8:
           return row.started_at || "";
         case 9:
@@ -2040,6 +2041,7 @@ window.app = function () {
       this.modal.init.cpuEnd = 0;
       this.modal.init.cpuStep = 0;
       this.modal.init.cpuRangesText = "";
+      this.modal.init.ipAliasesText = "";
       this.modal.init.cpuRangesPreview = "";
       this.modal.init.cpuSetPreview = "";
       this.modal.init.cpuRangesError = "";
@@ -2116,11 +2118,21 @@ window.app = function () {
         const cpu_ranges = JSON.parse(
           (this.modal.init.cpuRangesText || "[]").trim() || "[]",
         );
+        const ip_aliases = JSON.parse(
+          (this.modal.init.ipAliasesText || "[]").trim() || "[]",
+        );
         if (
           !Array.isArray(cpu_ranges) ||
           cpu_ranges.some((x) => typeof x !== "string")
         )
           throw new Error("cpu_ranges must be a JSON array of strings.");
+        if (
+          !Array.isArray(ip_aliases) ||
+          ip_aliases.some((x) => typeof x !== "string")
+        )
+          throw new Error("ip_aliases must be a JSON array of strings.");
+        if (ip_aliases.length !== cpu_ranges.length)
+          throw new Error("ip_aliases must have one entry for each cpu_range.");
 
         const payload = {
           ip: (this.modal.init.ip || "").trim(),
@@ -2129,6 +2141,7 @@ window.app = function () {
           hostname: (this.modal.init.hostname || "").trim(),
           user_id: (this.modal.init.user_id || "ubuntu").trim(),
           cpu_ranges,
+          ip_aliases,
         };
         for (const [k, v] of Object.entries(payload)) {
           if ((typeof v === "string" && !v) || v == null)

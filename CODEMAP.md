@@ -46,4 +46,4 @@ python3 tools/generate_codemap.py
 | `kloigos/services/admin/servers.py` | classes: ServersAdminService; imports: ...models, ...util, .base |
 | `kloigos/services/admin/settings.py` | classes: SettingsAdminService; imports: ...models, ...util, .base |
 | `kloigos/services/compute_unit.py` | classes: ComputeUnitService; imports: ..repos.postgres, ..util, kloigos, logging |
-| `kloigos/util.py` | classes: MyRunner, RequestIDFilter, ShorthandFormatter; functions: as_bool, safe_json_string_dict, safe_next_path, safe_csv_set, validate_api_key_crypto_config, encrypt_api_key_secret, decrypt_api_key_secret, to_cpu_set, parse_cpu_range, ports_for_cpu_range; imports: ansible_runner, base64, contextvars, cryptography, json, kloigos, logging, os, secrets, shutil, time, yaml |
+| `kloigos/util.py` | classes: MyRunner, RequestIDFilter, ShorthandFormatter; functions: as_bool, safe_json_string_dict, safe_next_path, safe_csv_set, validate_api_key_crypto_config, encrypt_api_key_secret, decrypt_api_key_secret, to_cpu_set, parse_cpu_range; imports: ansible_runner, base64, contextvars, cryptography, json, kloigos, logging, os, secrets, shutil, time, yaml |

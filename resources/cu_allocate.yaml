@@ -6,9 +6,9 @@
 #   compute_id
 #   hostname
 #   ip
+#   ip_alias
 #   cpu_range
 #   cpu_count
-#   port_range
 #   ssh_public_key
 #
 #
@@ -25,8 +25,8 @@
         public_hostname: "{{ hostname }}"
         ansible_host: "{{ ip }}"
         public_ip: "{{ ip }}"
+        ip_alias: "{{ ip_alias }}"
         cu_user: "c{{ cpu_range.replace(':', '-') }}"
-        port_range: "{{ port_range }}"
         cpu_count: "{{ cpu_count }}"
         groups: new_alloc
 
@@ -51,7 +51,7 @@
             - CPU count: {{ cpu_count }}
             - Memory:
             - Max running processes: 
-            - Ports assigned: {{ port_range }}
+            - IP alias: {{ ip_alias }}
             - Network bandwidth:
             - Disk volume at /mnt/{{ cu_user }}
             - IOPS/MBPS:
@@ -59,6 +59,7 @@
           
           You're not root, but you can still use systemd
           to run your services.
+          Bind services explicitly to {{ ip_alias }}.
           Make sure you save your .service files at directory
 
           ~/.config/systemd/user/

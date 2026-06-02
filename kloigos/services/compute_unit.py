@@ -225,9 +225,9 @@ class ComputeUnitService:
                     "compute_id": cu.compute_id,
                     "hostname": cu.hostname,
                     "ip": cu.ip,
+                    "ip_alias": cu.ip_alias,
                     "cpu_range": cu.cpu_range,
                     "cpu_count": cu.cpu_count,
-                    "port_range": cu.port_range,
                     "ssh_public_key": ssh_public_key,
                 },
             )

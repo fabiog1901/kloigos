@@ -59,11 +59,11 @@
         ansible_user: "{{ item.cu_user }}"
         public_hostname: "{{ item.hostname }}"
         ansible_host: "{{ item.ip }}"
-        public_ip: "{{ item.ip }}"
+        public_ip: "{{ item.ip_alias }}"
+        ip_alias: "{{ item.ip_alias }}"
         cpu_set: "{{ item.cpu_set }}"
         cpu_range: "{{ item.cpu_range.replace(':', '-') }}"
         cu_user: "c{{ item.cpu_range.replace(':', '-') }}"
-        port_range: "{{ item.port_range }}"
         groups: "{{ item.tags.groups | default(['cockroachdb']) + [item.tags.deployment_id] }}"
         cloud: "{{ item.cloud | default('k5s') }}"
         region: "{{ item.region | default('r1') }}"
@@ -78,7 +78,7 @@
           {% if item not in ['all', 'ungrouped'] %}
           [{{item}}]
           {% for entry in groups[item] %}
-          {{ entry }}  {{hostvars[entry].ansible_host }} {{hostvars[entry].cpu_range }} {{hostvars[entry].port_range }} {{hostvars[entry].cloud }}-{{hostvars[entry].region }}-{{hostvars[entry].zone }} 
+          {{ entry }}  {{hostvars[entry].ansible_host }} {{hostvars[entry].ip_alias }} {{hostvars[entry].cpu_range }} {{hostvars[entry].cloud }}-{{hostvars[entry].region }}-{{hostvars[entry].zone }} 
           {% endfor %}
 
           {% endif %}
@@ -95,22 +95,22 @@
     cockroachdb_certificates_dir: certs
     cockroachdb_certificates_clients:
       - root
-    cockroachdb_sql_port: 57
-    cockroachdb_http_addr_ip: "0.0.0.0"
-    cockroachdb_http_port: 80
+    cockroachdb_sql_port: 26257
+    cockroachdb_http_addr_ip: "{{ ip_alias }}"
+    cockroachdb_http_port: 8080
     # cockroachdb_store:
     #   - /mnt/cockroach
     cockroachdb_secure_flag: --certs-dir=/var/lib/cockroach/certs
     cockroachdb_insecure_flag: --insecure
     cockroachdb_repo_url: https://binaries.cockroachdb.com
     cockroachdb_locality: "cloud={{ cloud | default('') }},region={{ region | default('') }},zone={{ zone | default('') }}"
-    cockroachdb_advertise_addr: "{{ public_ip | default('') }}"
-    cockroachdb_listen_addr: "0.0.0.0"
+    cockroachdb_advertise_addr: "{{ ip_alias }}"
+    cockroachdb_listen_addr: "{{ ip_alias }}"
     cockroachdb_attrs: std
     cockroachdb_cache: ".35"
     cockroachdb_max_sql_memory: ".35"
     cockroachdb_env_vars: []
-    cockroachdb_rpc_port: 77
+    cockroachdb_rpc_port: 26257
     cockroachdb_max_offset: 250ms
 
   tasks:
@@ -166,16 +166,16 @@
           ExecStart=/opt/{{ cu_user }}/cockroach start \
               {{ (cockroachdb_secure) | ternary(cockroachdb_secure_flag, cockroachdb_insecure_flag) }} \
               --store=/mnt/{{ cu_user }}/cockroach/ \
-              --listen-addr={{ cockroachdb_listen_addr }}:{{ port_range.split('-')[0] | int + cockroachdb_rpc_port }} \
-              --advertise-addr={{ cockroachdb_advertise_addr }}:{{ port_range.split('-')[0] | int + cockroachdb_rpc_port }} \
-              --sql-addr=:{{ port_range.split('-')[0] | int + cockroachdb_sql_port }} \
+              --listen-addr={{ cockroachdb_listen_addr }}:{{ cockroachdb_rpc_port }} \
+              --advertise-addr={{ cockroachdb_advertise_addr }}:{{ cockroachdb_rpc_port }} \
+              --sql-addr={{ ip_alias }}:{{ cockroachdb_sql_port }} \
               --cache={{ cockroachdb_cache }} \
               --max-sql-memory={{ cockroachdb_max_sql_memory }} \
-              --http-addr={{ cockroachdb_http_addr_ip }}:{{ port_range.split('-')[0] | int + cockroachdb_http_port }} \
+              --http-addr={{ cockroachdb_http_addr_ip }}:{{ cockroachdb_http_port }} \
               {% for g in groups -%}
               {% if g.startswith("crdbregion_") -%}
               {% for joinhost in (groups[g] | sort)[:3] -%}
-              --join={{ hostvars[joinhost].public_ip }}:{{ hostvars[joinhost].port_range.split('-')[0] | int + cockroachdb_rpc_port }} \
+              --join={{ hostvars[joinhost].ip_alias }}:{{ cockroachdb_rpc_port }} \
               {% endfor -%}
               {% endif -%}
               {% endfor -%}
@@ -220,7 +220,7 @@
       shell: |
         /opt/{{ cu_user }}/cockroach init \
           {{ (cockroachdb_secure) | ternary(cockroachdb_secure_flag, cockroachdb_insecure_flag) }} \
-          --host={{ hostvars[init_host].public_ip }}:{{ hostvars[init_host].port_range.split('-')[0] | int + cockroachdb_rpc_port }}
+          --host={{ hostvars[init_host].ip_alias }}:{{ cockroachdb_rpc_port }}
       register: result
       failed_when: result.rc != 0 and 'cluster has already been initialized' not in result.stderr and 'unable to bootstrap due to internal error' not in result.stderr
 

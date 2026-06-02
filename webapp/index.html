@@ -199,7 +199,7 @@
                     <th data-sort="string" :class="sortClass(1)" @click="toggleSort(1)">Compute ID</th>
                     <th data-sort="string" :class="sortClass(2)" @click="toggleSort(2)">Region</th>
                     <th data-sort="string" :class="sortClass(3)" @click="toggleSort(3)">Hostname</th>
-                    <th data-sort="ip" :class="sortClass(4)" @click="toggleSort(4)">IP</th>
+                    <th data-sort="ip" :class="sortClass(4)" @click="toggleSort(4)">CU IP</th>
                     <th data-sort="number" :class="sortClass(5)" @click="toggleSort(5)">CPUs</th>
                     <!-- <th data-sort="string" :class="sortClass(6)" @click="toggleSort(6)">CPU Range</th>
                   <th data-sort="string" :class="sortClass(7)" @click="toggleSort(7)">Ports Range</th> -->
@@ -238,8 +238,8 @@
                         <template x-if="!row.hostname"><span>-</span></template>
                       </td>
 
-                      <!-- ip -->
-                      <td><span x-text="row.ip || '-'"></span></td>
+                      <!-- compute unit ip alias -->
+                      <td><span x-text="row.ip_alias || row.ip || '-'"></span></td>
 
                       <!-- cpu_count -->
                       <td><span x-text="row.cpu_count"></span></td>
@@ -250,9 +250,6 @@
                         <span :title="row.cpu_list || ''" x-text="row.cpu_range || '-'"></span>
                       </span>
                     </td> -->
-
-                      <!-- ports range -->
-                      <!-- <td><span class="service-pill" x-text="row.ports_range || '-'"></span></td> -->
 
                       <!-- started_at -->
                       <td x-text="toUtcStringMaybe(row.started_at)"></td>
@@ -1279,6 +1276,12 @@
                     @input="recomputeInitCpuRanges(true)" placeholder='["0-3","4-7"]'></textarea>
                 </div>
               </details>
+
+              <div class="form-row" style="grid-column: 1 / -1;">
+                <div class="label">ip_aliases</div>
+                <textarea class="textarea" x-model="modal.init.ipAliasesText" spellcheck="false"
+                  placeholder='["10.0.0.101","10.0.0.102"]'></textarea>
+              </div>
 
             </div>
           </div>

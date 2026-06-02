@@ -10,7 +10,7 @@ from ...models import (
     ServerInitRequest,
     ServerStatus,
 )
-from ...util import MyRunner, ports_for_cpu_range, request_id_ctx, to_cpu_set
+from ...util import MyRunner, request_id_ctx, to_cpu_set
 from .base import AdminServiceBase
 
 
@@ -82,7 +82,6 @@ class ServersAdminService(AdminServiceBase):
     def _run_init_server(self, sir: ServerInitRequest, actor_id: str) -> None:
         cpu_sets = [to_cpu_set(x) for x in sir.cpu_ranges]
         cpu_ranges = [x.replace(":", "-") for x in sir.cpu_ranges]
-        port_ranges = [ports_for_cpu_range(i) for i in cpu_ranges]
 
         job_ok = MyRunner(self.repo).launch_runner(
             Playbook.SERVER_INIT,
@@ -92,13 +91,13 @@ class ServersAdminService(AdminServiceBase):
                 "user_id": sir.user_id,
                 "cpu_ranges": cpu_ranges,
                 "cpu_sets": cpu_sets,
-                "port_ranges": port_ranges,
+                "ip_aliases": sir.ip_aliases,
             },
         )
 
         # add the created compute units if the job was successful
         if job_ok:
-            for x in sir.cpu_ranges:
+            for x, ip_alias in zip(sir.cpu_ranges, sir.ip_aliases):
                 self.repo.insert_new_compute_unit(
                     ComputeUnitInDB(
                         compute_id="",  # not used, computed
@@ -106,7 +105,7 @@ class ServersAdminService(AdminServiceBase):
                         cpu_range=x,
                         cpu_count=len(to_cpu_set(x).split(",")),
                         cpu_set=to_cpu_set(x),
-                        port_range=ports_for_cpu_range(x),
+                        ip_alias=ip_alias,
                         cu_user=f"c{x.replace(':', '-')}",
                         status=ComputeUnitStatus.FREE,
                     )

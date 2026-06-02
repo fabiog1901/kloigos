@@ -14,9 +14,6 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from kloigos.models import Playbook
 from kloigos.repos.postgres import PostgresRepo
 
-from . import BASE_PORT, MAX_CPUS_PER_SERVER, PORTS_PER_CPU
-
-
 def as_bool(value: str | None, default: bool = False) -> bool:
     """Parse common truthy environment-style values into a boolean."""
     if value is None:
@@ -156,43 +153,6 @@ def parse_cpu_range(cpu_range: str) -> tuple[int, int, int]:
         raise ValueError(f"Invalid cpu_range (end < start): {cpu_range}")
 
     return start, end, step
-
-
-def ports_for_cpu_range(
-    cpu_range: str,
-) -> str:
-    """
-    Returns the PortRange for the given cpu_range.
-
-    Examples:
-      "0-3"   -> "1111-3333"
-      "0-7:2" -> "45000-45600"
-    """
-    start, end, step = parse_cpu_range(cpu_range)
-
-    if start < 0 or end >= MAX_CPUS_PER_SERVER:
-        raise ValueError(
-            f"cpu_range {cpu_range} out of bounds for total_cpus={MAX_CPUS_PER_SERVER}"
-        )
-
-    # Number of CPUs in start-end:step (inclusive)
-    cpu_count = ((end - start) // step) + 1
-
-    # Pack CPUs so that lane = (cpu % step) blocks are contiguous
-    # group_size = ceil(total_cpus / step)
-    group_size = (MAX_CPUS_PER_SERVER + step - 1) // step
-    packed_start = (start // step) + (start % step) * group_size
-
-    port_start = BASE_PORT + packed_start * PORTS_PER_CPU
-    port_end = port_start + cpu_count * PORTS_PER_CPU - 1
-
-    if port_end > 65535:
-        raise ValueError(
-            f"Port range exceeds 65535: {port_start}-{port_end}. "
-            f"Choose a lower base_port, smaller ports_per_cpu, or reduce max units."
-        )
-
-    return f"{port_start}-{port_end}"
 
 
 class MyRunner:
