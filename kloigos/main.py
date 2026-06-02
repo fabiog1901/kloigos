@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import DB_ENGINE, DB_URL, dep
+from . import DB_URL, dep
 from .api import admin, compute_unit
 from .auth import oidc
 from .auth import router as auth_router
@@ -57,24 +57,16 @@ setup_logging()
 async def lifespan(_app: FastAPI):
     oidc.validate_config()
 
-    if DB_ENGINE == "postgres":
-        from psycopg_pool import ConnectionPool
+    from psycopg_pool import ConnectionPool
 
-        from .repos.postgres import Dict2JsonbDumper, PostgresRepo
+    from .repos.postgres import Dict2JsonbDumper, PostgresRepo
 
-        # Initialize the global pool
-        dep.DB_POOL = ConnectionPool(
-            DB_URL,
-            kwargs={"autocommit": True},
-            configure=lambda conn: conn.adapters.register_dumper(
-                dict, Dict2JsonbDumper
-            ),
-        )
-        dep.REPO_FACTORY = lambda: PostgresRepo(dep.DB_POOL)
-    else:
-        from .repos.sqlite import SQLiteRepo
-
-        dep.REPO_FACTORY = lambda: SQLiteRepo(DB_URL)
+    dep.DB_POOL = ConnectionPool(
+        DB_URL,
+        kwargs={"autocommit": True},
+        configure=lambda conn: conn.adapters.register_dumper(dict, Dict2JsonbDumper),
+    )
+    dep.REPO_FACTORY = lambda: PostgresRepo(dep.DB_POOL)
 
     yield
 

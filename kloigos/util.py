@@ -12,7 +12,7 @@ import yaml
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from kloigos.models import Playbook
-from kloigos.repos.base import BaseRepo
+from kloigos.repos.postgres import PostgresRepo
 
 from . import BASE_PORT, MAX_CPUS_PER_SERVER, PORTS_PER_CPU
 
@@ -196,7 +196,7 @@ def ports_for_cpu_range(
 
 
 class MyRunner:
-    def __init__(self, repo: BaseRepo) -> None:
+    def __init__(self, repo: PostgresRepo) -> None:
         self.repo = repo
 
     data = {}

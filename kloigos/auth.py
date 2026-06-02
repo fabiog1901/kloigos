@@ -26,7 +26,7 @@ from fastapi.security import APIKeyCookie, APIKeyHeader
 
 from .dep import get_repo
 from .models import Event, KloigosRole, LogMsg
-from .repos.base import BaseRepo
+from .repos.postgres import PostgresRepo
 from .util import (
     as_bool,
     decrypt_api_key_secret,
@@ -565,7 +565,7 @@ class OIDCManager:
     async def validate_api_key(
         self,
         request: Request,
-        repo: BaseRepo,
+        repo: PostgresRepo,
         access_key: str,
         signature: str,
         timestamp: str,
@@ -630,7 +630,7 @@ class OIDCManager:
     async def current_claims(
         self,
         request: Request,
-        repo: BaseRepo,
+        repo: PostgresRepo,
         *,
         session_token: str | None = None,
         access_key: str | None = None,
@@ -701,7 +701,7 @@ timestamp_scheme = APIKeyHeader(
 
 async def require_authenticated(
     request: Request,
-    repo: BaseRepo = Depends(get_repo),
+    repo: PostgresRepo = Depends(get_repo),
     session_token: str | None = Security(cookie_scheme),
     access_key: str | None = Security(access_key_scheme),
     signature: str | None = Security(signature_scheme),
@@ -763,7 +763,7 @@ def get_audit_actor(
 
 
 def _log_auth_event(
-    repo: BaseRepo,
+    repo: PostgresRepo,
     actor_id: str,
     action: Event,
     details: dict[str, Any] | None = None,
@@ -807,7 +807,7 @@ def oidc_login(request: Request, next: str = "/"):  # noqa: A002
 @router.get("/callback", name="oidc_callback")
 def oidc_callback(
     request: Request,
-    repo: BaseRepo = Depends(get_repo),
+    repo: PostgresRepo = Depends(get_repo),
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
@@ -872,7 +872,7 @@ def oidc_callback(
 
 @router.post("/logout")
 def oidc_logout(
-    repo: BaseRepo = Depends(get_repo),
+    repo: PostgresRepo = Depends(get_repo),
     actor_id: str = Depends(get_audit_actor),
     claims: dict[str, Any] = Security(require_authenticated),
 ):

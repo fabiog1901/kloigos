@@ -5,8 +5,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 
-DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
-DB_URL = os.getenv("DB_URL", "sqlite.kloigos")
+DB_URL = os.getenv("DB_URL", "")
 
 # count of ports assigned for each allocated cpu.
 #

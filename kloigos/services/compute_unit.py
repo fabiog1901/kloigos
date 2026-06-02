@@ -14,14 +14,14 @@ from kloigos.models import (
     Playbook,
 )
 
-from ..repos.base import BaseRepo
+from ..repos.postgres import PostgresRepo
 from ..util import MyRunner, request_id_ctx
 
 
 class ComputeUnitService:
     """Coordinate compute-unit allocation, deallocation, and audit logging."""
 
-    def __init__(self, repo: BaseRepo):
+    def __init__(self, repo: PostgresRepo):
         self.repo = repo
 
     def allocate(

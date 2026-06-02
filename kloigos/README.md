@@ -1,25 +1,22 @@
 # 🏛️ Kloigos Backend Architecture
 
-This project follows a **Layered Architecture** with a focus on decoupling business logic from data persistence. It supports multiple database backends (Postgres/SQLite) through a **Repository Pattern** and uses FastAPI's **Lifespan** and **Dependency Injection** systems for resource management.
+This project follows a **Layered Architecture** with a focus on keeping business logic separate from data persistence. It uses PostgreSQL through a dedicated repository and FastAPI's **Lifespan** and **Dependency Injection** systems for resource management.
 
 ## 📐 Architecture Overview
 
 The system is divided into three primary layers to ensure maintainability and testability:
 
 1. **API Layer (FastAPI):** Handles HTTP routing, request validation, and response serialization. It communicates exclusively with the Service Layer.
-2. **Service Layer (Business Logic):** Contains the core "rules" of the application. It is database-agnostic and relies on Repository abstractions.
-3. **Repository Layer (Data Access):** Handles raw database operations. We provide two implementations: `PostgresRepo` (using `psycopg_pool`) and `SQLiteRepo`.
+2. **Service Layer (Business Logic):** Contains the core "rules" of the application.
+3. **Repository Layer (Data Access):** Handles raw PostgreSQL operations through `PostgresRepo` using `psycopg_pool`.
 
 ---
 
 ## 🛠️ Key Design Patterns
 
-### 1. The Repository Pattern
+### 1. The Repository
 
-To allow switching between Postgres and SQLite without changing business logic, we use a Repository abstraction.
-
-* **Benefits:** The service layer doesn't know if it's talking to a `.sqlite3` file or a high-performance Postgres cluster.
-* **Implementation:** Both repositories share the same method signatures (Duck Typing / Protocols).
+`PostgresRepo` owns database access and keeps SQL out of API and service modules.
 
 ### 2. Global Resource Registry (via `dependencies.py`)
 
@@ -28,12 +25,9 @@ Because this project uses a **Mounted App** structure (`app.mount("/api", api)`)
 * **The Problem:** Sub-apps have isolated `app.state`, making it difficult to share a connection pool.
 * **The Solution:** We store the `db_pool` and `repo_factory` as module-level variables. This ensures that every part of the Python process—regardless of which "app" handles the request—accesses the same pool.
 
-### 3. Lazy-Loading Lifespan
+### 3. Lifespan Managed Pool
 
-Database drivers are only loaded when needed. If the system is configured for SQLite, the `psycopg` and `psycopg_pool` libraries are never imported.
-
-* **Efficiency:** Reduces memory footprint and prevents crashes on systems missing specific drivers.
-* **Graceful Shutdown:** The `lifespan` event ensures that the Postgres connection pool is drained and closed cleanly when the server stops.
+The `lifespan` event initializes the Postgres connection pool at startup and drains it cleanly when the server stops.
 
 ---
 
@@ -51,12 +45,9 @@ When a request hits an endpoint (e.g., `/api/compute/`):
 
 ## ⚙️ Configuration & Deployment
 
-### Database Selection
+### Database
 
-The engine is toggled via environment variables:
-
-* `DB_ENGINE`: `postgres` or `sqlite`
-* `DB_URL`: The connection string (only required for Postgres)
+The database is configured with `DB_URL`, a PostgreSQL connection string.
 
 ### Production Stack
 

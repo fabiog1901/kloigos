@@ -2,17 +2,18 @@ from typing import Callable, Optional
 
 from fastapi import Depends
 
+from .repos.postgres import PostgresRepo
 from .services.admin import AdminService
 from .services.compute_unit import ComputeUnitService
 
 # Global references
 
 DB_POOL = None
-REPO_FACTORY: Optional[Callable] = None
+REPO_FACTORY: Optional[Callable[[], PostgresRepo]] = None
 
 
 # 1. The Repo Factory (Hidden from API)
-def get_repo():
+def get_repo() -> PostgresRepo:
     if REPO_FACTORY is None:
         raise RuntimeError("Database not initialized. Ensure lifespan ran.")
     return REPO_FACTORY()

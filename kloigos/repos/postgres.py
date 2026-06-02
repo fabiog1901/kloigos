@@ -20,7 +20,6 @@ from ..models import (
     SettingKey,
     SettingRecord,
 )
-from .base import BaseRepo
 
 
 class Dict2JsonbDumper(JsonbDumper):
@@ -28,7 +27,7 @@ class Dict2JsonbDumper(JsonbDumper):
         return super().dump(Jsonb(obj))
 
 
-class PostgresRepo(BaseRepo):
+class PostgresRepo:
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool: ConnectionPool = pool
 
