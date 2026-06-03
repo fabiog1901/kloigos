@@ -1698,12 +1698,10 @@ window.app = function () {
             },
           );
         } else {
-          await this.apiFetch(
-            `/admin/servers/${encodeURIComponent(hostname)}`,
-            {
-              method: "PUT",
-            },
-          );
+          await this.apiFetch("/admin/servers/", {
+            method: "PUT",
+            body: { hostname },
+          });
         }
         this.closeServerActionConfirm();
         await this.refreshServers();

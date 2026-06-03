@@ -556,8 +556,7 @@
               <div class="metric-label">Request</div>
               <div>
                 <template x-if="modal.serverActionConfirm.action === 'decommission'">
-                  <span class="ip-pill">PUT /api/admin/servers/<span
-                      x-text="modal.serverActionConfirm.hostname"></span></span>
+                  <span class="ip-pill">PUT /api/admin/servers/</span>
                 </template>
                 <template x-if="modal.serverActionConfirm.action === 'delete'">
                   <span class="ip-pill">DELETE /api/admin/servers/<span
