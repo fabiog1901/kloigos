@@ -1,0 +1,113 @@
+---
+# This playbook provisions EC2 instances for Kloigos and saves the inventory to a file.
+- name: PROVISION KLOIGOS VMS
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: no
+  vars:
+    deployment:
+      - cluster_name: fabio-kloigos
+        copies: 1
+        inventory_groups:
+          - kloigos
+        exact_count: 1
+        instance_type: t4g.2xlarge
+        instance:
+          cpu: 8
+          arch: arm64
+        volumes:
+          os:
+            size: 30
+            type: standard_ssd
+          data:
+            - size: 10
+              type: standard_ssd
+            - size: 10
+              type: standard_ssd
+            - size: 10
+              type: standard_ssd
+            - size: 10
+              type: standard_ssd
+              delete_on_termination: true
+        tags:
+          Name: fabio-kloigos
+          owner: fabio@cockroachlabs.com
+        groups:
+          - user: ubuntu
+            public_ip: yes
+            public_key_id: workshop
+            cloud: aws
+            image: /canonical/ubuntu/server/24.04
+            region: us-central-1
+            vpc_id: vpc-0289741dc46c80da8
+            security_groups:
+              - sg-0e3631bbd91d95940
+            zone: a
+            subnet: subnet-02ed0abd3c499dca9
+
+  tasks:
+    - name: Ensure presence of instances
+      shell: |
+        cloud_instance create -d fabio-kloigos \
+          --deployment '{{ deployment | to_json }}' \
+          --defaults {}
+      register: instances
+
+    - name: Wait for SSH to come up
+      wait_for:
+        host: "{{ item.public_ip }}"
+        port: 22
+        timeout: 180
+        sleep: 5
+        state: started
+      loop: "{{ instances.stdout | from_json }}"
+
+    - name: Build ansible inventory dynamically
+      add_host:
+        # id
+        name: "{{ item.public_ip }}"
+        id: "{{ item.id }}"
+
+        # locality
+        cloud: "{{ item.cloud }}"
+        region: "{{ item.region }}"
+        zone: "{{ item.zone }}"
+
+        # addresses
+        public_hostname: "{{ item.public_hostname }}"
+        public_ip: "{{ item.public_ip }}"
+        private_hostname: "{{ item.private_hostname }}"
+        private_ip: "{{ item.private_ip }}"
+
+        # tags
+        ansible_user: "{{ item.ansible_user }}"
+        ansible_host: "{{ item.public_ip }}"
+        groups: "{{ item.inventory_groups }}"
+        cluster_name: "{{ item.cluster_name }}"
+        group_name: "{{ item.group_name }}"
+        extra_vars: "{{ item.extra_vars }}"
+      loop: "{{ instances.stdout | from_json }}"
+
+    - name: save cluster list of hosts
+      copy:
+        content: |
+          {% for item in groups %}
+          {% if item not in ['all', 'ungrouped'] %}
+          [{{item}}]
+          {% for entry in groups[item] %}
+          {{ entry }} ansible_host={{ hostvars[entry].ansible_host }} cloud={{ hostvars[entry].cloud }} cluster_name={{ hostvars[entry].cluster_name }}  group_name={{ hostvars[entry].group_name }} id={{ hostvars[entry].id }} region={{ hostvars[entry].region }} zone={{ hostvars[entry].zone }} private_hostname={{ hostvars[entry].private_hostname }} private_ip={{ hostvars[entry].private_ip }} public_hostname={{ hostvars[entry].public_hostname }} public_ip={{ hostvars[entry].public_ip }} ansible_user={{ hostvars[entry].ansible_user }} extra_vars="{{ hostvars[entry].extra_vars }}" 
+          {% endfor %} 
+
+          {% endif %}
+          {% endfor %}
+        dest: "../inventories/kloigos.ini"
+
+- name: RUN POST-PROVISIONING TASKS 
+  hosts: kloigos
+  gather_facts: yes
+  become: yes
+  tasks:
+    - name: create groups and directory
+      shell: |
+        # skip for now  
