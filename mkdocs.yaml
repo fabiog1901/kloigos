@@ -76,7 +76,6 @@ nav:
     - docs/auth.md
     - docs/deployment.md
     - docs/architecture.md
-  - API: api.md
   - about.md
 
 extra_css:
