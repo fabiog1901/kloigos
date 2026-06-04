@@ -279,18 +279,19 @@ class PostgresRepo:
             conn.execute(
                 """
                 INSERT INTO servers (
-                    hostname, ip, user_id, region, zone, status, 
+                    hostname, private_ip, public_ip, user_id, region, zone, status, 
                     cpu_count, mem_gb, disk_count, disk_size_gb, tags
                 )
                 VALUES (
-                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s
                 )
                 ON CONFLICT DO NOTHING
                 """,
                 (
                     sir.hostname,
-                    sir.ip,
+                    sir.private_ip,
+                    sir.public_ip,
                     sir.user_id,
                     sir.region,
                     sir.zone,
@@ -361,23 +362,25 @@ class PostgresRepo:
             cur.execute(
                 """
                 INSERT INTO compute_units (
-                    hostname, cpu_range, cpu_count, 
-                    cpu_set, ip_alias, cu_user,
+                    hostname, ordinal, cpu_range, cpu_count, 
+                    cpu_set, private_ip, public_ip, cu_user,
                     status, started_at, tags
                 ) 
                 VALUES (
-                    %s, %s, %s,
-                    %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s, %s,
                     %s, %s, %s
                 )
                 ON CONFLICT DO NOTHING
                 """,
                 (
                     cudb.hostname,
+                    cudb.ordinal,
                     cudb.cpu_range,
                     cudb.cpu_count,
                     cudb.cpu_set,
-                    cudb.ip_alias,
+                    cudb.private_ip,
+                    cudb.public_ip,
                     cudb.cu_user,
                     cudb.status,
                     cudb.started_at,
@@ -461,12 +464,15 @@ class PostgresRepo:
                 SELECT 
                     c.compute_id,
                     c.hostname,
+                    c.ordinal,
                     c.cpu_range,
-                    s.ip,
+                    s.private_ip AS server_private_ip,
+                    s.public_ip AS server_public_ip,
                     s.region,
                     s.zone,
                     c.cpu_set,
-                    c.ip_alias,
+                    c.private_ip,
+                    c.public_ip,
                     c.cu_user,
                     c.cpu_count,
                     c.status,
@@ -487,12 +493,15 @@ class PostgresRepo:
         RETURNING 
             compute_units.compute_id,
             compute_units.hostname,
+            compute_units.ordinal,
             compute_units.cpu_range,
-            available_cu.ip,
+            available_cu.server_private_ip,
+            available_cu.server_public_ip,
             available_cu.region,
             available_cu.zone,
             compute_units.cpu_set,
-            compute_units.ip_alias,
+            compute_units.private_ip,
+            compute_units.public_ip,
             compute_units.cu_user,
             compute_units.cpu_count,
             compute_units.status,
@@ -557,12 +566,15 @@ class PostgresRepo:
         sql = """
             SELECT c.compute_id,
                 c.hostname,
+                c.ordinal,
                 c.cpu_range,
-                s.ip,
+                s.private_ip AS server_private_ip,
+                s.public_ip AS server_public_ip,
                 s.region,
                 s.zone,
                 c.cpu_set,
-                c.ip_alias,
+                c.private_ip,
+                c.public_ip,
                 c.cu_user,
                 c.cpu_count,
                 c.status,

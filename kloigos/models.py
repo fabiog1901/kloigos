@@ -42,6 +42,31 @@ class SettingNotFoundError(Exception):
     pass
 
 
+def _cpu_ids_for_range(cpu_range: str) -> set[int]:
+    raw_range = cpu_range.strip()
+    if not raw_range:
+        raise ValueError("cpu_range is empty.")
+
+    step = 1
+    if ":" in raw_range:
+        raw_range, raw_step = raw_range.split(":", 1)
+        step = int(raw_step)
+        if step <= 0:
+            raise ValueError("cpu_range step must be positive.")
+
+    if "-" in raw_range:
+        raw_start, raw_end = raw_range.split("-", 1)
+        start = int(raw_start)
+        end = int(raw_end)
+    else:
+        start = end = int(raw_range)
+
+    if start < 0 or end < start:
+        raise ValueError("cpu_range must be a non-negative start-end range.")
+
+    return set(range(start, end + 1, step))
+
+
 class Event(AutoNameStrEnum):
     LOGIN = auto()
     LOGOUT = auto()
@@ -190,10 +215,12 @@ class ServerStatus(AutoNameStrEnum):
 class ComputeUnitInDB(BaseModel):
     compute_id: str
     hostname: str
+    ordinal: int
     cpu_range: str
     cpu_count: int
     cpu_set: str
-    ip_alias: str
+    private_ip: str
+    public_ip: str | None = None
     cu_user: str
     status: str
     started_at: dt.datetime | None = None
@@ -201,7 +228,8 @@ class ComputeUnitInDB(BaseModel):
 
 
 class ComputeUnitOverview(ComputeUnitInDB):
-    ip: str
+    server_private_ip: str
+    server_public_ip: str | None = None
     region: str
     zone: str
 
@@ -217,7 +245,8 @@ class ComputeUnitRequest(BaseModel):
 
 class BaseServer(BaseModel):
     hostname: str
-    ip: str
+    private_ip: str
+    public_ip: str | None = None
     user_id: str
     region: str
     zone: str | None = None
@@ -232,16 +261,42 @@ class ServerInDB(BaseServer):
     status: str
 
 
+class ServerComputeUnitInitSpec(BaseModel):
+    ordinal: int = Field(gt=0)
+    cpu_range: str
+    private_ip: str
+    public_ip: str | None = None
+
+
 class ServerInitRequest(BaseServer):
-    cpu_ranges: list[str]
-    ip_aliases: list[str]
+    compute_units: list[ServerComputeUnitInitSpec]
 
     @model_validator(mode="after")
-    def validate_ip_aliases(self):
-        if len(self.cpu_ranges) != len(self.ip_aliases):
-            raise ValueError("cpu_ranges and ip_aliases must have the same length.")
-        if len(set(self.ip_aliases)) != len(self.ip_aliases):
-            raise ValueError("ip_aliases must be unique.")
+    def validate_compute_units(self):
+        if not self.compute_units:
+            raise ValueError("compute_units must contain at least one compute unit.")
+
+        ordinals = [cu.ordinal for cu in self.compute_units]
+        if len(set(ordinals)) != len(ordinals):
+            raise ValueError("compute_units ordinals must be unique.")
+
+        private_ips = [cu.private_ip for cu in self.compute_units]
+        if len(set(private_ips)) != len(private_ips):
+            raise ValueError("compute_units private_ip values must be unique.")
+
+        public_ips = [
+            cu.public_ip for cu in self.compute_units if cu.public_ip is not None
+        ]
+        if len(set(public_ips)) != len(public_ips):
+            raise ValueError("compute_units public_ip values must be unique.")
+
+        seen_cpus: set[int] = set()
+        for cu in self.compute_units:
+            cpu_ids = _cpu_ids_for_range(cu.cpu_range)
+            if seen_cpus.intersection(cpu_ids):
+                raise ValueError("compute_units cpu_range values must not overlap.")
+            seen_cpus.update(cpu_ids)
+
         return self
 
 
