@@ -39,13 +39,12 @@
             public_key_id: workshop
             cloud: aws
             image: /canonical/ubuntu/server/24.04
-            region: us-central-1
+            region: ca-central-1
             vpc_id: vpc-0289741dc46c80da8
             security_groups:
               - sg-0e3631bbd91d95940
             zone: a
             subnet: subnet-02ed0abd3c499dca9
-
   tasks:
     - name: Ensure presence of instances
       shell: |
@@ -101,13 +100,64 @@
 
           {% endif %}
           {% endfor %}
-        dest: "../inventories/kloigos.ini"
+        dest: kloigos.ini
 
-- name: RUN POST-PROVISIONING TASKS 
-  hosts: kloigos
-  gather_facts: yes
-  become: yes
-  tasks:
-    - name: create groups and directory
+    - name: Get ENI ID for the instance
       shell: |
-        # skip for now  
+        aws ec2 describe-instances \
+          --region ca-central-1 \
+          --instance-ids {{ (instances.stdout | from_json)[0]['id'] }} \
+          --query 'Reservations[].Instances[].NetworkInterfaces[].NetworkInterfaceId' \
+          --output text
+      register: eni_id
+
+    - name: Allocating 3 Secondary Private IPs to the EC2 instance
+      shell: |
+        aws ec2 assign-private-ip-addresses \
+          --region ca-central-1 \
+          --network-interface-id {{ eni_id.stdout }} \
+          --secondary-private-ip-address-count 3
+          # --ipv4-prefix-count 3
+
+    - name: Extract the newly assigned private IPs to a temporary file
+      shell: |
+        aws ec2 describe-network-interfaces \
+          --network-interface-ids {{ eni_id.stdout }} \
+          --region ca-central-1 \
+          --query 'NetworkInterfaces[0].PrivateIpAddresses[?Primary==`false`].PrivateIpAddress' \
+          --output text | tr '\t' '\n'
+      register: _private_ips
+
+    - name: Allocate Elastic IPs
+      shell: |
+        aws ec2 --region ca-central-1 allocate-address --domain vpc --output json
+      register: _allocated_elastic_ips
+      loop: "{{ _private_ips.stdout_lines }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Tag
+      shell: |
+        aws ec2 --region ca-central-1 create-tags \
+          --resources  {{ (item.stdout | from_json).AllocationId | quote }} \
+          --tags Key=Name,Value=kloigos
+      loop: "{{ _allocated_elastic_ips.results }}"
+    
+    - name: Associate Elastic IPs to secondary private IPs
+      shell: |
+        aws ec2 --region ca-central-1 associate-address \
+          --allocation-id {{ (item.stdout | from_json).AllocationId | quote }} \
+          --network-interface-id {{ eni_id.stdout | quote }} \
+          --private-ip-address {{ item.item | quote }}
+      loop: "{{ _allocated_elastic_ips.results }}"
+      loop_control:
+        label: "{{ (item.stdout | from_json).PublicIp }} -> {{ item.item }}"
+
+# - name: RUN POST-PROVISIONING TASKS
+#   hosts: kloigos
+#   gather_facts: yes
+#   become: yes
+#   tasks:
+#     - name: placeholder...
+#       shell: |
+#         # skip for now

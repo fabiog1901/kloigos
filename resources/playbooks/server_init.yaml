@@ -27,7 +27,7 @@
 
 - name: INIT NEW SERVER
   hosts: init_server
-  gather_facts: no
+  gather_facts: yes
   become: yes
   tasks:
     - name: create users
@@ -203,7 +203,7 @@
 
               {% for item in user_ids.results | zip(ip_aliases) %}
               meta skuid {{ item.0.stdout }} ip saddr != {{ item.1 }} drop
-              meta skuid {{ item.0.stdout }} ip6 drop
+              meta skuid {{ item.0.stdout }} meta nfproto ipv6 drop
               {% endfor %}
             }
           }
@@ -239,68 +239,58 @@
         # maybe_setup_dir_quota "21003" "opt_c0_3"  "$OPT1"  "/opt"
         # maybe_setup_dir_quota "21007" "opt_c4_7"  "$OPT2"  "/opt"
 
-    - name: Set pkgmgr using a lookup map
-      set_fact:
-        pkgmgr: "{{ os_to_pkg_map[ansible_facts.os_family | lower ] }}"
-      vars:
-        os_to_pkg_map:
-          redhat: "dnf"
-          debian: "apt"
-          suse: "zypper"
+    # - name: Set pkgmgr using a lookup map
+    #   set_fact:
+    #     pkgmgr: "{{ os_to_pkg_map[ansible_facts.os_family | lower ] }}"
+    #   vars:
+    #     os_to_pkg_map:
+    #       redhat: "dnf"
+    #       debian: "apt"
+    #       suse: "zypper"
       
-    - name: create kloigos-[pkgmgr] script
-      copy:
-        content: |
-          #!/bin/bash
-          set -euo pipefail
+    # - name: create kloigos-[pkgmgr] script
+    #   copy:
+    #     content: |
+    #       #!/bin/bash
+    #       set -euo pipefail
 
-          case "$1" in
-            install|remove|purge|update)
-              ;;
-            *)
-              echo "Unsupported {{ pkgmgr }} action"
-              exit 1
-              ;;
-          esac
+    #       case "$1" in
+    #         install|remove|purge|update)
+    #           ;;
+    #         *)
+    #           echo "Unsupported {{ pkgmgr }} action"
+    #           exit 1
+    #           ;;
+    #       esac
 
-          exec /usr/bin/{{ pkgmgr }} "$@"
-        dest: /usr/local/bin/kloigos-{{ pkgmgr }} 
+    #       exec /usr/bin/{{ pkgmgr }} "$@"
+    #     dest: /usr/local/bin/kloigos-{{ pkgmgr }} 
 
-    - name: set kloigos-[pkgmgr] permissions and ownership
-      shell: |
-        chown root:root /usr/local/bin/kloigos-{{ pkgmgr }} 
-        chmod 0755 /usr/local/bin/kloigos-{{ pkgmgr }}
+    # - name: set kloigos-[pkgmgr] permissions and ownership
+    #   shell: |
+    #     chown root:root /usr/local/bin/kloigos-{{ pkgmgr }} 
+    #     chmod 0755 /usr/local/bin/kloigos-{{ pkgmgr }}
 
-    - name: make source repos files immutable
-      when: ansible_facts.os_family | lower == "debian"
-      shell: |
-        # Let's break down exactly what your command does and why it matters.
-        # The command marks:
-        #   /etc/apt/sources.list
-        #   all files in /etc/apt/sources.list.d/
-        # as immutable.
-        # "Immutable" means:
-        # Once set, the file cannot be modified, deleted, renamed, truncated, 
-        # replaced, have permissions changed, have ownership changed
-        # Even root cannot modify it until the flag is removed.
-
-        chattr +i /etc/apt/sources.list  #/etc/apt/sources.list.d/*.list
+    # - name: make source repos files immutable
+    #   when: ansible_facts["os_family"] | lower == "debian"
+    #   shell: |
+    #     chattr +i /etc/apt/sources.list  #/etc/apt/sources.list.d/*.list
     
-    - name: make source repos files immutable
-      when: ansible_facts.os_family | lower == "redhat"
-      shell: |
-        chattr +i /etc/yum.repos.d/*.repo
+    # - name: make source repos files immutable
+    #   when: ansible_facts["os_family"] | lower == "redhat"
+    #   shell: |
+    #     chattr +i /etc/yum.repos.d/*.repo
 
-    - name: create sudoers directory
-      shell: |
-        mkdir -p /etc/sudoers.d/
+    # - name: create sudoers directory
+    #   shell: |
+    #     mkdir -p /etc/sudoers.d/
 
-    - name: create sudoers files to run kloigos-apt
-      copy:
-        content: |
-          c{{ item }} ALL=(root) NOPASSWD: /usr/local/bin/kloigos-{{ pkgmgr }}
-          Defaults:c{{ item }} env_reset
-          Defaults:c{{ item }} secure_path="/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin"
+    # - name: create sudoers files to run kloigos-apt
+    #   copy:
+    #     content: |
+    #       c{{ item }} ALL=(root) NOPASSWD: /usr/local/bin/kloigos-{{ pkgmgr }}
+    #       Defaults:c{{ item }} env_reset
+    #       Defaults:c{{ item }} secure_path="/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin"
 
-        dest: /etc/sudoers.d/kloigos-c{{ item }}
-      loop: "{{ cpu_ranges }}"
+    #     dest: /etc/sudoers.d/kloigos-c{{ item }}
+    #   loop: "{{ cpu_ranges }}"
