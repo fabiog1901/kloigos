@@ -41,7 +41,7 @@ Here is an example bash client
 # --- Configuration ---
 ACCESS_KEY="kloigos-1234567890"
 SECRET_KEY="xxxxxxyyyyyyzzzzzz"
-API_URL="http://localhost:8000/api/compute_units/?compute_id=ec2-15.156.145.186_4-5"
+API_URL="http://localhost:8000/api/compute_units/?compute_id=s35-cu01"
 
 # --- 1. Extract Path and Query from URL ---
 # We use 'cut' to separate the protocol/host from the path/query

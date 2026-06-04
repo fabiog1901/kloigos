@@ -11,22 +11,52 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("/", response_model=list[ServerInDB])
 async def list_servers(
     hostname: str | None = None,
     service: AdminService = Depends(get_admin_service),
 ) -> list[ServerInDB]:
+    """
+    Return physical servers, optionally filtered by hostname.
+
+    Server records describe host-level placement and management details. Use
+    `/compute_units/?hostname=<hostname>` to list the compute units hosted on a
+    server.
+    """
     return service.list_servers(hostname)
 
 
-@router.post("/")
+@router.post("/", summary="Initialize a physical server and its compute units.")
 async def init_server(
     sir: ServerInitRequest,
     bg_task: BackgroundTasks,
     actor_id: str = Depends(get_audit_actor),
     service: AdminService = Depends(get_admin_service),
 ) -> Response:
-    # add the server to the compute_units table with status='init'
+    """
+    Register a physical server and schedule bootstrap for its compute units.
+
+    The request body uses explicit compute-unit specs instead of parallel arrays:
+
+    ```json
+    {
+      "hostname": "s35",
+      "private_ip": "10.0.0.10",
+      "public_ip": "54.0.0.10",
+      "user_id": "ubuntu",
+      "region": "us-east-1",
+      "zone": "us-east-1a",
+      "compute_units": [
+        {
+          "ordinal": 1,
+          "cpu_range": "0-1",
+          "private_ip": "10.0.0.101",
+          "public_ip": "3.0.0.1"
+        }
+      ]
+    }
+    ```
+    """
     tasks: list[DeferredTask] = service.init_server(actor_id, sir)
 
     # async, run the init task

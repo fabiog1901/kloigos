@@ -127,7 +127,7 @@ async def deallocate(
     return Response(status_code=status.HTTP_200_OK)
 
 
-@router.get("/")
+@router.get("/", response_model=list[ComputeUnitOverview])
 async def list_compute_units(
     compute_id: str | None = None,
     hostname: str | None = None,
@@ -140,6 +140,10 @@ async def list_compute_units(
 ) -> list[ComputeUnitOverview]:
     """
     Return compute units, optionally filtered by id, host, region, size, tags, or status.
+
+    Each compute unit includes its deterministic `compute_id`, parent `hostname`,
+    internal `private_ip`, optional external `public_ip`, and the parent server's
+    management IPs.
 
     Example:
     - /compute_units
