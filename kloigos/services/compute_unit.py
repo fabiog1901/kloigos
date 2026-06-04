@@ -18,6 +18,10 @@ from ..repos.postgres import PostgresRepo
 from ..util import MyRunner, request_id_ctx
 
 
+def _ansible_host(public_ip: str | None, private_ip: str) -> str:
+    return public_ip or private_ip
+
+
 class ComputeUnitService:
     """Coordinate compute-unit allocation, deallocation, and audit logging."""
 
@@ -224,8 +228,14 @@ class ComputeUnitService:
                 {
                     "compute_id": cu.compute_id,
                     "hostname": cu.hostname,
-                    "ip": cu.ip,
-                    "ip_alias": cu.ip_alias,
+                    "ansible_host": _ansible_host(
+                        cu.server_public_ip, cu.server_private_ip
+                    ),
+                    "server_private_ip": cu.server_private_ip,
+                    "server_public_ip": cu.server_public_ip,
+                    "private_ip": cu.private_ip,
+                    "public_ip": cu.public_ip,
+                    "cu_user": cu.cu_user,
                     "cpu_range": cu.cpu_range,
                     "cpu_count": cu.cpu_count,
                     "ssh_public_key": ssh_public_key,
@@ -283,7 +293,11 @@ class ComputeUnitService:
                 {
                     "compute_id": cu.compute_id,
                     "hostname": cu.hostname,
-                    "ip": cu.ip,
+                    "ansible_host": _ansible_host(
+                        cu.server_public_ip, cu.server_private_ip
+                    ),
+                    "server_private_ip": cu.server_private_ip,
+                    "server_public_ip": cu.server_public_ip,
                     "cu_user": cu.cu_user,
                 },
             )

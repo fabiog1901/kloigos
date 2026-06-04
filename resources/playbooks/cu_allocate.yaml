@@ -5,8 +5,12 @@
 # The following extra-vars are passed:
 #   compute_id
 #   hostname
-#   ip
-#   ip_alias
+#   ansible_host
+#   server_private_ip
+#   server_public_ip
+#   private_ip
+#   public_ip
+#   cu_user
 #   cpu_range
 #   cpu_count
 #   ssh_public_key
@@ -23,10 +27,12 @@
         name: "{{ compute_id }}"
         ansible_user: ubuntu
         public_hostname: "{{ hostname }}"
-        ansible_host: "{{ ip }}"
-        public_ip: "{{ ip }}"
-        ip_alias: "{{ ip_alias }}"
-        cu_user: "c{{ cpu_range.replace(':', '-') }}"
+        ansible_host: "{{ ansible_host }}"
+        server_private_ip: "{{ server_private_ip }}"
+        server_public_ip: "{{ server_public_ip | default('') }}"
+        private_ip: "{{ private_ip }}"
+        public_ip: "{{ public_ip | default('') }}"
+        cu_user: "{{ cu_user }}"
         cpu_count: "{{ cpu_count }}"
         groups: new_alloc
 
@@ -51,7 +57,8 @@
             - CPU count: {{ cpu_count }}
             - Memory:
             - Max running processes: 
-            - IP alias: {{ ip_alias }}
+            - Private IP: {{ private_ip }}
+            - Public IP: {{ public_ip | default('') }}
             - Network bandwidth:
             - Disk volume at /mnt/{{ cu_user }}
             - IOPS/MBPS:
@@ -59,7 +66,7 @@
           
           You're not root, but you can still use systemd
           to run your services.
-          Bind services explicitly to {{ ip_alias }}.
+          Bind services explicitly to {{ private_ip }}.
           Make sure you save your .service files at directory
 
           ~/.config/systemd/user/

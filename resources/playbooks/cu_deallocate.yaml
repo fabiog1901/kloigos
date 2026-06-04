@@ -4,7 +4,9 @@
 #
 #   compute_id
 #   hostname
-#   ip
+#   ansible_host
+#   server_private_ip
+#   server_public_ip
 #   cu_user
 #
 - name: GATHER COMPUTE UNITS TO DEALLOCATE
@@ -18,8 +20,9 @@
         name: "{{ compute_id }}"
         ansible_user: ubuntu
         public_hostname: "{{ hostname }}"
-        ansible_host: "{{ ip }}"
-        public_ip: "{{ ip }}"
+        ansible_host: "{{ ansible_host }}"
+        server_private_ip: "{{ server_private_ip }}"
+        server_public_ip: "{{ server_public_ip | default('') }}"
         cu_user: "{{ cu_user }}"
 
         groups: dealloc

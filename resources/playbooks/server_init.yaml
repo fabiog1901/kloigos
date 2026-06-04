@@ -4,11 +4,11 @@
 #
 # The following extra-vars are passed:
 #   hostname
-#   ip
+#   server_private_ip
+#   server_public_ip
+#   ansible_host
 #   user_id
-#   cpu_ranges
-#   cpu_sets
-#   ip_aliases
+#   compute_units
 #
 - name: GATHER NEW SERVER TO INIT
   hosts: localhost
@@ -21,8 +21,9 @@
         name: "{{ hostname }}"
         ansible_user: "{{ user_id }}"
         public_hostname: "{{ hostname }}"
-        ansible_host: "{{ ip }}"
-        public_ip: "{{ ip }}"
+        ansible_host: "{{ ansible_host }}"
+        server_private_ip: "{{ server_private_ip }}"
+        server_public_ip: "{{ server_public_ip | default('') }}"
         groups: init_server
 
 - name: INIT NEW SERVER
@@ -32,8 +33,8 @@
   tasks:
     - name: create users
       shell: |
-        id c{{ item }} || useradd --create-home --home-dir /home/c{{ item }} --shell /bin/bash c{{ item }}
-      loop: "{{ cpu_ranges }}"
+        id {{ item.cu_user }} || useradd --create-home --home-dir /home/{{ item.cu_user }} --shell /bin/bash {{ item.cu_user }}
+      loop: "{{ compute_units }}"
 
     - name: Find attached disks
       shell: |
@@ -64,8 +65,8 @@
           set -euo pipefail
 
           IFACE="{{ primary_iface.stdout }}"
-          {% for ip_alias in ip_aliases %}
-          ip addr show dev "$IFACE" | grep -q "{{ ip_alias }}/" || ip addr add {{ ip_alias }}/32 dev "$IFACE"
+          {% for cu in compute_units %}
+          ip addr show dev "$IFACE" | grep -q "{{ cu.private_ip }}/" || ip addr add {{ cu.private_ip }}/32 dev "$IFACE"
           {% endfor %}
         dest: /usr/local/sbin/kloigos-ip-aliases
         mode: "0755"
@@ -100,10 +101,10 @@
 
     - name: add disks to /etc/fstab
       shell: |
-        mkdir -p /mnt/c{{ item.1 }}
+        mkdir -p /mnt/{{ item.1.cu_user }}
         DISKUUID=`lsblk -no UUID {{ item.0 }}`
-        grep -q $DISKUUID /etc/fstab || echo "UUID=$DISKUUID /mnt/c{{ item.1 }} ext4 defaults 0 2" >> /etc/fstab
-      loop: "{{ disks.stdout_lines | zip(cpu_ranges) | list }}"
+        grep -q $DISKUUID /etc/fstab || echo "UUID=$DISKUUID /mnt/{{ item.1.cu_user }} ext4 defaults 0 2" >> /etc/fstab
+      loop: "{{ disks.stdout_lines | zip(compute_units) | list }}"
 
     - name: reload systemd and mount disks
       shell: |
@@ -112,22 +113,22 @@
 
     - name: create directories and setting ownership
       shell: |
-        mkdir -p /opt/c{{ item }}
-        mkdir -p /mnt/c{{ item }}
-        mkdir -p /home/c{{ item }}
-        mkdir -p /home/c{{ item }}/.ssh
-        chown -R c{{ item }}:c{{ item }} /opt/c{{ item }}
-        chown -R c{{ item }}:c{{ item }} /mnt/c{{ item }}
-        chown -R c{{ item }}:c{{ item  }} /home/c{{ item }}
-        chmod 0750 /opt/c{{ item }}
-        chmod 0750 /mnt/c{{ item }}
-        chmod 0750 /home/c{{ item }}
-      loop: "{{ cpu_ranges }}"
+        mkdir -p /opt/{{ item.cu_user }}
+        mkdir -p /mnt/{{ item.cu_user }}
+        mkdir -p /home/{{ item.cu_user }}
+        mkdir -p /home/{{ item.cu_user }}/.ssh
+        chown -R {{ item.cu_user }}:{{ item.cu_user }} /opt/{{ item.cu_user }}
+        chown -R {{ item.cu_user }}:{{ item.cu_user }} /mnt/{{ item.cu_user }}
+        chown -R {{ item.cu_user }}:{{ item.cu_user }} /home/{{ item.cu_user }}
+        chmod 0750 /opt/{{ item.cu_user }}
+        chmod 0750 /mnt/{{ item.cu_user }}
+        chmod 0750 /home/{{ item.cu_user }}
+      loop: "{{ compute_units }}"
 
     - name: finding id for each user
       shell: |
-        id -u c{{ item }}
-      loop: "{{ cpu_ranges }}"
+        id -u {{ item.cu_user }}
+      loop: "{{ compute_units }}"
       register: user_ids
 
     - name: create directory for delegate.conf
@@ -172,7 +173,7 @@
           [Slice]
 
           # CPUSET PINNING
-          AllowedCPUs={{ item.1 }}
+          AllowedCPUs={{ item.1.cpu_set }}
 
           # Resource controls (tune as needed)
           CPUAccounting=yes
@@ -186,13 +187,13 @@
 
           # MEMORY ALLOCATION
           #
-          AllowedMemoryNodes={{ cpu_to_node[item.1.split(',')[0]] }}
-          MemoryNodes={{ cpu_to_node[item.1.split(',')[0]] }}
-          MemoryHigh={{ (item.1.split(',') | length * mem_kb_per_cpu.stdout | int / 1024 / 1024) | round(0, 'floor') | int }}G
-          MemoryMax={{ (item.1.split(',') | length * mem_kb_per_cpu.stdout | int * 0.9 / 1024 / 1024) | round(0, 'floor') | int }}G
+          AllowedMemoryNodes={{ cpu_to_node[item.1.cpu_set.split(',')[0]] }}
+          MemoryNodes={{ cpu_to_node[item.1.cpu_set.split(',')[0]] }}
+          MemoryHigh={{ (item.1.cpu_set.split(',') | length * mem_kb_per_cpu.stdout | int / 1024 / 1024) | round(0, 'floor') | int }}G
+          MemoryMax={{ (item.1.cpu_set.split(',') | length * mem_kb_per_cpu.stdout | int * 0.9 / 1024 / 1024) | round(0, 'floor') | int }}G
 
         dest: /etc/systemd/system/user-{{ item.0.stdout }}.slice.d/50-kloigos.conf
-      loop: "{{ user_ids.results | zip(cpu_sets, ip_aliases) | list }}"
+      loop: "{{ user_ids.results | zip(compute_units) | list }}"
 
     - name: write nftables compute unit source-IP enforcement
       copy:
@@ -201,8 +202,8 @@
             chain egress_control {
               type filter hook output priority filter; policy accept;
 
-              {% for item in user_ids.results | zip(ip_aliases) %}
-              meta skuid {{ item.0.stdout }} ip saddr != {{ item.1 }} drop
+              {% for item in user_ids.results | zip(compute_units) %}
+              meta skuid {{ item.0.stdout }} ip saddr != {{ item.1.private_ip }} drop
               meta skuid {{ item.0.stdout }} meta nfproto ipv6 drop
               {% endfor %}
             }
@@ -224,8 +225,8 @@
       shell: |
         systemctl restart user@{{ item.0.stdout }}.service
         systemctl restart user-{{ item.0.stdout }}.slice
-        loginctl enable-linger c{{ item.1 }}
-      loop: "{{ user_ids.results | zip(cpu_ranges) | list }}"
+        loginctl enable-linger {{ item.1.cu_user }}
+      loop: "{{ user_ids.results | zip(compute_units) | list }}"
 
     - name: enforce disk util
       shell: |
@@ -293,4 +294,4 @@
     #       Defaults:c{{ item }} secure_path="/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin"
 
     #     dest: /etc/sudoers.d/kloigos-c{{ item }}
-    #   loop: "{{ cpu_ranges }}"
+    #   loop: "{{ compute_units }}"

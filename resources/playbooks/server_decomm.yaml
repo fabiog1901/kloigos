@@ -4,7 +4,9 @@
 #
 # The following extra-vars are passed:
 #   hostname
-#   ip
+#   ansible_host
+#   server_private_ip
+#   server_public_ip
 #
 - name: ADD SERVER TO DECOMMISSION
   hosts: localhost
@@ -17,8 +19,9 @@
         name: "{{ hostname }}"
         ansible_user: ubuntu
         public_hostname: "{{ hostname }}"
-        ansible_host: "{{ ip }}"
-        public_ip: "{{ ip }}"
+        ansible_host: "{{ ansible_host }}"
+        server_private_ip: "{{ server_private_ip }}"
+        server_public_ip: "{{ server_public_ip | default('') }}"
         groups: decomm
 
 

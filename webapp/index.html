@@ -199,7 +199,7 @@
                     <th data-sort="string" :class="sortClass(1)" @click="toggleSort(1)">Compute ID</th>
                     <th data-sort="string" :class="sortClass(2)" @click="toggleSort(2)">Region</th>
                     <th data-sort="string" :class="sortClass(3)" @click="toggleSort(3)">Hostname</th>
-                    <th data-sort="ip" :class="sortClass(4)" @click="toggleSort(4)">CU IP</th>
+                    <th data-sort="ip" :class="sortClass(4)" @click="toggleSort(4)">Private IP</th>
                     <th data-sort="number" :class="sortClass(5)" @click="toggleSort(5)">CPUs</th>
                     <!-- <th data-sort="string" :class="sortClass(6)" @click="toggleSort(6)">CPU Range</th>
                   <th data-sort="string" :class="sortClass(7)" @click="toggleSort(7)">Ports Range</th> -->
@@ -239,7 +239,7 @@
                       </td>
 
                       <!-- compute unit ip alias -->
-                      <td><span x-text="row.ip_alias || row.ip || '-'"></span></td>
+                      <td><span x-text="row.private_ip || '-'"></span></td>
 
                       <!-- cpu_count -->
                       <td><span x-text="row.cpu_count"></span></td>
@@ -422,7 +422,7 @@
                 <thead>
                   <tr>
                     <th data-sort="string" :class="serversSortClass(0)" @click="toggleServersSort(0)">Hostname</th>
-                    <th data-sort="ip" :class="serversSortClass(1)" @click="toggleServersSort(1)">IP</th>
+                    <th data-sort="ip" :class="serversSortClass(1)" @click="toggleServersSort(1)">Private IP</th>
                     <th data-sort="string" :class="serversSortClass(2)" @click="toggleServersSort(2)">User</th>
                     <th data-sort="string" :class="serversSortClass(3)" @click="toggleServersSort(3)">Region</th>
                     <th data-sort="string" :class="serversSortClass(4)" @click="toggleServersSort(4)">Zone</th>
@@ -444,7 +444,7 @@
                           @click="openServerDetails(s)" @keydown.enter.prevent="openServerDetails(s)"
                           @keydown.space.prevent="openServerDetails(s)" x-text="s.hostname"></span>
                       </td>
-                      <td><span x-text="s.ip || '-'"></span></td>
+                      <td><span x-text="s.private_ip || '-'"></span></td>
                       <td><span x-text="s.user_id || '-'"></span></td>
                       <td><span x-text="s.region || '-'"></span></td>
                       <td><span x-text="s.zone || '-'"></span></td>
@@ -1221,8 +1221,12 @@
             <div class="modal-error-banner" x-show="modalErrors.init" x-text="modalErrors.init"></div>
             <div class="form-grid">
               <div class="form-row">
-                <div class="label">ip</div>
-                <input class="input" x-model="modal.init.ip" placeholder="10.0.0.12" />
+                <div class="label">server private IP</div>
+                <input class="input" x-model="modal.init.private_ip" placeholder="10.0.0.12" />
+              </div>
+              <div class="form-row">
+                <div class="label">server public IP</div>
+                <input class="input" x-model="modal.init.public_ip" placeholder="optional" />
               </div>
               <div class="form-row">
                 <div class="label">hostname</div>
@@ -1261,14 +1265,14 @@
               </div>
 
               <div class="form-row" style="grid-column: 1 / -1;">
-                <div class="label">computed cpu_ranges</div>
+                <div class="label">computed compute unit CPU ranges</div>
                 <pre class="inspector-pre" style="max-height: 140px; white-space: pre-wrap;"
                   x-text="modal.init.cpuRangesPreview || '-'"></pre>
               </div>
 
               <details class="form-row" style="grid-column: 1 / -1;">
                 <summary style="cursor:pointer; color: var(--muted); font-size: 12px; user-select:none;">
-                  Advanced: edit cpu_ranges JSON directly
+                  Advanced: edit CPU ranges JSON directly
                 </summary>
                 <div style="margin-top:8px;">
                   <textarea class="textarea" x-model="modal.init.cpuRangesText" spellcheck="false"
@@ -1277,9 +1281,15 @@
               </details>
 
               <div class="form-row" style="grid-column: 1 / -1;">
-                <div class="label">ip_aliases</div>
-                <textarea class="textarea" x-model="modal.init.ipAliasesText" spellcheck="false"
+                <div class="label">compute unit private IPs</div>
+                <textarea class="textarea" x-model="modal.init.privateIpsText" spellcheck="false"
                   placeholder='["10.0.0.101","10.0.0.102"]'></textarea>
+              </div>
+
+              <div class="form-row" style="grid-column: 1 / -1;">
+                <div class="label">compute unit public IPs</div>
+                <textarea class="textarea" x-model="modal.init.publicIpsText" spellcheck="false"
+                  placeholder='["3.1.1.1","3.1.1.2"]'></textarea>
               </div>
 
             </div>

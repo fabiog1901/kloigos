@@ -150,12 +150,14 @@ window.app = function () {
       },
       init: {
         open: false,
-        ip: "",
+        private_ip: "",
+        public_ip: "",
         region: "",
         zone: "",
         hostname: "",
         cpuRangesText: '["0-3"]',
-        ipAliasesText: '["10.0.0.101"]',
+        privateIpsText: '["10.0.0.101"]',
+        publicIpsText: "[]",
       },
       decommission: { open: false, hostname: "" },
       deallocateConfirm: { open: false, compute_id: "", hostname: "" },
@@ -983,7 +985,16 @@ window.app = function () {
               .map(([k, v]) => `${k}:${Array.isArray(v) ? v.join(",") : v}`)
               .join(" ")
           : "";
-      return [s.hostname, s.ip, s.user_id, s.region, s.zone, s.status, tags]
+      return [
+        s.hostname,
+        s.private_ip,
+        s.public_ip,
+        s.user_id,
+        s.region,
+        s.zone,
+        s.status,
+        tags,
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -994,7 +1005,7 @@ window.app = function () {
         case 0:
           return s.hostname || "";
         case 1:
-          return s.ip || "";
+          return s.private_ip || "";
         case 2:
           return s.user_id || "";
         case 3:
@@ -1747,10 +1758,6 @@ window.app = function () {
       try {
         const data = await this.apiFetch("/compute_units/");
         this.computeUnits = Array.isArray(data) ? data : [];
-        this.computeUnits = this.computeUnits.map((row) => ({
-          ...row,
-          compute_id: `${row.hostname}_${row.cpu_range}`,
-        }));
         this.lastUpdatedUtc = this.utcNowString();
         this.applyFilterSort();
       } catch (e) {
@@ -1766,7 +1773,10 @@ window.app = function () {
       const parts = [
         row.compute_id,
         row.hostname,
-        row.ip,
+        row.private_ip,
+        row.public_ip,
+        row.server_private_ip,
+        row.server_public_ip,
         row.region,
         row.zone,
         row.status,
@@ -1811,13 +1821,13 @@ window.app = function () {
         case 3:
           return row.hostname || "";
         case 4:
-          return row.ip_alias || row.ip || "";
+          return row.private_ip || "";
         case 5:
           return row.cpu_count;
         case 6:
           return row.cpu_range || "";
         case 7:
-          return row.ip_alias || "";
+          return row.public_ip || "";
         case 8:
           return row.started_at || "";
         case 9:
@@ -2029,7 +2039,8 @@ window.app = function () {
     closeInitModal() {
       this.modal.init.open = false;
       this.clearModalError("init");
-      this.modal.init.ip = "";
+      this.modal.init.private_ip = "";
+      this.modal.init.public_ip = "";
       this.modal.init.hostname = "";
       this.modal.init.user_id = "ubuntu";
       this.modal.init.region = "";
@@ -2039,7 +2050,8 @@ window.app = function () {
       this.modal.init.cpuEnd = 0;
       this.modal.init.cpuStep = 0;
       this.modal.init.cpuRangesText = "";
-      this.modal.init.ipAliasesText = "";
+      this.modal.init.privateIpsText = "";
+      this.modal.init.publicIpsText = "";
       this.modal.init.cpuRangesPreview = "";
       this.modal.init.cpuSetPreview = "";
       this.modal.init.cpuRangesError = "";
@@ -2116,8 +2128,11 @@ window.app = function () {
         const cpu_ranges = JSON.parse(
           (this.modal.init.cpuRangesText || "[]").trim() || "[]",
         );
-        const ip_aliases = JSON.parse(
-          (this.modal.init.ipAliasesText || "[]").trim() || "[]",
+        const private_ips = JSON.parse(
+          (this.modal.init.privateIpsText || "[]").trim() || "[]",
+        );
+        const public_ips = JSON.parse(
+          (this.modal.init.publicIpsText || "[]").trim() || "[]",
         );
         if (
           !Array.isArray(cpu_ranges) ||
@@ -2125,23 +2140,40 @@ window.app = function () {
         )
           throw new Error("cpu_ranges must be a JSON array of strings.");
         if (
-          !Array.isArray(ip_aliases) ||
-          ip_aliases.some((x) => typeof x !== "string")
+          !Array.isArray(private_ips) ||
+          private_ips.some((x) => typeof x !== "string")
         )
-          throw new Error("ip_aliases must be a JSON array of strings.");
-        if (ip_aliases.length !== cpu_ranges.length)
-          throw new Error("ip_aliases must have one entry for each cpu_range.");
+          throw new Error("private IPs must be a JSON array of strings.");
+        if (
+          !Array.isArray(public_ips) ||
+          public_ips.some((x) => typeof x !== "string")
+        )
+          throw new Error("public IPs must be a JSON array of strings.");
+        if (private_ips.length !== cpu_ranges.length)
+          throw new Error("private IPs must have one entry for each cpu_range.");
+        if (public_ips.length && public_ips.length !== cpu_ranges.length)
+          throw new Error(
+            "public IPs must be empty or have one entry for each cpu_range.",
+          );
+
+        const compute_units = cpu_ranges.map((cpu_range, index) => ({
+          ordinal: index + 1,
+          cpu_range,
+          private_ip: private_ips[index],
+          public_ip: public_ips[index] || null,
+        }));
 
         const payload = {
-          ip: (this.modal.init.ip || "").trim(),
+          private_ip: (this.modal.init.private_ip || "").trim(),
+          public_ip: (this.modal.init.public_ip || "").trim() || null,
           region: (this.modal.init.region || "").trim(),
           zone: (this.modal.init.zone || "").trim(),
           hostname: (this.modal.init.hostname || "").trim(),
           user_id: (this.modal.init.user_id || "ubuntu").trim(),
-          cpu_ranges,
-          ip_aliases,
+          compute_units,
         };
         for (const [k, v] of Object.entries(payload)) {
+          if (k === "public_ip") continue;
           if ((typeof v === "string" && !v) || v == null)
             throw new Error(`${k} is required.`);
         }

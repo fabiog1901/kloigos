@@ -14,6 +14,14 @@ from ...util import MyRunner, request_id_ctx, to_cpu_set
 from .base import AdminServiceBase
 
 
+def _cu_user(ordinal: int) -> str:
+    return f"c{ordinal:02d}"
+
+
+def _ansible_host(public_ip: str | None, private_ip: str) -> str:
+    return public_ip or private_ip
+
+
 class ServersAdminService(AdminServiceBase):
     def init_server(self, actor_id: str, sir: ServerInitRequest) -> list[DeferredTask]:
         self.repo.log_event(
@@ -80,33 +88,47 @@ class ServersAdminService(AdminServiceBase):
         self.repo.delete_server(hostname)
 
     def _run_init_server(self, sir: ServerInitRequest, actor_id: str) -> None:
-        cpu_sets = [to_cpu_set(x) for x in sir.cpu_ranges]
-        cpu_ranges = [x.replace(":", "-") for x in sir.cpu_ranges]
+        compute_units = []
+        for cu in sorted(sir.compute_units, key=lambda item: item.ordinal):
+            cpu_set = to_cpu_set(cu.cpu_range)
+            compute_units.append(
+                {
+                    "ordinal": cu.ordinal,
+                    "cu_user": _cu_user(cu.ordinal),
+                    "cpu_range": cu.cpu_range,
+                    "cpu_set": cpu_set,
+                    "cpu_count": len(cpu_set.split(",")),
+                    "private_ip": cu.private_ip,
+                    "public_ip": cu.public_ip,
+                }
+            )
 
         job_ok = MyRunner(self.repo).launch_runner(
             Playbook.SERVER_INIT,
             {
                 "hostname": sir.hostname,
-                "ip": sir.ip,
+                "server_private_ip": sir.private_ip,
+                "server_public_ip": sir.public_ip,
+                "ansible_host": _ansible_host(sir.public_ip, sir.private_ip),
                 "user_id": sir.user_id,
-                "cpu_ranges": cpu_ranges,
-                "cpu_sets": cpu_sets,
-                "ip_aliases": sir.ip_aliases,
+                "compute_units": compute_units,
             },
         )
 
         # add the created compute units if the job was successful
         if job_ok:
-            for x, ip_alias in zip(sir.cpu_ranges, sir.ip_aliases):
+            for cu in compute_units:
                 self.repo.insert_new_compute_unit(
                     ComputeUnitInDB(
                         compute_id="",  # not used, computed
                         hostname=sir.hostname,
-                        cpu_range=x,
-                        cpu_count=len(to_cpu_set(x).split(",")),
-                        cpu_set=to_cpu_set(x),
-                        ip_alias=ip_alias,
-                        cu_user=f"c{x.replace(':', '-')}",
+                        ordinal=cu["ordinal"],
+                        cpu_range=cu["cpu_range"],
+                        cpu_count=cu["cpu_count"],
+                        cpu_set=cu["cpu_set"],
+                        private_ip=cu["private_ip"],
+                        public_ip=cu["public_ip"],
+                        cu_user=cu["cu_user"],
                         status=ComputeUnitStatus.FREE,
                     )
                 )
@@ -133,7 +155,9 @@ class ServersAdminService(AdminServiceBase):
             Playbook.SERVER_DECOMM,
             {
                 "hostname": srv.hostname,
-                "ip": srv.ip,
+                "server_private_ip": srv.private_ip,
+                "server_public_ip": srv.public_ip,
+                "ansible_host": _ansible_host(srv.public_ip, srv.private_ip),
                 "user_id": srv.user_id,
             },
         )
