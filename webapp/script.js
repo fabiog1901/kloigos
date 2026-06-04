@@ -2063,7 +2063,7 @@ window.app = function () {
       try {
         this.modal.init.cpuRangesError = "";
 
-        let cpu_ranges = [];
+        let cpuRanges = [];
         let cpu_set = [];
 
         if (fromTextarea) {
@@ -2074,8 +2074,8 @@ window.app = function () {
             !Array.isArray(parsed) ||
             parsed.some((x) => typeof x !== "string")
           )
-            throw new Error("cpu_ranges must be a JSON array of strings.");
-          cpu_ranges = parsed;
+            throw new Error("CPU ranges must be a JSON array of strings.");
+          cpuRanges = parsed;
         } else {
           const start = 0;
           const end = Number(this.modal.init.cpuEnd) - 1;
@@ -2090,15 +2090,15 @@ window.app = function () {
           // Build chunks: [start..min(start+step-1,end)], then advance by step.
           for (let cur = start; cur <= end; cur += step) {
             const chunkEnd = Math.min(cur + step - 1, end);
-            cpu_ranges.push(`${cur}-${chunkEnd}`);
+            cpuRanges.push(`${cur}-${chunkEnd}`);
           }
 
           // Keep JSON textarea in sync for transparency / copy-paste.
-          this.modal.init.cpuRangesText = JSON.stringify(cpu_ranges);
+          this.modal.init.cpuRangesText = JSON.stringify(cpuRanges);
         }
 
         // Expand to a CPU set preview (best-effort)
-        for (const r of cpu_ranges) {
+        for (const r of cpuRanges) {
           const m = String(r).match(/^\s*(\d+)\s*-\s*(\d+)\s*$/);
           if (!m) continue;
           const a = Number(m[1]);
@@ -2110,7 +2110,7 @@ window.app = function () {
         // De-dup + sort
         cpu_set = Array.from(new Set(cpu_set)).sort((a, b) => a - b);
 
-        this.modal.init.cpuRangesPreview = JSON.stringify(cpu_ranges, null, 2);
+        this.modal.init.cpuRangesPreview = JSON.stringify(cpuRanges, null, 2);
         this.modal.init.cpuSetPreview = cpu_set.length
           ? `${cpu_set.join(", ")}\n(count: ${cpu_set.length})`
           : "-";
@@ -2125,7 +2125,7 @@ window.app = function () {
       this.loading.init = true;
       this.clearModalError("init");
       try {
-        const cpu_ranges = JSON.parse(
+        const cpuRanges = JSON.parse(
           (this.modal.init.cpuRangesText || "[]").trim() || "[]",
         );
         const private_ips = JSON.parse(
@@ -2135,10 +2135,10 @@ window.app = function () {
           (this.modal.init.publicIpsText || "[]").trim() || "[]",
         );
         if (
-          !Array.isArray(cpu_ranges) ||
-          cpu_ranges.some((x) => typeof x !== "string")
+          !Array.isArray(cpuRanges) ||
+          cpuRanges.some((x) => typeof x !== "string")
         )
-          throw new Error("cpu_ranges must be a JSON array of strings.");
+          throw new Error("CPU ranges must be a JSON array of strings.");
         if (
           !Array.isArray(private_ips) ||
           private_ips.some((x) => typeof x !== "string")
@@ -2149,14 +2149,14 @@ window.app = function () {
           public_ips.some((x) => typeof x !== "string")
         )
           throw new Error("public IPs must be a JSON array of strings.");
-        if (private_ips.length !== cpu_ranges.length)
-          throw new Error("private IPs must have one entry for each cpu_range.");
-        if (public_ips.length && public_ips.length !== cpu_ranges.length)
+        if (private_ips.length !== cpuRanges.length)
+          throw new Error("private IPs must have one entry for each CPU range.");
+        if (public_ips.length && public_ips.length !== cpuRanges.length)
           throw new Error(
-            "public IPs must be empty or have one entry for each cpu_range.",
+            "public IPs must be empty or have one entry for each CPU range.",
           );
 
-        const compute_units = cpu_ranges.map((cpu_range, index) => ({
+        const compute_units = cpuRanges.map((cpu_range, index) => ({
           ordinal: index + 1,
           cpu_range,
           private_ip: private_ips[index],

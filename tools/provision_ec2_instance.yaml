@@ -6,6 +6,7 @@
   gather_facts: no
   become: no
   vars:
+    compute_unit_count: 4
     deployment:
       - cluster_name: fabio-kloigos
         copies: 1
@@ -46,12 +47,20 @@
             zone: a
             subnet: subnet-02ed0abd3c499dca9
   tasks:
+    - name: Calculate compute unit CPU width
+      set_fact:
+        cpu_per_compute_unit: "{{ ((deployment[0].instance.cpu | int) / (compute_unit_count | int)) | int }}"
+
     - name: Ensure presence of instances
       shell: |
-        cloud_instance create -d fabio-kloigos \
+        cloud_instance create -d {{ deployment[0].cluster_name | quote }} \
           --deployment '{{ deployment | to_json }}' \
           --defaults {}
       register: instances
+
+    - name: Capture primary instance record
+      set_fact:
+        kloigos_instance: "{{ (instances.stdout | from_json)[0] }}"
 
     - name: Wait for SSH to come up
       wait_for:
@@ -105,32 +114,31 @@
     - name: Get ENI ID for the instance
       shell: |
         aws ec2 describe-instances \
-          --region ca-central-1 \
-          --instance-ids {{ (instances.stdout | from_json)[0]['id'] }} \
+          --region {{ deployment[0].groups[0].region | quote }} \
+          --instance-ids {{ kloigos_instance.id }} \
           --query 'Reservations[].Instances[].NetworkInterfaces[].NetworkInterfaceId' \
           --output text
       register: eni_id
 
-    - name: Allocating 3 Secondary Private IPs to the EC2 instance
+    - name: Allocate secondary private IPs to the EC2 instance
       shell: |
         aws ec2 assign-private-ip-addresses \
-          --region ca-central-1 \
+          --region {{ deployment[0].groups[0].region | quote }} \
           --network-interface-id {{ eni_id.stdout }} \
-          --secondary-private-ip-address-count 3
-          # --ipv4-prefix-count 3
+          --secondary-private-ip-address-count {{ (compute_unit_count | int) - 1 }}
 
     - name: Extract the newly assigned private IPs to a temporary file
       shell: |
         aws ec2 describe-network-interfaces \
           --network-interface-ids {{ eni_id.stdout }} \
-          --region ca-central-1 \
+          --region {{ deployment[0].groups[0].region | quote }} \
           --query 'NetworkInterfaces[0].PrivateIpAddresses[?Primary==`false`].PrivateIpAddress' \
           --output text | tr '\t' '\n'
       register: _private_ips
 
     - name: Allocate Elastic IPs
       shell: |
-        aws ec2 --region ca-central-1 allocate-address --domain vpc --output json
+        aws ec2 --region {{ deployment[0].groups[0].region | quote }} allocate-address --domain vpc --output json
       register: _allocated_elastic_ips
       loop: "{{ _private_ips.stdout_lines }}"
       loop_control:
@@ -138,20 +146,78 @@
 
     - name: Tag
       shell: |
-        aws ec2 --region ca-central-1 create-tags \
+        aws ec2 --region {{ deployment[0].groups[0].region | quote }} create-tags \
           --resources  {{ (item.stdout | from_json).AllocationId | quote }} \
           --tags Key=Name,Value=kloigos
       loop: "{{ _allocated_elastic_ips.results }}"
     
     - name: Associate Elastic IPs to secondary private IPs
       shell: |
-        aws ec2 --region ca-central-1 associate-address \
+        aws ec2 --region {{ deployment[0].groups[0].region | quote }} associate-address \
           --allocation-id {{ (item.stdout | from_json).AllocationId | quote }} \
           --network-interface-id {{ eni_id.stdout | quote }} \
           --private-ip-address {{ item.item | quote }}
       loop: "{{ _allocated_elastic_ips.results }}"
       loop_control:
         label: "{{ (item.stdout | from_json).PublicIp }} -> {{ item.item }}"
+
+    - name: Capture secondary public IPs
+      set_fact:
+        secondary_public_ips: "{{ _allocated_elastic_ips.results | map(attribute='stdout') | map('from_json') | map(attribute='PublicIp') | list }}"
+
+    - name: Capture compute unit address inventory
+      set_fact:
+        compute_unit_private_ips: "{{ [kloigos_instance.private_ip] + _private_ips.stdout_lines }}"
+        compute_unit_public_ips: "{{ [kloigos_instance.public_ip] + secondary_public_ips }}"
+
+    - name: Validate compute unit address inventory
+      assert:
+        that:
+          - compute_unit_private_ips | length == compute_unit_count | int
+          - compute_unit_public_ips | length == compute_unit_count | int
+          - compute_unit_private_ips | select('string') | list | length == compute_unit_count | int
+          - compute_unit_public_ips | select('string') | list | length == compute_unit_count | int
+
+    - name: Initialize Kloigos compute unit init list
+      set_fact:
+        kloigos_compute_units: []
+
+    - name: Build Kloigos compute unit init list
+      set_fact:
+        kloigos_compute_units: >-
+          {{ kloigos_compute_units + [{
+            "ordinal": item + 1,
+            "cpu_range": start_cpu ~ "-" ~ end_cpu,
+            "private_ip": compute_unit_private_ips[item],
+            "public_ip": compute_unit_public_ips[item]
+          }] }}
+      vars:
+        start_cpu: "{{ item * (cpu_per_compute_unit | int) }}"
+        end_cpu: >-
+          {{ (deployment[0].instance.cpu | int) - 1
+             if item == (compute_unit_count | int) - 1
+             else start_cpu | int + (cpu_per_compute_unit | int) - 1 }}
+      loop: "{{ range(0, compute_unit_count | int) | list }}"
+
+    - name: Build Kloigos server init payload
+      set_fact:
+        kloigos_server_init:
+          hostname: "{{ kloigos_instance.private_hostname | default(kloigos_instance.id) }}"
+          private_ip: "{{ kloigos_instance.private_ip }}"
+          public_ip: "{{ kloigos_instance.public_ip }}"
+          user_id: "{{ kloigos_instance.ansible_user }}"
+          region: "{{ kloigos_instance.region }}"
+          zone: "{{ kloigos_instance.zone }}"
+          cpu_count: "{{ deployment[0].instance.cpu }}"
+          disk_count: "{{ deployment[0].volumes.data | length }}"
+          tags: "{{ deployment[0].tags }}"
+          compute_units: "{{ kloigos_compute_units }}"
+
+    - name: Save Kloigos server init payload
+      copy:
+        content: |
+          {{ kloigos_server_init | to_nice_json }}
+        dest: kloigos-server-init.json
 
 # - name: RUN POST-PROVISIONING TASKS
 #   hosts: kloigos

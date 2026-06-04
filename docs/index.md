@@ -21,6 +21,8 @@ resource limits, filesystem isolation, and network controls.
 
 Each compute unit behaves like a small, dedicated machine, with its own Unix user, SSH access,
 and systemd-managed services - while sharing the host kernel and avoiding virtualization overhead.
+Each unit is also addressable through its own private IP address and optional public IP address,
+so standard service ports can be reused across compute units without host-level port slicing.
 
 It gives teams a simple, VM-like way to run multiple workloads on the same host, with predictable performance, strong isolation, and a familiar Linux experience. No orchestration layers, no images, no extra overhead - just efficient use of the hardware you already have.
 

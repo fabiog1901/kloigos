@@ -9,6 +9,8 @@ resource limits, filesystem isolation, and network controls.
 
 Each compute unit behaves like a small, dedicated machine, with its own Unix user, SSH access,
 and systemd-managed services - while sharing the host kernel and avoiding virtualization overhead.
+Compute units also have their own private IP address and optional public IP address, so users can
+connect to a stable compute unit ID without depending on host-level port ranges.
 
 ## The problem Kloigos solves
 
