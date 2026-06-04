@@ -21,7 +21,7 @@
         public_hostname: "{{ hostname }}"
         ansible_host: "{{ ansible_host }}"
         server_private_ip: "{{ server_private_ip }}"
-        server_public_ip: "{{ server_public_ip | default('') }}"
+        server_public_ip: "{{ server_public_ip | default('', true) }}"
         groups: decomm
 
 

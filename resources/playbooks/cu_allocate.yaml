@@ -29,9 +29,9 @@
         public_hostname: "{{ hostname }}"
         ansible_host: "{{ ansible_host }}"
         server_private_ip: "{{ server_private_ip }}"
-        server_public_ip: "{{ server_public_ip | default('') }}"
+        server_public_ip: "{{ server_public_ip | default('', true) }}"
         private_ip: "{{ private_ip }}"
-        public_ip: "{{ public_ip | default('') }}"
+        public_ip: "{{ public_ip | default('', true) }}"
         cu_user: "{{ cu_user }}"
         cpu_count: "{{ cpu_count }}"
         groups: new_alloc
@@ -47,6 +47,9 @@
         content: |
           {{ ssh_public_key }}
         dest: /home/{{ cu_user }}/.ssh/authorized_keys
+        owner: "{{ cu_user }}"
+        group: "{{ cu_user }}"
+        mode: "0600"
 
     - name: create welcome file
       copy:
@@ -58,7 +61,7 @@
             - Memory:
             - Max running processes: 
             - Private IP: {{ private_ip }}
-            - Public IP: {{ public_ip | default('') }}
+            - Public IP: {{ public_ip | default('', true) }}
             - Network bandwidth:
             - Disk volume at /mnt/{{ cu_user }}
             - IOPS/MBPS:

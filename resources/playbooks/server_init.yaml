@@ -23,7 +23,7 @@
         public_hostname: "{{ hostname }}"
         ansible_host: "{{ ansible_host }}"
         server_private_ip: "{{ server_private_ip }}"
-        server_public_ip: "{{ server_public_ip | default('') }}"
+        server_public_ip: "{{ server_public_ip | default('', true) }}"
         groups: init_server
 
 - name: INIT NEW SERVER
@@ -214,6 +214,7 @@
       shell: |
         touch /etc/nftables.conf
         grep -qxF 'include "/etc/nftables.d/*.nft"' /etc/nftables.conf || echo 'include "/etc/nftables.d/*.nft"' >> /etc/nftables.conf
+        nft -c -f /etc/nftables.d/kloigos-compute-units.nft
         nft -f /etc/nftables.d/kloigos-compute-units.nft
 
     - name: restart logind
