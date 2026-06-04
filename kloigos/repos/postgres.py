@@ -485,7 +485,7 @@ class PostgresRepo:
         if conditions:
             sql += " AND " + " AND ".join(conditions)
 
-        sql += """ LIMIT 1)
+        sql += """ ORDER BY c.hostname, c.ordinal LIMIT 1)
         UPDATE compute_units
         SET status = %s
         FROM available_cu
@@ -585,6 +585,8 @@ class PostgresRepo:
 
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
+
+        sql += " ORDER BY c.hostname, c.ordinal"
 
         if limit:
             sql += f" LIMIT {limit}"
