@@ -466,7 +466,7 @@
                       </td>
                       <td>
                         <!-- Decommission when READY -->
-                        <template x-if="String(s.status || '').toLowerCase() === 'ready'">
+                        <template x-if="serverCanDecommission(s)">
                           <button class="icon-btn" title="Decommission server"
                             @click="openServerActionConfirm(s, 'decommission')">
                             <!-- power icon -->
@@ -478,8 +478,8 @@
                           </button>
                         </template>
 
-                        <!-- Delete when DECOMMISSIONED -->
-                        <template x-if="String(s.status || '').toLowerCase() === 'decommissioned'">
+                        <!-- Delete only after decommission or terminal init/decommission failure -->
+                        <template x-if="serverCanDelete(s)">
                           <button class="icon-btn" title="Delete server record"
                             @click="openServerActionConfirm(s, 'delete')">
                             <!-- trash icon -->
@@ -494,8 +494,7 @@
                           </button>
                         </template>
 
-                        <template
-                          x-if="String(s.status || '').toLowerCase() !== 'ready' && String(s.status || '').toLowerCase() !== 'decommissioned'">
+                        <template x-if="!serverCanDecommission(s) && !serverCanDelete(s)">
                           <span style="color: var(--muted);">-</span>
                         </template>
                       </td>
@@ -1211,7 +1210,7 @@
 
       <!-- Init Modal -->
       <div class="modal-backdrop" x-show="modal.init.open" x-transition @keydown.escape.window="closeInitModal()">
-        <div class="modal" @click.outside="closeInitModal()">
+        <div class="modal init-modal" @click.outside="closeInitModal()">
           <div class="modal-header">
             <h3 class="modal-title">Init Server</h3>
             <button class="btn" style="padding:7px 12px;" @click="closeInitModal()">CLOSE</button>
@@ -1219,85 +1218,98 @@
 
           <div class="modal-body">
             <div class="modal-error-banner" x-show="modalErrors.init" x-text="modalErrors.init"></div>
-            <div class="form-grid">
+
+            <div class="wizard-tabs" role="tablist" aria-label="Init server steps">
+              <button type="button" class="wizard-tab" :class="{ active: modal.init.tab === 'server' }"
+                @click="setInitTab('server')">1. Server</button>
+              <button type="button" class="wizard-tab" :class="{ active: modal.init.tab === 'units' }"
+                @click="setInitTab('units')">2. Compute Units</button>
+              <button type="button" class="wizard-tab" :class="{ active: modal.init.tab === 'review' }"
+                @click="setInitTab('review')">3. Review</button>
+            </div>
+
+            <div x-show="modal.init.tab === 'server'" class="form-grid">
               <div class="form-row">
                 <div class="label">server private IP</div>
-                <input class="input" x-model="modal.init.private_ip" placeholder="10.0.0.12" />
+                <input class="input" x-model="modal.init.private_ip" @input="updateInitReview()"
+                  placeholder="10.0.0.12" />
               </div>
               <div class="form-row">
                 <div class="label">server public IP</div>
-                <input class="input" x-model="modal.init.public_ip" placeholder="optional" />
+                <input class="input" x-model="modal.init.public_ip" @input="updateInitReview()"
+                  placeholder="optional" />
               </div>
               <div class="form-row">
                 <div class="label">hostname</div>
-                <input class="input" x-model="modal.init.hostname" placeholder="server-123" />
+                <input class="input" x-model="modal.init.hostname" @input="updateInitReview()"
+                  placeholder="server-123" />
               </div>
               <div class="form-row">
                 <div class="label">user id</div>
-                <input class="input" x-model="modal.init.user_id" placeholder="default = ubuntu" />
+                <input class="input" x-model="modal.init.user_id" @input="updateInitReview()"
+                  placeholder="default = ubuntu" />
               </div>
               <div class="form-row">
                 <div class="label">region</div>
-                <input class="input" x-model="modal.init.region" placeholder="us-east-1" />
+                <input class="input" x-model="modal.init.region" @input="updateInitReview()" placeholder="us-east-1" />
               </div>
               <div class="form-row">
                 <div class="label">zone</div>
-                <input class="input" x-model="modal.init.zone" placeholder="us-east-1a" />
+                <input class="input" x-model="modal.init.zone" @input="updateInitReview()" placeholder="us-east-1a" />
               </div>
+            </div>
 
-              <div class="form-row" style="grid-column: 1 / -1;">
-                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-                  <div class="label">server cpu count</div>
-                  <div class="label">desired CPUs per compute unit</div>
+            <div x-show="modal.init.tab === 'units'" class="compute-unit-editor">
+              <div class="compute-unit-toolbar">
+                <div>
+                  <div class="label">compute units</div>
+                  <div class="hint" x-text="modal.init.compute_units.length + ' unit(s)'"></div>
                 </div>
-                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-                  <input class="input" type="number" min="0" x-model.number="modal.init.cpuEnd"
-                    @input="recomputeInitCpuRanges()" placeholder="total server CPUs (e.g. 16)" />
-                  <input class="input" type="number" min="1" x-model.number="modal.init.cpuStep"
-                    @input="recomputeInitCpuRanges()" placeholder="(e.g. 4)" />
-                </div>
-
-                <div style="margin-top:8px; color: var(--muted); font-size: 12px;">
-                  Produces an array of ranges like <span class="ip-pill">["0-3","4-7"]</span> and an expanded CPU set.
-                </div>
-                <div x-show="modal.init.cpuRangesError" style="margin-top:6px; color: var(--danger); font-size: 12px;"
-                  x-text="modal.init.cpuRangesError"></div>
+                <button type="button" class="btn" @click="addInitComputeUnit()">ADD UNIT</button>
               </div>
 
-              <div class="form-row" style="grid-column: 1 / -1;">
-                <div class="label">computed compute unit CPU ranges</div>
-                <pre class="inspector-pre" style="max-height: 140px; white-space: pre-wrap;"
-                  x-text="modal.init.cpuRangesPreview || '-'"></pre>
+              <div class="compute-unit-list">
+                <template x-for="(unit, index) in modal.init.compute_units" :key="index">
+                  <div class="compute-unit-row">
+                    <div class="compute-unit-index" x-text="index + 1"></div>
+                    <div class="form-row">
+                      <div class="label">CPU range</div>
+                      <input class="input" x-model="unit.cpu_range" @input="updateInitReview()" placeholder="0-3" />
+                    </div>
+                    <div class="form-row">
+                      <div class="label">private IP</div>
+                      <input class="input" x-model="unit.private_ip" @input="updateInitReview()"
+                        placeholder="10.0.0.101" />
+                    </div>
+                    <div class="form-row">
+                      <div class="label">public IP</div>
+                      <input class="input" x-model="unit.public_ip" @input="updateInitReview()" placeholder="optional" />
+                    </div>
+                    <button type="button" class="btn btn-danger compute-unit-remove"
+                      :disabled="modal.init.compute_units.length <= 1" @click="removeInitComputeUnit(index)">
+                      REMOVE
+                    </button>
+                  </div>
+                </template>
               </div>
+            </div>
 
-              <details class="form-row" style="grid-column: 1 / -1;">
-                <summary style="cursor:pointer; color: var(--muted); font-size: 12px; user-select:none;">
-                  Advanced: edit CPU ranges JSON directly
-                </summary>
-                <div style="margin-top:8px;">
-                  <textarea class="textarea" x-model="modal.init.cpuRangesText" spellcheck="false"
-                    @input="recomputeInitCpuRanges(true)" placeholder='["0-3","4-7"]'></textarea>
-                </div>
-              </details>
-
-              <div class="form-row" style="grid-column: 1 / -1;">
-                <div class="label">compute unit private IPs</div>
-                <textarea class="textarea" x-model="modal.init.privateIpsText" spellcheck="false"
-                  placeholder='["10.0.0.101","10.0.0.102"]'></textarea>
+            <div x-show="modal.init.tab === 'review'" class="review-panel">
+              <div class="review-summary">
+                <span class="service-pill" x-text="modal.init.hostname || 'hostname'"></span>
+                <span class="service-pill" x-text="modal.init.region || 'region'"></span>
+                <span class="service-pill" x-text="modal.init.compute_units.length + ' compute unit(s)'"></span>
               </div>
-
-              <div class="form-row" style="grid-column: 1 / -1;">
-                <div class="label">compute unit public IPs</div>
-                <textarea class="textarea" x-model="modal.init.publicIpsText" spellcheck="false"
-                  placeholder='["3.1.1.1","3.1.1.2"]'></textarea>
-              </div>
-
+              <pre class="inspector-pre review-json" x-text="modal.init.reviewText || '-'"></pre>
             </div>
           </div>
 
           <div class="modal-footer">
             <button class="btn" @click="closeInitModal()">CANCEL</button>
-            <button class="btn btn-warn" :disabled="loading.init" @click="initServer()">
+            <button class="btn" x-show="modal.init.tab !== 'server'" @click="prevInitTab()">BACK</button>
+            <button class="btn" x-show="modal.init.tab !== 'review'" @click="nextInitTab()">NEXT</button>
+            <button class="btn btn-warn" x-show="modal.init.tab === 'review'" :disabled="loading.init"
+              @click="initServer()">
               <span x-show="!loading.init">RUN INIT</span>
               <span x-show="loading.init">WORKING…</span>
             </button>

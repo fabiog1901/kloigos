@@ -150,14 +150,17 @@ window.app = function () {
       },
       init: {
         open: false,
+        tab: "server",
         private_ip: "",
         public_ip: "",
         region: "",
         zone: "",
         hostname: "",
-        cpuRangesText: '["0-3"]',
-        privateIpsText: '["10.0.0.101"]',
-        publicIpsText: "[]",
+        user_id: "ubuntu",
+        compute_units: [
+          { cpu_range: "0-3", private_ip: "10.0.0.101", public_ip: "" },
+        ],
+        reviewText: "",
       },
       decommission: { open: false, hostname: "" },
       deallocateConfirm: { open: false, compute_id: "", hostname: "" },
@@ -1045,6 +1048,14 @@ window.app = function () {
       if (s.includes("ing")) return "status-pending status-pulse";
       if (!s || s === "unknown") return "status-muted";
       return "status-offline";
+    },
+    serverCanDelete(server) {
+      return ["decommissioned", "init_fail", "decommission_fail"].includes(
+        String(server?.status || "").toLowerCase(),
+      );
+    },
+    serverCanDecommission(server) {
+      return String(server?.status || "").toLowerCase() === "ready";
     },
 
     serversSortClass(index) {
@@ -2028,17 +2039,19 @@ window.app = function () {
     },
 
     openInitModal() {
-      // Keep any existing values, but ensure step has a sane default.
-      if (this.modal.init.cpuStep == null || this.modal.init.cpuStep <= 0)
-        this.modal.init.cpuStep = null;
-
       this.clearModalError("init");
+      this.modal.init.tab = "server";
+      if (!Array.isArray(this.modal.init.compute_units))
+        this.modal.init.compute_units = [];
+      if (this.modal.init.compute_units.length === 0)
+        this.addInitComputeUnit();
+      this.updateInitReview();
       this.modal.init.open = true;
-      this.recomputeInitCpuRanges();
     },
     closeInitModal() {
       this.modal.init.open = false;
       this.clearModalError("init");
+      this.modal.init.tab = "server";
       this.modal.init.private_ip = "";
       this.modal.init.public_ip = "";
       this.modal.init.hostname = "";
@@ -2046,137 +2059,139 @@ window.app = function () {
       this.modal.init.region = "";
       this.modal.init.zone = "";
       this.modal.init.deployment_id = "";
-      this.modal.init.cpuStart = 0;
-      this.modal.init.cpuEnd = 0;
-      this.modal.init.cpuStep = 0;
-      this.modal.init.cpuRangesText = "";
-      this.modal.init.privateIpsText = "";
-      this.modal.init.publicIpsText = "";
-      this.modal.init.cpuRangesPreview = "";
-      this.modal.init.cpuSetPreview = "";
-      this.modal.init.cpuRangesError = "";
+      this.modal.init.compute_units = [
+        { cpu_range: "0-3", private_ip: "10.0.0.101", public_ip: "" },
+      ];
+      this.modal.init.reviewText = "";
     },
 
-    recomputeInitCpuRanges(fromTextarea = false) {
-      // If fromTextarea=true, parse cpuRangesText and just update previews.
-      // Otherwise compute ranges from start/end/step and update cpuRangesText + previews.
+    initComputeUnitTemplate(index = 0) {
+      const start = index * 4;
+      return {
+        cpu_range: `${start}-${start + 3}`,
+        private_ip: "",
+        public_ip: "",
+      };
+    },
+
+    addInitComputeUnit() {
+      this.modal.init.compute_units.push(
+        this.initComputeUnitTemplate(this.modal.init.compute_units.length),
+      );
+      this.updateInitReview();
+    },
+
+    removeInitComputeUnit(index) {
+      if (this.modal.init.compute_units.length <= 1) return;
+      this.modal.init.compute_units.splice(index, 1);
+      this.updateInitReview();
+    },
+
+    setInitTab(tab) {
       try {
-        this.modal.init.cpuRangesError = "";
-
-        let cpuRanges = [];
-        let cpu_set = [];
-
-        if (fromTextarea) {
-          const parsed = JSON.parse(
-            (this.modal.init.cpuRangesText || "[]").trim() || "[]",
-          );
-          if (
-            !Array.isArray(parsed) ||
-            parsed.some((x) => typeof x !== "string")
-          )
-            throw new Error("CPU ranges must be a JSON array of strings.");
-          cpuRanges = parsed;
-        } else {
-          const start = 0;
-          const end = Number(this.modal.init.cpuEnd) - 1;
-          const step = Number(this.modal.init.cpuStep);
-
-          if (!Number.isInteger(end) || end < 0)
-            throw new Error("end must be a non-negative integer.");
-          if (!Number.isInteger(step) || step <= 0)
-            throw new Error("step must be a positive integer.");
-          if (end < start) throw new Error("end must be >= start.");
-
-          // Build chunks: [start..min(start+step-1,end)], then advance by step.
-          for (let cur = start; cur <= end; cur += step) {
-            const chunkEnd = Math.min(cur + step - 1, end);
-            cpuRanges.push(`${cur}-${chunkEnd}`);
-          }
-
-          // Keep JSON textarea in sync for transparency / copy-paste.
-          this.modal.init.cpuRangesText = JSON.stringify(cpuRanges);
-        }
-
-        // Expand to a CPU set preview (best-effort)
-        for (const r of cpuRanges) {
-          const m = String(r).match(/^\s*(\d+)\s*-\s*(\d+)\s*$/);
-          if (!m) continue;
-          const a = Number(m[1]);
-          const b = Number(m[2]);
-          if (!Number.isInteger(a) || !Number.isInteger(b) || b < a) continue;
-          for (let i = a; i <= b; i++) cpu_set.push(i);
-        }
-
-        // De-dup + sort
-        cpu_set = Array.from(new Set(cpu_set)).sort((a, b) => a - b);
-
-        this.modal.init.cpuRangesPreview = JSON.stringify(cpuRanges, null, 2);
-        this.modal.init.cpuSetPreview = cpu_set.length
-          ? `${cpu_set.join(", ")}\n(count: ${cpu_set.length})`
-          : "-";
+        this.clearModalError("init");
+        if (tab === "units") this.validateInitServerDetails();
+        if (tab === "review") this.validateInitComputeUnits();
+        this.modal.init.tab = tab;
+        this.updateInitReview();
+        return true;
       } catch (e) {
-        this.modal.init.cpuRangesPreview = "";
-        this.modal.init.cpuSetPreview = "";
-        this.modal.init.cpuRangesError = e.message || String(e);
+        this.setModalError("init", e, "Server init validation failed.");
+        return false;
       }
+    },
+
+    nextInitTab() {
+      if (this.modal.init.tab === "server") {
+        this.setInitTab("units");
+        return;
+      }
+      if (this.modal.init.tab === "units") this.setInitTab("review");
+    },
+
+    prevInitTab() {
+      if (this.modal.init.tab === "review") {
+        this.modal.init.tab = "units";
+        return;
+      }
+      if (this.modal.init.tab === "units") this.modal.init.tab = "server";
+    },
+
+    validateInitServerDetails() {
+      const required = ["private_ip", "hostname", "user_id", "region", "zone"];
+      for (const key of required) {
+        if (!String(this.modal.init[key] || "").trim())
+          throw new Error(`${key} is required.`);
+      }
+    },
+
+    validateInitComputeUnits() {
+      this.validateInitServerDetails();
+      const units = this.modal.init.compute_units || [];
+      if (!Array.isArray(units) || units.length === 0)
+        throw new Error("At least one compute unit is required.");
+
+      const privateIps = new Set();
+      const publicIps = new Set();
+      for (const [index, unit] of units.entries()) {
+        const row = index + 1;
+        const cpuRange = String(unit.cpu_range || "").trim();
+        const privateIp = String(unit.private_ip || "").trim();
+        const publicIp = String(unit.public_ip || "").trim();
+        if (!cpuRange) throw new Error(`compute unit ${row}: CPU range is required.`);
+        const cpuMatch = cpuRange.match(/^(\d+)\s*-\s*(\d+)$/);
+        if (!cpuMatch)
+          throw new Error(`compute unit ${row}: CPU range must look like 0-3.`);
+        if (Number(cpuMatch[2]) < Number(cpuMatch[1]))
+          throw new Error(`compute unit ${row}: CPU range end must be >= start.`);
+        if (!privateIp)
+          throw new Error(`compute unit ${row}: private IP is required.`);
+        if (privateIps.has(privateIp))
+          throw new Error(`duplicate compute unit private IP: ${privateIp}`);
+        privateIps.add(privateIp);
+        if (publicIp) {
+          if (publicIps.has(publicIp))
+            throw new Error(`duplicate compute unit public IP: ${publicIp}`);
+          publicIps.add(publicIp);
+        }
+      }
+    },
+
+    buildInitPayload() {
+      const compute_units = (this.modal.init.compute_units || []).map(
+        (unit, index) => ({
+          ordinal: index + 1,
+          cpu_range: String(unit.cpu_range || "").trim(),
+          private_ip: String(unit.private_ip || "").trim(),
+          public_ip: String(unit.public_ip || "").trim() || null,
+        }),
+      );
+
+      return {
+        private_ip: (this.modal.init.private_ip || "").trim(),
+        public_ip: (this.modal.init.public_ip || "").trim() || null,
+        region: (this.modal.init.region || "").trim(),
+        zone: (this.modal.init.zone || "").trim(),
+        hostname: (this.modal.init.hostname || "").trim(),
+        user_id: (this.modal.init.user_id || "ubuntu").trim(),
+        compute_units,
+      };
+    },
+
+    updateInitReview() {
+      this.modal.init.reviewText = JSON.stringify(
+        this.buildInitPayload(),
+        null,
+        2,
+      );
     },
 
     async initServer() {
       this.loading.init = true;
       this.clearModalError("init");
       try {
-        const cpuRanges = JSON.parse(
-          (this.modal.init.cpuRangesText || "[]").trim() || "[]",
-        );
-        const private_ips = JSON.parse(
-          (this.modal.init.privateIpsText || "[]").trim() || "[]",
-        );
-        const public_ips = JSON.parse(
-          (this.modal.init.publicIpsText || "[]").trim() || "[]",
-        );
-        if (
-          !Array.isArray(cpuRanges) ||
-          cpuRanges.some((x) => typeof x !== "string")
-        )
-          throw new Error("CPU ranges must be a JSON array of strings.");
-        if (
-          !Array.isArray(private_ips) ||
-          private_ips.some((x) => typeof x !== "string")
-        )
-          throw new Error("private IPs must be a JSON array of strings.");
-        if (
-          !Array.isArray(public_ips) ||
-          public_ips.some((x) => typeof x !== "string")
-        )
-          throw new Error("public IPs must be a JSON array of strings.");
-        if (private_ips.length !== cpuRanges.length)
-          throw new Error("private IPs must have one entry for each CPU range.");
-        if (public_ips.length && public_ips.length !== cpuRanges.length)
-          throw new Error(
-            "public IPs must be empty or have one entry for each CPU range.",
-          );
-
-        const compute_units = cpuRanges.map((cpu_range, index) => ({
-          ordinal: index + 1,
-          cpu_range,
-          private_ip: private_ips[index],
-          public_ip: public_ips[index] || null,
-        }));
-
-        const payload = {
-          private_ip: (this.modal.init.private_ip || "").trim(),
-          public_ip: (this.modal.init.public_ip || "").trim() || null,
-          region: (this.modal.init.region || "").trim(),
-          zone: (this.modal.init.zone || "").trim(),
-          hostname: (this.modal.init.hostname || "").trim(),
-          user_id: (this.modal.init.user_id || "ubuntu").trim(),
-          compute_units,
-        };
-        for (const [k, v] of Object.entries(payload)) {
-          if (k === "public_ip") continue;
-          if ((typeof v === "string" && !v) || v == null)
-            throw new Error(`${k} is required.`);
-        }
+        this.validateInitComputeUnits();
+        const payload = this.buildInitPayload();
 
         await this.apiFetch("/admin/servers/", {
           method: "POST",

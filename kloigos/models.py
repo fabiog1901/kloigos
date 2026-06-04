@@ -42,6 +42,14 @@ class SettingNotFoundError(Exception):
     pass
 
 
+class ServerNotFoundError(Exception):
+    pass
+
+
+class ServerStateError(Exception):
+    pass
+
+
 def _cpu_ids_for_range(cpu_range: str) -> set[int]:
     raw_range = cpu_range.strip()
     if not raw_range:

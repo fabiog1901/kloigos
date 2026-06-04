@@ -7,6 +7,8 @@ from ...models import (
     ServerDecommRequest,
     ServerInDB,
     ServerInitRequest,
+    ServerNotFoundError,
+    ServerStateError,
     ServerStatus,
 )
 from ...util import MyRunner, request_id_ctx, to_cpu_set
@@ -19,6 +21,13 @@ def _cu_user(ordinal: int) -> str:
 
 def _ansible_host(public_ip: str | None, private_ip: str) -> str:
     return public_ip or private_ip
+
+
+DELETABLE_SERVER_STATUSES = {
+    ServerStatus.DECOMMISSIONED.value,
+    ServerStatus.INIT_FAIL.value,
+    ServerStatus.DECOMMISSION_FAIL.value,
+}
 
 
 def _init_compute_units(sir: ServerInitRequest) -> list[InitComputeUnit]:
@@ -93,6 +102,18 @@ class ServersAdminService(AdminServiceBase):
         ]
 
     def delete_server(self, actor_id: str, hostname: str) -> None:
+        matches = self.repo.get_servers(hostname)
+        if not matches:
+            raise ServerNotFoundError(f"Server {hostname} was not found.")
+
+        server = matches[0]
+        if server.status not in DELETABLE_SERVER_STATUSES:
+            allowed = ", ".join(sorted(DELETABLE_SERVER_STATUSES))
+            raise ServerStateError(
+                f"Server {hostname} is {server.status}; "
+                f"delete is only allowed for {allowed}."
+            )
+
         self.repo.log_event(
             LogMsg(
                 user_id=actor_id,

@@ -1,8 +1,15 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 
 from ...auth import get_audit_actor
 from ...dep import get_admin_service
-from ...models import DeferredTask, ServerDecommRequest, ServerInDB, ServerInitRequest
+from ...models import (
+    DeferredTask,
+    ServerDecommRequest,
+    ServerInDB,
+    ServerInitRequest,
+    ServerNotFoundError,
+    ServerStateError,
+)
 from ...services.admin import AdminService
 
 router = APIRouter(
@@ -84,11 +91,30 @@ async def decommission_server(
     return Response(status_code=status.HTTP_200_OK)
 
 
-@router.delete("/{hostname}")
+@router.delete(
+    "/{hostname}",
+    responses={
+        404: {"description": "Server not found."},
+        409: {
+            "description": "Server is not in a state that can be deleted.",
+        },
+    },
+)
 async def delete_server(
     hostname: str,
     actor_id: str = Depends(get_audit_actor),
     service: AdminService = Depends(get_admin_service),
 ) -> Response:
-    service.delete_server(actor_id, hostname)
+    try:
+        service.delete_server(actor_id, hostname)
+    except ServerNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except ServerStateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
     return Response(status_code=status.HTTP_200_OK)

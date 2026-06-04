@@ -739,6 +739,9 @@ td:first-child {
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.65);
   overflow: hidden;
 }
+.init-modal {
+  max-width: 980px;
+}
 .modal-header {
   padding: 14px 16px;
   display: flex;
@@ -769,6 +772,97 @@ td:first-child {
   color: #fecaca;
   font-size: 13px;
   line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.wizard-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wizard-tab {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.72);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.wizard-tab.active {
+  color: #e0f2fe;
+  border-color: rgba(56, 189, 248, 0.8);
+  background: rgba(14, 165, 233, 0.14);
+}
+
+.compute-unit-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.compute-unit-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.compute-unit-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(52vh, 520px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.compute-unit-row {
+  display: grid;
+  grid-template-columns: 40px minmax(120px, 0.85fr) minmax(150px, 1fr) minmax(
+      150px,
+      1fr
+    ) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.compute-unit-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.compute-unit-remove {
+  min-height: 40px;
+}
+
+.review-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.review-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.review-json {
+  min-height: 320px;
+  max-height: min(56vh, 560px);
   white-space: pre-wrap;
 }
 
@@ -1014,6 +1108,19 @@ td:first-child {
   }
   .form-grid {
     grid-template-columns: 1fr;
+  }
+  .compute-unit-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .compute-unit-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .compute-unit-index {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0 10px;
   }
   .select {
     min-width: 180px;
