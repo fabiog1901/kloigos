@@ -37,41 +37,6 @@ CREATE UNIQUE INDEX uq_compute_units_public_ip
 ON compute_units (public_ip)
 WHERE public_ip IS NOT NULL;
 
-CREATE TABLE playbooks (
-    id TEXT NOT NULL,
-    content BYTEA NULL,
-    CONSTRAINT pk_playbooks PRIMARY KEY (id)
-);
-
-INSERT INTO playbooks (id) values ('CU_ALLOCATE'), ('CU_DEALLOCATE'), ('SERVER_INIT'), ('SERVER_DECOMM');
-
-CREATE TABLE event_log (
-    ts TIMESTAMPTZ NOT NULL,
-    user_id TEXT NOT NULL,
-    ACTION TEXT NOT NULL,
-    details JSONB NULL,
-    request_id UUID NULL,
-    CONSTRAINT pk_event_log PRIMARY KEY (ts, user_id, ACTION)
-);
-
-CREATE TABLE api_keys (
-    access_key TEXT NOT NULL,
-    encrypted_secret_access_key BYTEA NOT NULL,
-    owner TEXT NOT NULL,
-    valid_until TIMESTAMPTZ NOT NULL,
-    roles TEXT[],
-    CONSTRAINT pk_api_keys PRIMARY KEY (access_key)
-);
-
-CREATE TABLE settings (
-    key TEXT NOT NULL,
-    value TEXT,
-    default_value TEXT,
-    value_type TEXT,
-    category TEXT,
-    is_secret bool default 'FALSE',
-    description TEXT DEFAULT '',
-    updated_at TIMESTAMPTZ,
-    updated_by TEXT,
-    CONSTRAINT pk_settings PRIMARY KEY (key)
-);
+-- Framework tables such as cpkit.playbooks, cpkit.event_log,
+-- cpkit.api_keys, and cpkit.settings are owned by cpkit.
+-- Apply cpkit's resources/ddl.sql before this application schema.

@@ -1,5 +1,9 @@
 import logging
 
+from cpkit.audit import AuditLogRecord
+from cpkit.logging import request_id_ctx
+from cpkit.playbooks import run_playbook_lite
+
 from kloigos.models import (
     ComputeUnitNotFoundError,
     ComputeUnitOperationError,
@@ -9,13 +13,11 @@ from kloigos.models import (
     ComputeUnitStatus,
     DeferredTask,
     Event,
-    LogMsg,
     NoFreeComputeUnitError,
     Playbook,
 )
 
-from ..repos.postgres import PostgresRepo
-from ..util import MyRunner, request_id_ctx
+from ..repos import Repo
 
 
 def _ansible_host(public_ip: str | None, private_ip: str) -> str:
@@ -25,7 +27,7 @@ def _ansible_host(public_ip: str | None, private_ip: str) -> str:
 class ComputeUnitService:
     """Coordinate compute-unit allocation, deallocation, and audit logging."""
 
-    def __init__(self, repo: PostgresRepo):
+    def __init__(self, repo: Repo):
         self.repo = repo
 
     def allocate(
@@ -223,9 +225,11 @@ class ComputeUnitService:
         job_ok = False
 
         try:
-            job_ok = MyRunner(self.repo).launch_runner(
-                Playbook.CU_ALLOCATE,
-                {
+            result = run_playbook_lite(
+                repo=self.repo,
+                job_id=cu.compute_id,
+                playbook_name=Playbook.CU_ALLOCATE.value,
+                extra_vars={
                     "compute_id": cu.compute_id,
                     "hostname": cu.hostname,
                     "ansible_host": _ansible_host(
@@ -241,6 +245,7 @@ class ComputeUnitService:
                     "ssh_public_key": ssh_public_key,
                 },
             )
+            job_ok = result.status == "successful"
         except Exception as exc:
             details["error"] = f"Unhandled exception during allocation playbook: {exc}"
             logging.exception(
@@ -288,9 +293,11 @@ class ComputeUnitService:
         job_ok = False
 
         try:
-            job_ok = MyRunner(self.repo).launch_runner(
-                Playbook.CU_DEALLOCATE,
-                {
+            result = run_playbook_lite(
+                repo=self.repo,
+                job_id=cu.compute_id,
+                playbook_name=Playbook.CU_DEALLOCATE.value,
+                extra_vars={
                     "compute_id": cu.compute_id,
                     "hostname": cu.hostname,
                     "ansible_host": _ansible_host(
@@ -301,6 +308,7 @@ class ComputeUnitService:
                     "cu_user": cu.cu_user,
                 },
             )
+            job_ok = result.status == "successful"
         except Exception as exc:
             details["error"] = (
                 f"Unhandled exception during deallocation playbook: {exc}"
@@ -346,7 +354,7 @@ class ComputeUnitService:
         """Attempt to write an audit event without letting secondary logging failures crash the flow."""
         try:
             self.repo.log_event(
-                LogMsg(
+                AuditLogRecord(
                     user_id=actor_id,
                     action=action,
                     details=details,

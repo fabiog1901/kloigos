@@ -1,19 +1,19 @@
 # Authentication
 
-Kloigos includes built-in OIDC authentication and group-based authorization.
+Kloigos uses cpkit's built-in OIDC authentication and group-based authorization.
 
 - Auth routes: `/api/auth/login`, `/api/auth/callback`, `/api/auth/logout`, `/api/auth/me`
 - Protected APIs:
   - `/api/compute_units/*`
   - `/api/admin/*`
-- If `OIDC_ENABLED=false`, Kloigos runs in unauthenticated mode.
+- If `oidc.enabled=false`, Kloigos runs in unauthenticated mode.
 
 ## API Key HMAC Authentication
 
 API key clients can authenticate with these headers:
 
-- `X-Kloigos-Access-Key`
-- `X-Kloigos-Signature`
+- `X-CP-Access-Key`
+- `X-CP-Signature`
 - `X-Timestamp`
 
 The signature is an HMAC-SHA256 hex digest over this payload:
@@ -26,12 +26,12 @@ For example, a `POST` to `/api/compute_units/allocate?region=us-east-1` signs th
 exact method, request path plus raw query string, timestamp header value, and raw
 request body bytes.
 
-Requests are rejected when `X-Timestamp` falls outside
-`API_KEY_SIGNATURE_TTL_SECONDS` (default: `300` seconds).
+Requests are rejected when `X-Timestamp` falls outside the
+`auth.api_key_signature_ttl_seconds` setting.
 
 API key secrets are stored encrypted at rest with `API_KEY_MASTER_KEY`, which must
 be a base64-encoded 32-byte key such as the output of `openssl rand -base64 32`.
-Kloigos decrypts the stored secret before verifying the request HMAC.
+cpkit decrypts the stored secret before verifying the request HMAC.
 
 Here is an example bash client
 
@@ -66,48 +66,48 @@ SIGNATURE=$(printf "%s" "$STRING_TO_SIGN" | openssl dgst -sha256 -hmac "$SECRET_
 # --- 5. Execute the Curl Command ---
 curl -X "$METHOD" "$API_URL" \
      -H "Content-Type: application/json" \
-     -H "X-Kloigos-Access-Key: $ACCESS_KEY" \
+     -H "X-CP-Access-Key: $ACCESS_KEY" \
      -H "X-Timestamp: $TIMESTAMP" \
-     -H "X-Kloigos-Signature: $SIGNATURE" \
+     -H "X-CP-Signature: $SIGNATURE" \
      -d "$BODY"
 ```
 
 ## Required Configuration
 
-Set these values in `.env`:
+Set `API_KEY_MASTER_KEY` in `.env`; it is still used to encrypt API key and OIDC
+session secrets at rest. OIDC and authorization values are framework settings in
+`cpkit.settings`:
 
-- `OIDC_ENABLED`
-- `API_KEY_MASTER_KEY`
-- `OIDC_ISSUER_URL`
-- `OIDC_CLIENT_ID`
-- `OIDC_CLIENT_SECRET`
-- `OIDC_SCOPES` (default: `openid profile email`)
-- `OIDC_AUDIENCE` (optional)
-- `OIDC_EXTRA_AUTH_PARAMS` (optional JSON object)
-- `OIDC_REDIRECT_URI` (optional)
-- `OIDC_UI_USERNAME_CLAIM` (default: `preferred_username`)
-- `OIDC_AUTHZ_READONLY_GROUPS`
-- `OIDC_AUTHZ_USER_GROUPS`
-- `OIDC_AUTHZ_ADMIN_GROUPS`
-- `OIDC_AUTHZ_GROUPS_CLAIM` (default: `groups`)
-- `API_KEY_SIGNATURE_TTL_SECONDS` (default: `300`)
+- `oidc.enabled`
+- `oidc.issuer_url`
+- `oidc.client_id`
+- `oidc.client_secret`
+- `oidc.scopes`
+- `oidc.audience`
+- `oidc.extra_auth_params`
+- `oidc.redirect_uri`
+- `oidc.ui_username_claim`
+- `oidc.authz_readonly_groups`
+- `oidc.authz_user_groups`
+- `oidc.authz_admin_groups`
+- `oidc.authz_groups_claim`
+- `auth.api_key_signature_ttl_seconds`
 
 ## Group-Based Authorization
 
 Authenticated users must belong to at least one configured group.
 
-- `OIDC_AUTHZ_READONLY_GROUPS`: can call `GET` endpoints under `/api/compute_units/*`
-- `OIDC_AUTHZ_USER_GROUPS`: can call all `/api/compute_units/*` endpoints
-- `OIDC_AUTHZ_ADMIN_GROUPS`: can call all `/api/admin/*` endpoints and all compute unit endpoints
+- `CP_READONLY`: can call `GET` endpoints under `/api/compute_units/*`
+- `CP_USER`: can call all `/api/compute_units/*` endpoints
+- `CP_ADMIN`: can call all `/api/admin/*` endpoints and all compute unit endpoints
 
 ## Cookie and Callback Settings
 
 Optional settings:
 
-- `OIDC_SESSION_COOKIE_NAME`
-- `OIDC_COOKIE_SECURE`
-- `OIDC_COOKIE_SAMESITE`
-- `OIDC_COOKIE_DOMAIN`
+- `oidc.cookie_secure`
+- `oidc.cookie_samesite`
+- `oidc.cookie_domain`
 - `OIDC_VERIFY_AUDIENCE`
 - `OIDC_REDIRECT_URI`
 

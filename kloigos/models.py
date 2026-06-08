@@ -26,22 +26,6 @@ class ComputeUnitOperationError(Exception):
     pass
 
 
-class AllocatePlaybookError(Exception):
-    pass
-
-
-class ApiKeyNotFoundError(Exception):
-    pass
-
-
-class InvalidApiKeyValidityError(Exception):
-    pass
-
-
-class SettingNotFoundError(Exception):
-    pass
-
-
 class ServerNotFoundError(Exception):
     pass
 
@@ -76,13 +60,6 @@ def _cpu_ids_for_range(cpu_range: str) -> set[int]:
 
 
 class Event(AutoNameStrEnum):
-    LOGIN = auto()
-    LOGOUT = auto()
-    UPDATE_PLAYBOOK = auto()
-    API_KEY_CREATE = auto()
-    API_KEY_DELETE = auto()
-    SETTING_UPDATE = auto()
-    SETTING_RESET = auto()
     SERVER_INIT_REQUEST = auto()
     SERVER_INIT_DONE = auto()
     SERVER_INIT_FAILED = auto()
@@ -98,91 +75,6 @@ class Event(AutoNameStrEnum):
     CU_DEALLOCATION_REQUEST = auto()
     CU_DEALLOCATION_DONE = auto()
     CU_DEALLOCATION_FAILED = auto()
-
-
-class KloigosRole(AutoNameStrEnum):
-    KLOIGOS_READONLY = auto()
-    KLOIGOS_USER = auto()
-    KLOIGOS_ADMIN = auto()
-
-
-class SettingKey(AutoNameStrEnum):
-    KLOIGOS_ENTERPRISE_LICENSE_KEY = auto()
-    OIDC_ENABLED = auto()
-    OIDC_ISSUER_URL = auto()
-    OIDC_CLIENT_ID = auto()
-    OIDC_CLIENT_SECRET = auto()
-    OIDC_SCOPES = auto()
-    OIDC_AUDIENCE = auto()
-    OIDC_EXTRA_AUTH_PARAMS = auto()
-    OIDC_REDIRECT_URI = auto()
-    OIDC_LOGIN_PATH = auto()
-    OIDC_SESSION_COOKIE_NAME = auto()
-    OIDC_STATE_COOKIE_NAME = auto()
-    OIDC_NONCE_COOKIE_NAME = auto()
-    OIDC_NEXT_COOKIE_NAME = auto()
-    OIDC_COOKIE_SECURE = auto()
-    OIDC_COOKIE_SAMESITE = auto()
-    OIDC_COOKIE_DOMAIN = auto()
-    OIDC_VERIFY_AUDIENCE = auto()
-    OIDC_UI_USERNAME_CLAIM = auto()
-    OIDC_AUTHZ_READONLY_GROUPS = auto()
-    OIDC_AUTHZ_USER_GROUPS = auto()
-    OIDC_AUTHZ_ADMIN_GROUPS = auto()
-    OIDC_AUTHZ_GROUPS_CLAIM = auto()
-
-
-class SettingRecord(BaseModel):
-    key: SettingKey
-    value: str | None = None
-    default_value: str
-    effective_value: str
-    value_type: str
-    category: str
-    is_secret: bool = False
-    description: str = ""
-    updated_at: dt.datetime
-    updated_by: str | None = None
-
-
-class SettingUpdateRequest(BaseModel):
-    value: str
-
-
-class LogMsg(BaseModel):
-    ts: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
-    user_id: str
-    action: Event
-    details: dict[str, Any] | None = None
-    request_id: str | None = None
-
-
-class ApiKeyRecord(BaseModel):
-    access_key: str
-    encrypted_secret_access_key: bytes
-    owner: str
-    valid_until: dt.datetime
-    roles: list[KloigosRole] | None = None
-
-
-class ApiKeySummary(BaseModel):
-    access_key: str
-    owner: str
-    valid_until: dt.datetime
-    roles: list[KloigosRole] | None = None
-
-
-class ApiKeyCreateRequest(BaseModel):
-    valid_until: dt.datetime
-    roles: list[KloigosRole] | None = None
-
-
-class ApiKeyCreateRequestInDB(ApiKeyCreateRequest):
-    access_key: str
-
-
-class ApiKeyCreateResponse(ApiKeySummary):
-    secret_access_key: str
 
 
 class DeferredTask(BaseModel):

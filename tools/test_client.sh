@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This script tests the Kloigos API by sending a signed request to the compute_units endpoint.
-# It demonstrates how to generate the required HMAC signature for authentication.
+# cpkit authenticates API keys by verifying this OpenSSL-generated HMAC signature.
 
 export KLOIGOS_ACCESS_KEY="kloigos-tT8r4RgJjT2uyJiC-VdIwA"
 export KLOIGOS_SECRET_ACCESS_KEY="6cRlQ2qweazaacZAnKrDRpctiXjQjh_AMXh3A93cwpY"
@@ -35,7 +35,7 @@ SIGNATURE=$(printf "%s" "$STRING_TO_SIGN" | openssl dgst -sha256 -hmac "$KLOIGOS
 # --- 5. Execute the Curl Command ---
 curl -sS -X "$METHOD" "$API_URL" \
      -H "Content-Type: application/json" \
-     -H "X-Kloigos-Access-Key: $KLOIGOS_ACCESS_KEY" \
+     -H "X-CP-Access-Key: $KLOIGOS_ACCESS_KEY" \
      -H "X-Timestamp: $TIMESTAMP" \
-     -H "X-Kloigos-Signature: $SIGNATURE" \
+     -H "X-CP-Signature: $SIGNATURE" \
      -d "$BODY"

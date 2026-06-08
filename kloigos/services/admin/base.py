@@ -1,6 +1,6 @@
-from ...repos.postgres import PostgresRepo
+from ...repos import Repo
 
 
 class AdminServiceBase:
-    def __init__(self, repo: PostgresRepo):
+    def __init__(self, repo: Repo):
         self.repo = repo

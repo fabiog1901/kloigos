@@ -1,6 +1,6 @@
+from cpkit import get_audit_actor
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 
-from ...auth import get_audit_actor
 from ...dep import get_admin_service
 from ...models import (
     DeferredTask,

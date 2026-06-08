@@ -24,26 +24,17 @@ python3 tools/generate_codemap.py
 | --- | --- |
 | `kloigos/__init__.py` | imports: dotenv, os |
 | `kloigos/api/__init__.py` | no public surface |
-| `kloigos/api/admin/__init__.py` | imports: ...auth, fastapi |
-| `kloigos/api/admin/api_keys.py` | functions: list_api_keys, create_api_key, delete_api_key; imports: ...auth, ...dep, ...models, ...services.admin, fastapi |
-| `kloigos/api/admin/events.py` | functions: list_events; imports: ...dep, ...models, ...services.admin, fastapi |
-| `kloigos/api/admin/playbooks.py` | functions: update_playbook, get_playbook; imports: ...auth, ...dep, ...models, ...services.admin, fastapi, typing |
-| `kloigos/api/admin/servers.py` | functions: list_servers, init_server, decommission_server, delete_server; imports: ...auth, ...dep, ...models, ...services.admin, fastapi |
-| `kloigos/api/admin/settings.py` | functions: list_settings, get_setting, update_setting, reset_setting; imports: ...auth, ...dep, ...models, ...services.admin, fastapi |
-| `kloigos/api/compute_unit.py` | functions: allocate, deallocate, list_compute_units; imports: ..auth, ..dep, ..models, ..services.compute_unit, fastapi |
-| `kloigos/auth.py` | classes: OIDCConfig, OIDCManager; functions: require_authenticated, require_user, require_compute_access, require_admin, get_audit_actor, oidc_login, oidc_callback, oidc_logout, oidc_me; imports: .dep, .models, .repos.postgres, .util, dataclasses, datetime, fastapi, hashlib, hmac, json, jwt, os, secrets, time, typing, urllib |
-| `kloigos/dep.py` | functions: get_repo, get_compute_unit_service, get_admin_service; imports: .repos.postgres, .services.admin, .services.compute_unit, fastapi, typing |
-| `kloigos/main.py` | functions: setup_logging, lifespan, dispatch; imports: .api, .auth, .util, contextlib, fastapi, logging, pathlib, sys, time, uuid |
-| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, AllocatePlaybookError, ApiKeyNotFoundError, InvalidApiKeyValidityError, SettingNotFoundError, Event, KloigosRole, SettingKey, SettingRecord, SettingUpdateRequest, LogMsg, ApiKeyRecord, ApiKeySummary, ApiKeyCreateRequest, ApiKeyCreateRequestInDB, ApiKeyCreateResponse, DeferredTask, Playbook, ComputeUnitStatus, ServerStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, ComputeUnitRequest, BaseServer, ServerInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest; imports: datetime, enum, pydantic, typing |
-| `kloigos/repos/__init__.py` | no public surface |
-| `kloigos/repos/postgres.py` | classes: Dict2JsonbDumper, PostgresRepo; imports: ..models, gzip, json, psycopg, psycopg_pool |
+| `kloigos/api/admin/__init__.py` | imports: cpkit, fastapi |
+| `kloigos/api/admin/servers.py` | functions: list_servers, init_server, decommission_server, delete_server; imports: ...dep, ...models, ...services.admin, cpkit, fastapi |
+| `kloigos/api/compute_unit.py` | functions: allocate, deallocate, list_compute_units; imports: ..dep, ..models, ..services.compute_unit, cpkit, fastapi |
+| `kloigos/dep.py` | functions: get_compute_unit_service, get_admin_service; imports: .services.admin, .services.compute_unit, cpkit, fastapi |
+| `kloigos/main.py` | imports: .api, .repos, cpkit |
+| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, ServerNotFoundError, ServerStateError, Event, DeferredTask, Playbook, ComputeUnitStatus, ServerStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, ComputeUnitRequest, BaseServer, ServerInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest; imports: datetime, enum, pydantic, typing |
+| `kloigos/repos/__init__.py` | classes: Repo; imports: .postgres |
+| `kloigos/repos/postgres.py` | classes: PostgresRepo; imports: ..models, cpkit, json, psycopg, psycopg_pool |
 | `kloigos/services/__init__.py` | no public surface |
-| `kloigos/services/admin/__init__.py` | classes: AdminService; imports: .api_keys, .events, .playbooks, .servers, .settings |
-| `kloigos/services/admin/api_keys.py` | classes: ApiKeysAdminService; imports: ...models, ...util, .base, datetime, secrets |
-| `kloigos/services/admin/base.py` | classes: AdminServiceBase; imports: ...repos.postgres |
-| `kloigos/services/admin/events.py` | classes: EventsAdminService; imports: ...models, .base |
-| `kloigos/services/admin/playbooks.py` | classes: PlaybooksAdminService; imports: ...models, ...util, .base |
-| `kloigos/services/admin/servers.py` | classes: ServersAdminService; imports: ...models, ...util, .base |
-| `kloigos/services/admin/settings.py` | classes: SettingsAdminService; imports: ...models, ...util, .base |
-| `kloigos/services/compute_unit.py` | classes: ComputeUnitService; imports: ..repos.postgres, ..util, kloigos, logging |
-| `kloigos/util.py` | classes: MyRunner, RequestIDFilter, ShorthandFormatter; functions: as_bool, safe_json_string_dict, safe_next_path, safe_csv_set, validate_api_key_crypto_config, encrypt_api_key_secret, decrypt_api_key_secret, to_cpu_set, parse_cpu_range; imports: ansible_runner, base64, contextvars, cryptography, json, kloigos, logging, os, secrets, shutil, time, yaml |
+| `kloigos/services/admin/__init__.py` | classes: AdminService; imports: .servers |
+| `kloigos/services/admin/base.py` | classes: AdminServiceBase; imports: ...repos |
+| `kloigos/services/admin/servers.py` | classes: ServersAdminService; imports: ...models, ...util, .base, cpkit |
+| `kloigos/services/compute_unit.py` | classes: ComputeUnitService; imports: ..repos, cpkit, kloigos, logging |
+| `kloigos/util.py` | functions: to_cpu_set, parse_cpu_range |

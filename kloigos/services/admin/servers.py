@@ -1,8 +1,11 @@
+from cpkit.audit import AuditLogRecord
+from cpkit.logging import request_id_ctx
+from cpkit.playbooks import run_playbook_lite
+
 from ...models import (
     DeferredTask,
     Event,
     InitComputeUnit,
-    LogMsg,
     Playbook,
     ServerDecommRequest,
     ServerInDB,
@@ -11,7 +14,7 @@ from ...models import (
     ServerStateError,
     ServerStatus,
 )
-from ...util import MyRunner, request_id_ctx, to_cpu_set
+from ...util import to_cpu_set
 from .base import AdminServiceBase
 
 
@@ -51,7 +54,7 @@ def _init_compute_units(sir: ServerInitRequest) -> list[InitComputeUnit]:
 class ServersAdminService(AdminServiceBase):
     def init_server(self, actor_id: str, sir: ServerInitRequest) -> list[DeferredTask]:
         self.repo.log_event(
-            LogMsg(
+            AuditLogRecord(
                 user_id=actor_id,
                 action=Event.SERVER_INIT_REQUEST,
                 details=sir.model_dump(),
@@ -81,7 +84,7 @@ class ServersAdminService(AdminServiceBase):
         sdr: ServerDecommRequest,
     ) -> list[DeferredTask]:
         self.repo.log_event(
-            LogMsg(
+            AuditLogRecord(
                 user_id=actor_id,
                 action=Event.SERVER_DECOMM_REQUEST,
                 details=sdr.model_dump(),
@@ -115,7 +118,7 @@ class ServersAdminService(AdminServiceBase):
             )
 
         self.repo.log_event(
-            LogMsg(
+            AuditLogRecord(
                 user_id=actor_id,
                 action=Event.SERVER_DELETE_REQUEST,
                 details={"hostname": hostname},
@@ -128,9 +131,11 @@ class ServersAdminService(AdminServiceBase):
     def _run_init_server(self, sir: ServerInitRequest, actor_id: str) -> None:
         compute_units = _init_compute_units(sir)
 
-        job_ok = MyRunner(self.repo).launch_runner(
-            Playbook.SERVER_INIT,
-            {
+        result = run_playbook_lite(
+            repo=self.repo,
+            job_id=sir.hostname,
+            playbook_name=Playbook.SERVER_INIT.value,
+            extra_vars={
                 "hostname": sir.hostname,
                 "server_private_ip": sir.private_ip,
                 "server_public_ip": sir.public_ip,
@@ -139,6 +144,7 @@ class ServersAdminService(AdminServiceBase):
                 "compute_units": [cu.as_playbook_vars() for cu in compute_units],
             },
         )
+        job_ok = result.status == "successful"
 
         # add the created compute units if the job was successful
         if job_ok:
@@ -149,7 +155,7 @@ class ServersAdminService(AdminServiceBase):
             self.repo.server_update_status(sir.hostname, ServerStatus.INIT_FAIL)
 
         self.repo.log_event(
-            LogMsg(
+            AuditLogRecord(
                 user_id=actor_id,
                 action=Event.SERVER_INIT_DONE if job_ok else Event.SERVER_INIT_FAILED,
                 details=sir.model_dump(),
@@ -163,9 +169,11 @@ class ServersAdminService(AdminServiceBase):
         The playbook decommissions the server with the requested hostname.
         """
 
-        job_ok = MyRunner(self.repo).launch_runner(
-            Playbook.SERVER_DECOMM,
-            {
+        result = run_playbook_lite(
+            repo=self.repo,
+            job_id=srv.hostname,
+            playbook_name=Playbook.SERVER_DECOMM.value,
+            extra_vars={
                 "hostname": srv.hostname,
                 "server_private_ip": srv.private_ip,
                 "server_public_ip": srv.public_ip,
@@ -173,6 +181,7 @@ class ServersAdminService(AdminServiceBase):
                 "user_id": srv.user_id,
             },
         )
+        job_ok = result.status == "successful"
 
         # don't delete any metadata, instead mark the compute units as DECOMMISSIONED
         self.repo.server_update_status(
@@ -181,7 +190,7 @@ class ServersAdminService(AdminServiceBase):
         )
 
         self.repo.log_event(
-            LogMsg(
+            AuditLogRecord(
                 user_id=actor_id,
                 action=(
                     Event.SERVER_DECOMM_DONE if job_ok else Event.SERVER_DECOMM_FAILED

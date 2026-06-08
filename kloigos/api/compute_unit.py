@@ -1,3 +1,4 @@
+from cpkit import get_audit_actor, require_readonly
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -9,7 +10,6 @@ from fastapi import (
 )
 from fastapi.exceptions import RequestErrorModel
 
-from ..auth import get_audit_actor, require_compute_access
 from ..dep import get_compute_unit_service
 from ..models import (
     ComputeUnitNotFoundError,
@@ -25,7 +25,7 @@ from ..services.compute_unit import ComputeUnitService
 router = APIRouter(
     prefix="/compute_units",
     tags=["compute_units"],
-    dependencies=[Security(require_compute_access)],
+    dependencies=[Security(require_readonly)],
 )
 
 
