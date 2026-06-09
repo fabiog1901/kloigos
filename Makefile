@@ -7,15 +7,20 @@
 #   make docs-check    Verify generated docs and build the MkDocs site.
 #   make docs-serve    Serve the MkDocs site locally.
 
-.PHONY: help run format pre-commit docs-write docs-check docs-build docs-serve docs-clean py-compile
+.PHONY: help run serve migrate format pre-commit docs-write docs-check docs-build docs-serve docs-clean py-compile
 
 MKDOCS_SITE_DIR ?= /private/tmp/kloigos-mkdocs-site
 
 help: ## Show this help message.
 	@awk 'BEGIN {FS = ":.*##"; printf "Available targets:\n"} /^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-run: ## Run in development mode.
-	poetry run fastapi run --reload kloigos/main.py
+run: serve ## Run in development mode.
+
+serve: ## Serve the app through the application CLI.
+	poetry run kloigos serve --reload
+
+migrate: ## Apply cpkit and Kloigos database migrations.
+	poetry run kloigos migrate
 
 format: ## Format Python code with isort and black.
 	poetry run isort .

@@ -26,6 +26,19 @@ mkdocs = "^1.6.1"
 mkdocs-material = "^9.7.1"
 mkdocs-click = "^0.9.0"
 
+[project.scripts]
+kloigos = "cpkit.cli:main"
+
+[tool.cpkit]
+app_import = "kloigos.main:app"
+ddl = [
+    "resources/database/ddl.sql",
+]
+schema_checks = [
+    "public.servers",
+    "public.compute_units",
+]
+
 [tool.black]
 target-version = ["py314"]
 
