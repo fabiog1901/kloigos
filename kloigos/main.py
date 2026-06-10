@@ -1,4 +1,4 @@
-from cpkit import create_cpkit_app, create_cpkit_bundle
+from cpkit import create_cpkit_app, create_cpkit_bundle, template_webapp_directory
 
 from . import DB_URL
 from .api import admin, compute_unit
@@ -18,6 +18,9 @@ app = create_cpkit_app(
         admin.router,
         compute_unit.router,
     ),
-    static_directory="webapp",
+    # keeping old, standalone webapp
+    # static_directory="webapp",
+    static_directory=template_webapp_directory(),
+    app_static_directory="webapp",
     default_journald_identifier="kloigos",
 )

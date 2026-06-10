@@ -1,0 +1,461 @@
+<template
+  id="cpkit-extension-brand"
+  data-logo-text="Kg"
+  data-app-name="Kloigos"
+  data-login-subtitle="Authenticate to manage Kloigos compute units"
+></template>
+
+<main class="layout kloigos-layout" x-show="view === 'compute_units'">
+  <aside class="sidebar">
+    <section>
+      <h2>Summary</h2>
+      <div class="metric">
+        <div class="kloigos-metric-label">Total Compute Units</div>
+        <div class="kloigos-metric-value" x-text="computeUnits.length"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Actions</h2>
+      <div class="metric button-stack">
+        <button class="btn" @click="refreshComputeUnits()" :disabled="computeLoading.list">
+          <span x-show="!computeLoading.list">Refresh</span>
+          <span x-show="computeLoading.list">Loading...</span>
+        </button>
+        <button class="btn primary" x-show="canManageCompute()" @click="openAllocateModal()">Allocate</button>
+        <label class="check-row">
+          <input type="checkbox" x-model="computeAutoRefreshEnabled" />
+          Auto-refresh
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Filter</h2>
+      <input
+        type="search"
+        class="input"
+        placeholder="Hostname, owner, service..."
+        x-model="computeFilterQuery"
+        @input="persistComputeFilter(); applyComputeFilterSort();"
+      />
+    </section>
+  </aside>
+
+  <section class="main">
+    <div class="section-head">
+      <div>
+        <h2>Compute Units</h2>
+        <p>Live host allocation and status across Kloigos capacity.</p>
+      </div>
+      <div class="timestamp">Updated <span x-text="computeLastUpdatedUtc || '-'"></span></div>
+    </div>
+
+    <div class="table-wrap kloigos-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th @click="toggleComputeSort(0)" :class="computeSortClass(0)">Deployment ID</th>
+            <th @click="toggleComputeSort(1)" :class="computeSortClass(1)">Compute ID</th>
+            <th @click="toggleComputeSort(2)" :class="computeSortClass(2)">Region</th>
+            <th @click="toggleComputeSort(3)" :class="computeSortClass(3)">Hostname</th>
+            <th @click="toggleComputeSort(4)" :class="computeSortClass(4)">Private IP</th>
+            <th @click="toggleComputeSort(5)" :class="computeSortClass(5)">CPUs</th>
+            <th @click="toggleComputeSort(8)" :class="computeSortClass(8)">Started</th>
+            <th @click="toggleComputeSort(9)" :class="computeSortClass(9)">Status</th>
+            <th>Act</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <template x-for="row in computeVisibleRows" :key="String(row.compute_id)">
+            <tr>
+              <td>
+                <template x-if="tagValue(row, 'deployment_id')">
+                  <span class="kloigos-chip" x-text="tagValue(row, 'deployment_id')"></span>
+                </template>
+                <template x-if="!tagValue(row, 'deployment_id')">
+                  <span class="muted">-</span>
+                </template>
+              </td>
+              <td>
+                <button
+                  type="button"
+                  class="kloigos-id-button"
+                  @click="openComputeDetails(row)"
+                  :title="'Show details for ' + row.compute_id"
+                  x-text="row.compute_id"
+                ></button>
+              </td>
+              <td x-text="(row.region || '-') + '-' + (row.zone || '-')"></td>
+              <td x-text="row.hostname || '-'"></td>
+              <td x-text="row.private_ip || '-'"></td>
+              <td x-text="row.cpu_count ?? '-'"></td>
+              <td x-text="toUtcStringMaybe(row.started_at)"></td>
+              <td>
+                <span class="status-pill" :class="computeStatusClass(row.status)">
+                  <span x-text="String(row.status || 'unknown').toUpperCase()"></span>
+                </span>
+              </td>
+              <td>
+                <div class="row-actions compact">
+                  <template x-if="canManageCompute() && String(row.status || '').toUpperCase() === 'ALLOCATED'">
+                    <button
+                      type="button"
+                      class="icon-btn"
+                      :disabled="computeBusyKey === row.compute_id"
+                      title="Deallocate compute unit"
+                      @click="openDeallocateConfirm(row)"
+                    >-</button>
+                  </template>
+                  <template x-if="canManageCompute() && String(row.status || '').toUpperCase() === 'FREE'">
+                    <button
+                      type="button"
+                      class="icon-btn"
+                      :disabled="computeBusyKey === row.compute_id"
+                      title="Allocate this compute unit"
+                      @click="openAllocateModal(row.compute_id)"
+                    >+</button>
+                  </template>
+                  <template x-if="!canManageCompute() || !['ALLOCATED', 'FREE'].includes(String(row.status || '').toUpperCase())">
+                    <span class="muted">-</span>
+                  </template>
+                </div>
+              </td>
+            </tr>
+          </template>
+
+          <tr x-show="!computeLoading.list && computeVisibleRows.length === 0">
+            <td colspan="9" class="empty-cell">No compute units found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<main class="layout kloigos-layout" x-show="view === 'kloigos_servers' && canViewKloigosAdmin()">
+  <aside class="sidebar">
+    <section>
+      <h2>Summary</h2>
+      <div class="metric">
+        <div class="kloigos-metric-label">Total Servers</div>
+        <div class="kloigos-metric-value" x-text="servers.length"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Actions</h2>
+      <div class="metric button-stack">
+        <button class="btn" @click="refreshServers()" :disabled="serversLoading.list">
+          <span x-show="!serversLoading.list">Refresh</span>
+          <span x-show="serversLoading.list">Loading...</span>
+        </button>
+        <button class="btn primary" @click="openServerInitModal()">Init Server</button>
+        <label class="check-row">
+          <input type="checkbox" x-model="serversAutoRefreshEnabled" />
+          Auto-refresh
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Filter</h2>
+      <input
+        type="search"
+        class="input"
+        placeholder="Hostname, IP, region, user..."
+        x-model="serversFilterQuery"
+        @input="persistServersFilter(); applyServersFilterSort();"
+      />
+    </section>
+  </aside>
+
+  <section class="main">
+    <div class="section-head">
+      <div>
+        <h2>Servers</h2>
+        <p>Physical server inventory and lifecycle actions.</p>
+      </div>
+      <div class="timestamp">Updated <span x-text="serversLastUpdatedUtc || '-'"></span></div>
+    </div>
+
+    <div class="table-wrap kloigos-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th @click="toggleServersSort(0)" :class="serversSortClass(0)">Hostname</th>
+            <th @click="toggleServersSort(1)" :class="serversSortClass(1)">Private IP</th>
+            <th @click="toggleServersSort(2)" :class="serversSortClass(2)">User</th>
+            <th @click="toggleServersSort(3)" :class="serversSortClass(3)">Region</th>
+            <th @click="toggleServersSort(4)" :class="serversSortClass(4)">Zone</th>
+            <th @click="toggleServersSort(5)" :class="serversSortClass(5)">CPU</th>
+            <th @click="toggleServersSort(6)" :class="serversSortClass(6)">Mem GB</th>
+            <th @click="toggleServersSort(7)" :class="serversSortClass(7)">Disks</th>
+            <th @click="toggleServersSort(8)" :class="serversSortClass(8)">Disk GB</th>
+            <th @click="toggleServersSort(9)" :class="serversSortClass(9)">Tags</th>
+            <th @click="toggleServersSort(10)" :class="serversSortClass(10)">Status</th>
+            <th>Act</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="server in serversVisibleRows" :key="server.hostname">
+            <tr>
+              <td>
+                <button type="button" class="kloigos-id-button" @click="openServerDetails(server)" x-text="server.hostname"></button>
+              </td>
+              <td x-text="server.private_ip || '-'"></td>
+              <td x-text="server.user_id || '-'"></td>
+              <td x-text="server.region || '-'"></td>
+              <td x-text="server.zone || '-'"></td>
+              <td x-text="server.cpu_count ?? '-'"></td>
+              <td x-text="server.mem_gb ?? '-'"></td>
+              <td x-text="server.disk_count ?? '-'"></td>
+              <td x-text="server.disk_size_gb ?? '-'"></td>
+              <td>
+                <template x-if="server.tags && typeof server.tags === 'object'">
+                  <span class="kloigos-chip" x-text="serversTagsCompact(server.tags)"></span>
+                </template>
+                <template x-if="!server.tags">
+                  <span class="muted">-</span>
+                </template>
+              </td>
+              <td>
+                <span class="status-pill" :class="serversStatusClass(server.status)" x-text="String(server.status || 'unknown').toUpperCase()"></span>
+              </td>
+              <td>
+                <div class="row-actions compact">
+                  <template x-if="serverCanDecommission(server)">
+                    <button class="icon-btn" title="Decommission server" @click="openServerActionConfirm(server, 'decommission')">!</button>
+                  </template>
+                  <template x-if="serverCanDelete(server)">
+                    <button class="icon-btn" title="Delete server record" @click="openServerActionConfirm(server, 'delete')">x</button>
+                  </template>
+                  <template x-if="!serverCanDecommission(server) && !serverCanDelete(server)">
+                    <span class="muted">-</span>
+                  </template>
+                </div>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="!serversLoading.list && serversVisibleRows.length === 0">
+            <td colspan="12" class="empty-cell">No servers found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<main class="layout" x-show="view === 'kloigos_servers' && !canViewKloigosAdmin()">
+  <section class="main">
+    <div class="metric kloigos-empty-state">
+      <h2>Not authorized</h2>
+      <p class="muted">Servers is available only to CP_ADMIN users.</p>
+    </div>
+  </section>
+</main>
+
+<div class="modal-backdrop" x-show="modal.allocate.open" @click.self="closeAllocateModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Allocate Compute Unit</h2>
+      <button class="icon-btn" @click="closeAllocateModal()">x</button>
+    </div>
+
+    <div class="notice danger" x-show="modalError.allocate" x-text="modalError.allocate"></div>
+
+    <label class="field-label">Deployment ID</label>
+    <input class="input" x-model="modal.allocate.deployment_id" placeholder="web_app_v1" />
+
+    <label class="field-label">CPU Count</label>
+    <input class="input" type="number" min="1" x-model.number="modal.allocate.cpu_count" placeholder="optional" />
+
+    <label class="field-label">Region</label>
+    <input class="input" x-model="modal.allocate.region" placeholder="optional" />
+
+    <label class="field-label">Zone</label>
+    <input class="input" x-model="modal.allocate.zone" placeholder="optional" />
+
+    <label class="field-label">Compute ID</label>
+    <input class="input" x-model="modal.allocate.compute_id" placeholder="leave blank for any available unit" />
+
+    <label class="field-label">SSH Public Key</label>
+    <textarea class="input kloigos-textarea" x-model="modal.allocate.ssh_public_key" placeholder="ssh-ed25519 AAAA... user@host"></textarea>
+
+    <label class="field-label">Tags JSON</label>
+    <textarea class="input kloigos-textarea" x-model="modal.allocate.tagsText" spellcheck="false" placeholder='{"owner":"fabio"}'></textarea>
+
+    <div class="modal-actions">
+      <button class="btn" @click="closeAllocateModal()">Cancel</button>
+      <button class="btn primary" :disabled="computeLoading.allocate" @click="allocateComputeUnit()">
+        <span x-show="!computeLoading.allocate">Allocate</span>
+        <span x-show="computeLoading.allocate">Working...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" x-show="modal.deallocateConfirm.open" @click.self="closeDeallocateConfirm()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Confirm Deallocate</h2>
+      <button class="icon-btn" @click="closeDeallocateConfirm()">x</button>
+    </div>
+
+    <div class="notice danger" x-show="modalError.deallocateConfirm" x-text="modalError.deallocateConfirm"></div>
+    <p class="muted">This releases the compute unit back to the pool. Any workload depending on it may be disrupted.</p>
+
+    <dl class="details-list">
+      <dt>Compute ID</dt>
+      <dd x-text="modal.deallocateConfirm.compute_id || '-'"></dd>
+      <dt>Hostname</dt>
+      <dd x-text="modal.deallocateConfirm.hostname || '-'"></dd>
+    </dl>
+
+    <div class="modal-actions">
+      <button class="btn" @click="closeDeallocateConfirm()">Cancel</button>
+      <button class="btn danger" :disabled="computeLoading.deallocateConfirm" @click="confirmDeallocateComputeUnit()">
+        <span x-show="!computeLoading.deallocateConfirm">Deallocate</span>
+        <span x-show="computeLoading.deallocateConfirm">Working...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" x-show="modal.serverDetails.open" @click.self="closeServerDetails()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Server Details</h2>
+      <button class="icon-btn" @click="closeServerDetails()">x</button>
+    </div>
+    <p class="muted">Full record for <span x-text="modal.serverDetails.row?.hostname || '-'"></span></p>
+    <pre class="json-panel small" x-text="formatJson(modal.serverDetails.row || {})"></pre>
+    <div class="modal-actions">
+      <button class="btn" @click="closeServerDetails()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" x-show="modal.serverActionConfirm.open" @click.self="closeServerActionConfirm()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 x-text="modal.serverActionConfirm.action === 'delete' ? 'Confirm Delete' : 'Confirm Decommission'"></h2>
+      <button class="icon-btn" @click="closeServerActionConfirm()">x</button>
+    </div>
+    <div class="notice danger" x-show="modalError.serverActionConfirm" x-text="modalError.serverActionConfirm"></div>
+    <p class="muted">
+      <span x-show="modal.serverActionConfirm.action === 'decommission'">This will start decommissioning for </span>
+      <span x-show="modal.serverActionConfirm.action === 'delete'">This will permanently delete the server record for </span>
+      <span class="kloigos-chip" x-text="modal.serverActionConfirm.hostname"></span>
+    </p>
+    <div class="modal-actions">
+      <button class="btn" @click="closeServerActionConfirm()">Cancel</button>
+      <button class="btn danger" :disabled="serversLoading.action" @click="confirmServerAction()">
+        <span x-show="!serversLoading.action" x-text="modal.serverActionConfirm.action === 'delete' ? 'Delete' : 'Decommission'"></span>
+        <span x-show="serversLoading.action">Working...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" x-show="modal.serverInit.open" @click.self="closeServerInitModal()">
+  <div class="modal kloigos-wide-modal">
+    <div class="modal-head">
+      <h2>Init Server</h2>
+      <button class="icon-btn" @click="closeServerInitModal()">x</button>
+    </div>
+
+    <div class="notice danger" x-show="modalError.serverInit" x-text="modalError.serverInit"></div>
+
+    <div class="kloigos-form-grid">
+      <label>
+        <span class="field-label">Hostname</span>
+        <input class="input" x-model="modal.serverInit.hostname" placeholder="server-123" />
+      </label>
+      <label>
+        <span class="field-label">Server Private IP</span>
+        <input class="input" x-model="modal.serverInit.private_ip" placeholder="10.0.0.12" />
+      </label>
+      <label>
+        <span class="field-label">Server Public IP</span>
+        <input class="input" x-model="modal.serverInit.public_ip" placeholder="optional" />
+      </label>
+      <label>
+        <span class="field-label">User ID</span>
+        <input class="input" x-model="modal.serverInit.user_id" placeholder="ubuntu" />
+      </label>
+      <label>
+        <span class="field-label">Region</span>
+        <input class="input" x-model="modal.serverInit.region" placeholder="us-east-1" />
+      </label>
+      <label>
+        <span class="field-label">Zone</span>
+        <input class="input" x-model="modal.serverInit.zone" placeholder="us-east-1a" />
+      </label>
+      <label>
+        <span class="field-label">CPU Count</span>
+        <input class="input" type="number" min="0" x-model.number="modal.serverInit.cpu_count" />
+      </label>
+      <label>
+        <span class="field-label">Mem GB</span>
+        <input class="input" type="number" min="0" x-model.number="modal.serverInit.mem_gb" />
+      </label>
+      <label>
+        <span class="field-label">Disk Count</span>
+        <input class="input" type="number" min="0" x-model.number="modal.serverInit.disk_count" />
+      </label>
+      <label>
+        <span class="field-label">Disk GB</span>
+        <input class="input" type="number" min="0" x-model.number="modal.serverInit.disk_size_gb" />
+      </label>
+    </div>
+
+    <label>
+      <span class="field-label">Tags JSON</span>
+      <textarea class="input kloigos-textarea" x-model="modal.serverInit.tagsText" spellcheck="false" placeholder='{"pool":"default"}'></textarea>
+    </label>
+
+    <div class="section-head kloigos-subhead">
+      <div>
+        <h2>Compute Units</h2>
+        <p>CPU ranges and IP aliases to create on this server.</p>
+      </div>
+      <button class="btn" @click="addServerInitComputeUnit()">Add Unit</button>
+    </div>
+
+    <div class="kloigos-unit-list">
+      <template x-for="(unit, index) in modal.serverInit.compute_units" :key="index">
+        <div class="kloigos-unit-row">
+          <div class="kloigos-unit-index" x-text="index + 1"></div>
+          <input class="input" x-model="unit.cpu_range" placeholder="0-3" />
+          <input class="input" x-model="unit.private_ip" placeholder="10.0.0.101" />
+          <input class="input" x-model="unit.public_ip" placeholder="public IP optional" />
+          <button class="btn danger" :disabled="modal.serverInit.compute_units.length <= 1" @click="removeServerInitComputeUnit(index)">Remove</button>
+        </div>
+      </template>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" @click="closeServerInitModal()">Cancel</button>
+      <button class="btn primary" :disabled="serversLoading.init" @click="initServer()">
+        <span x-show="!serversLoading.init">Run Init</span>
+        <span x-show="serversLoading.init">Working...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" x-show="modal.computeDetails.open" @click.self="closeComputeDetails()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Compute Unit Details</h2>
+      <button class="icon-btn" @click="closeComputeDetails()">x</button>
+    </div>
+    <p class="muted">Full record for <span x-text="modal.computeDetails.row?.compute_id || '-'"></span></p>
+    <pre class="json-panel small" x-text="formatJson(modal.computeDetails.row || {})"></pre>
+    <div class="modal-actions">
+      <button class="btn" @click="closeComputeDetails()">Close</button>
+    </div>
+  </div>
+</div>
