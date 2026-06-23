@@ -100,8 +100,13 @@ class Playbook(AutoNameStrEnum):
     # compute unit level statuses
     CU_ALLOCATE = auto()
     CU_DEALLOCATE = auto()
+    ALLOCATION_SCALE = auto()
     SERVER_INIT = auto()
     SERVER_DECOMM = auto()
+
+
+class QueueCommand(AutoNameStrEnum):
+    ALLOCATION_SCALE = auto()
 
 
 class ComputeUnitStatus(AutoNameStrEnum):
@@ -212,6 +217,17 @@ class ComputeUnitRequest(BaseModel):
     ip_address: str | None = None
     tags: dict[str, Any] | None = None
     ssh_public_key: str
+
+
+class AllocationScaleRequest(BaseModel):
+    compute_id: str | None = None
+    cpu_count: int | None = None
+    region: str | None = None
+    zone: str | None = None
+
+
+class AllocationScaleCommand(AllocationScaleRequest):
+    allocation_id: str
 
 
 class AllocationInDB(BaseModel):
