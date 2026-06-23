@@ -37,6 +37,23 @@ CREATE UNIQUE INDEX uq_compute_units_public_ip
 ON compute_units (public_ip)
 WHERE public_ip IS NOT NULL;
 
--- Framework tables such as cpkit.playbooks, cpkit.event_log,
--- cpkit.api_keys, and cpkit.settings are owned by cpkit.
--- Apply cpkit's resources/ddl.sql before this application schema.
+-- kloigos specific settings
+-- INSERT INTO cpkit.settings (
+--     key,
+--     default_value,
+--     value_type,
+--     category,
+--     is_secret,
+--     description
+-- ) VALUES
+--     ('storage.s3.url',                    '', 'url',     'storage',       false, 'Base S3 endpoint used for tenant external connections.')
+-- ON CONFLICT (key) DO NOTHING;
+
+-- kloigos specific playbooks. the yaml content is done via the webapp.
+INSERT INTO cpkit.playbooks (name, content, created_by, default_version, updated_by)
+VALUES
+    ('CU_ALLOCATE',   NULL, 'system', now():::TIMESTAMPTZ, 'system'),
+    ('CU_DEALLOCATE', NULL, 'system', now():::TIMESTAMPTZ, 'system'),
+    ('SERVER_DECOMM', NULL, 'system', now():::TIMESTAMPTZ, 'system'),
+    ('SERVER_INIT',   NULL, 'system', now():::TIMESTAMPTZ, 'system')
+;
