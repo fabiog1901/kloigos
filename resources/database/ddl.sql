@@ -37,6 +37,42 @@ CREATE UNIQUE INDEX uq_compute_units_public_ip
 ON compute_units (public_ip)
 WHERE public_ip IS NOT NULL;
 
+CREATE TABLE ip_pool (
+    ip_address TEXT NOT NULL,
+    status TEXT NOT NULL,
+    allocation_id TEXT NULL,
+    current_host TEXT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_ip_pool PRIMARY KEY (ip_address),
+    CONSTRAINT current_host_in_servers FOREIGN KEY (current_host) REFERENCES servers(hostname) ON UPDATE CASCADE ON DELETE SET NULL
+);
+
+CREATE TABLE allocations (
+    allocation_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    ip_address TEXT NOT NULL,
+    compute_id TEXT NULL,
+    current_host TEXT NULL,
+    status TEXT NOT NULL,
+    tags JSONB NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_allocations PRIMARY KEY (allocation_id),
+    CONSTRAINT uq_allocations_name UNIQUE (name),
+    CONSTRAINT uq_allocations_ip_address UNIQUE (ip_address),
+    CONSTRAINT allocation_ip_in_pool FOREIGN KEY (ip_address) REFERENCES ip_pool(ip_address) ON UPDATE CASCADE,
+    CONSTRAINT allocation_compute_unit FOREIGN KEY (compute_id) REFERENCES compute_units(compute_id) ON UPDATE CASCADE ON DELETE SET NULL,
+    CONSTRAINT allocation_current_host FOREIGN KEY (current_host) REFERENCES servers(hostname) ON UPDATE CASCADE ON DELETE SET NULL
+);
+
+CREATE UNIQUE INDEX uq_allocations_compute_id
+ON allocations (compute_id)
+WHERE compute_id IS NOT NULL;
+
+ALTER TABLE ip_pool
+ADD CONSTRAINT ip_pool_allocation FOREIGN KEY (allocation_id) REFERENCES allocations(allocation_id) ON UPDATE CASCADE ON DELETE SET NULL;
+
 -- kloigos specific settings
 -- INSERT INTO cpkit.settings (
 --     key,

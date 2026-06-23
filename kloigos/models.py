@@ -75,6 +75,12 @@ class Event(AutoNameStrEnum):
     CU_DEALLOCATION_REQUEST = auto()
     CU_DEALLOCATION_DONE = auto()
     CU_DEALLOCATION_FAILED = auto()
+    ALLOCATION_CREATE_REQUEST = auto()
+    ALLOCATION_CREATE_DONE = auto()
+    ALLOCATION_CREATE_FAILED = auto()
+    ALLOCATION_SCALE_REQUEST = auto()
+    ALLOCATION_SCALE_DONE = auto()
+    ALLOCATION_SCALE_FAILED = auto()
 
 
 class DeferredTask(BaseModel):
@@ -99,6 +105,26 @@ class ComputeUnitStatus(AutoNameStrEnum):
     ALLOCATION_FAIL = auto()
     DEALLOCATING = auto()
     DEALLOCATION_FAIL = auto()
+    UNAVAILABLE = auto()
+
+
+class AllocationStatus(AutoNameStrEnum):
+    REQUESTED = auto()
+    ALLOCATING = auto()
+    ALLOCATED = auto()
+    SCALING = auto()
+    SCALE_FAIL = auto()
+    DEALLOCATING = auto()
+    DEALLOCATED = auto()
+    ALLOCATION_FAIL = auto()
+    DEALLOCATION_FAIL = auto()
+
+
+class IpAddressStatus(AutoNameStrEnum):
+    FREE = auto()
+    RESERVED = auto()
+    ALLOCATED = auto()
+    RELEASING = auto()
     UNAVAILABLE = auto()
 
 
@@ -176,6 +202,27 @@ class ComputeUnitRequest(BaseModel):
     zone: str | None = None
     tags: dict[str, str | int | list[str]] | None
     ssh_public_key: str
+
+
+class AllocationInDB(BaseModel):
+    allocation_id: str
+    name: str
+    ip_address: str
+    compute_id: str | None = None
+    current_host: str | None = None
+    status: str
+    tags: dict[str, Any] | None = None
+    created_at: dt.datetime | None = None
+    updated_at: dt.datetime | None = None
+
+
+class IpPoolAddressInDB(BaseModel):
+    ip_address: str
+    status: str
+    allocation_id: str | None = None
+    current_host: str | None = None
+    created_at: dt.datetime | None = None
+    updated_at: dt.datetime | None = None
 
 
 class BaseServer(BaseModel):

@@ -5,9 +5,13 @@ from psycopg.rows import class_row
 from psycopg_pool import ConnectionPool
 
 from ..models import (
+    AllocationInDB,
+    AllocationStatus,
     ComputeUnitInDB,
     ComputeUnitOverview,
     ComputeUnitStatus,
+    IpAddressStatus,
+    IpPoolAddressInDB,
     ServerInDB,
     ServerInitRequest,
     ServerStatus,
@@ -101,6 +105,274 @@ class PostgresRepo(CPKitRepo):
                 """,
                 (hostname,),
             )
+
+    #
+    # ALLOCATION
+    #
+    def insert_allocation(self, allocation: AllocationInDB) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO allocations (
+                    allocation_id, name, ip_address, compute_id,
+                    current_host, status, tags
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    allocation.allocation_id,
+                    allocation.name,
+                    allocation.ip_address,
+                    allocation.compute_id,
+                    allocation.current_host,
+                    allocation.status,
+                    json.dumps(allocation.tags) if allocation.tags is not None else None,
+                ),
+            )
+
+    def update_allocation(
+        self,
+        allocation_id: str,
+        *,
+        status: AllocationStatus | None = None,
+        compute_id: str | None = None,
+        current_host: str | None = None,
+        tags: dict | None = None,
+    ) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                UPDATE allocations
+                SET
+                    status = coalesce(%s, status),
+                    compute_id = coalesce(%s, compute_id),
+                    current_host = coalesce(%s, current_host),
+                    tags = coalesce(%s, tags),
+                    updated_at = now()
+                WHERE allocation_id = %s
+                """,
+                (
+                    status,
+                    compute_id,
+                    current_host,
+                    json.dumps(tags) if tags is not None else None,
+                    allocation_id,
+                ),
+            )
+
+    def clear_allocation_placement(
+        self,
+        allocation_id: str,
+        status: AllocationStatus | None = None,
+    ) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                UPDATE allocations
+                SET
+                    status = coalesce(%s, status),
+                    compute_id = NULL,
+                    current_host = NULL,
+                    updated_at = now()
+                WHERE allocation_id = %s
+                """,
+                (
+                    status,
+                    allocation_id,
+                ),
+            )
+
+    def get_allocations(
+        self,
+        allocation_id: str | None = None,
+        compute_id: str | None = None,
+        ip_address: str | None = None,
+        status: str | None = None,
+    ) -> list[AllocationInDB]:
+        conditions = []
+        params = []
+
+        if allocation_id is not None:
+            conditions.append("allocation_id = %s")
+            params.append(allocation_id)
+
+        if compute_id is not None:
+            conditions.append("compute_id = %s")
+            params.append(compute_id)
+
+        if ip_address is not None:
+            conditions.append("ip_address = %s")
+            params.append(ip_address)
+
+        if status is not None:
+            conditions.append("status = %s")
+            params.append(status)
+
+        sql = "SELECT * FROM allocations"
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += " ORDER BY created_at DESC, allocation_id"
+
+        with self.pool.connection() as conn:
+            cur = conn.cursor(row_factory=class_row(AllocationInDB))
+            return cur.execute(sql, params).fetchall()
+
+    #
+    # IP POOL
+    #
+    def upsert_ip_pool_address(
+        self,
+        ip_address: str,
+        status: IpAddressStatus = IpAddressStatus.FREE,
+        allocation_id: str | None = None,
+        current_host: str | None = None,
+    ) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO ip_pool (
+                    ip_address, status, allocation_id, current_host
+                )
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (ip_address)
+                DO UPDATE SET
+                    status = excluded.status,
+                    allocation_id = excluded.allocation_id,
+                    current_host = excluded.current_host,
+                    updated_at = now()
+                """,
+                (
+                    ip_address,
+                    status,
+                    allocation_id,
+                    current_host,
+                ),
+            )
+
+    def update_ip_pool_address(
+        self,
+        ip_address: str,
+        *,
+        status: IpAddressStatus | None = None,
+        allocation_id: str | None = None,
+        current_host: str | None = None,
+    ) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                UPDATE ip_pool
+                SET
+                    status = coalesce(%s, status),
+                    allocation_id = coalesce(%s, allocation_id),
+                    current_host = coalesce(%s, current_host),
+                    updated_at = now()
+                WHERE ip_address = %s
+                """,
+                (
+                    status,
+                    allocation_id,
+                    current_host,
+                    ip_address,
+                ),
+            )
+
+    def release_ip_pool_address(
+        self,
+        ip_address: str,
+        status: IpAddressStatus = IpAddressStatus.FREE,
+    ) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                UPDATE ip_pool
+                SET
+                    status = %s,
+                    allocation_id = NULL,
+                    current_host = NULL,
+                    updated_at = now()
+                WHERE ip_address = %s
+                """,
+                (
+                    status,
+                    ip_address,
+                ),
+            )
+
+    def get_ip_pool_addresses(
+        self,
+        ip_address: str | None = None,
+        status: str | None = None,
+        allocation_id: str | None = None,
+        current_host: str | None = None,
+    ) -> list[IpPoolAddressInDB]:
+        conditions = []
+        params = []
+
+        if ip_address is not None:
+            conditions.append("ip_address = %s")
+            params.append(ip_address)
+
+        if status is not None:
+            conditions.append("status = %s")
+            params.append(status)
+
+        if allocation_id is not None:
+            conditions.append("allocation_id = %s")
+            params.append(allocation_id)
+
+        if current_host is not None:
+            conditions.append("current_host = %s")
+            params.append(current_host)
+
+        sql = "SELECT * FROM ip_pool"
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += " ORDER BY ip_address"
+
+        with self.pool.connection() as conn:
+            cur = conn.cursor(row_factory=class_row(IpPoolAddressInDB))
+            return cur.execute(sql, params).fetchall()
+
+    def lock_ip_pool_address(
+        self,
+        free_status: IpAddressStatus,
+        reserved_status: IpAddressStatus,
+        ip_address: str | None = None,
+    ) -> IpPoolAddressInDB | None:
+        conditions = ["status = %s"]
+        params = [free_status]
+
+        if ip_address is not None:
+            conditions.append("ip_address = %s")
+            params.append(ip_address)
+
+        params.append(reserved_status)
+
+        sql = f"""
+            WITH available_ip AS (
+                SELECT ip_address
+                FROM ip_pool
+                WHERE {" AND ".join(conditions)}
+                ORDER BY ip_address
+                LIMIT 1
+            )
+            UPDATE ip_pool
+            SET status = %s,
+                updated_at = now()
+            FROM available_ip
+            WHERE ip_pool.ip_address = available_ip.ip_address
+            RETURNING
+                ip_pool.ip_address,
+                ip_pool.status,
+                ip_pool.allocation_id,
+                ip_pool.current_host,
+                ip_pool.created_at,
+                ip_pool.updated_at
+        """
+
+        with self.pool.connection() as conn:
+            cur = conn.cursor(row_factory=class_row(IpPoolAddressInDB))
+            return cur.execute(sql, params).fetchone()
 
     #
     # COMPUTE UNIT
