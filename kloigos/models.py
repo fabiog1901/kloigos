@@ -14,6 +14,10 @@ class NoFreeComputeUnitError(Exception):
     pass
 
 
+class NoFreeIpAddressError(Exception):
+    pass
+
+
 class ComputeUnitNotFoundError(Exception):
     pass
 
@@ -196,11 +200,14 @@ class ComputeUnitOverview(ComputeUnitInDB):
 
 
 class ComputeUnitRequest(BaseModel):
+    allocation_id: str | None = None
+    name: str | None = None
     compute_id: str | None = None
     cpu_count: int | None = None
     region: str | None = None
     zone: str | None = None
-    tags: dict[str, str | int | list[str]] | None
+    ip_address: str | None = None
+    tags: dict[str, Any] | None = None
     ssh_public_key: str
 
 

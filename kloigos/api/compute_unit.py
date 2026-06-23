@@ -19,6 +19,7 @@ from ..models import (
     ComputeUnitStateError,
     DeferredTask,
     NoFreeComputeUnitError,
+    NoFreeIpAddressError,
 )
 from ..services.compute_unit import ComputeUnitService
 
@@ -65,6 +66,8 @@ async def allocate(
         return compute_id
     except NoFreeComputeUnitError:
         raise HTTPException(460, "No free Compute Unit found to match your request")
+    except NoFreeIpAddressError:
+        raise HTTPException(460, "No free IP address found to match your request")
     except ComputeUnitOperationError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

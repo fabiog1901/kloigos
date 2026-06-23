@@ -298,6 +298,27 @@ class PostgresRepo(CPKitRepo):
                 ),
             )
 
+    def clear_ip_pool_host(
+        self,
+        ip_address: str,
+        status: IpAddressStatus | None = None,
+    ) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                UPDATE ip_pool
+                SET
+                    status = coalesce(%s, status),
+                    current_host = NULL,
+                    updated_at = now()
+                WHERE ip_address = %s
+                """,
+                (
+                    status,
+                    ip_address,
+                ),
+            )
+
     def get_ip_pool_addresses(
         self,
         ip_address: str | None = None,
@@ -347,6 +368,7 @@ class PostgresRepo(CPKitRepo):
             params.append(ip_address)
 
         params.append(reserved_status)
+        params.append(free_status)
 
         sql = f"""
             WITH available_ip AS (
@@ -361,6 +383,7 @@ class PostgresRepo(CPKitRepo):
                 updated_at = now()
             FROM available_ip
             WHERE ip_pool.ip_address = available_ip.ip_address
+              AND ip_pool.status = %s
             RETURNING
                 ip_pool.ip_address,
                 ip_pool.status,
@@ -478,6 +501,7 @@ class PostgresRepo(CPKitRepo):
             params.append(cpu_count)
 
         params.append(allocated_status)
+        params.append(free_status)
 
         sql = """
             WITH 
@@ -511,6 +535,7 @@ class PostgresRepo(CPKitRepo):
         SET status = %s
         FROM available_cu
         WHERE compute_units.compute_id = available_cu.compute_id
+          AND compute_units.status = %s
         RETURNING 
             compute_units.compute_id,
             compute_units.hostname,
