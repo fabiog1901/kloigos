@@ -1,7 +1,7 @@
 from cpkit import require_admin
 from fastapi import APIRouter, Security
 
-from . import servers
+from . import ip_pool, servers
 
 router = APIRouter(
     prefix="/admin",
@@ -9,3 +9,4 @@ router = APIRouter(
 )
 
 router.include_router(servers.router)
+router.include_router(ip_pool.router)

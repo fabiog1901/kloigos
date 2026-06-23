@@ -85,6 +85,9 @@ class Event(AutoNameStrEnum):
     ALLOCATION_SCALE_REQUEST = auto()
     ALLOCATION_SCALE_DONE = auto()
     ALLOCATION_SCALE_FAILED = auto()
+    IP_POOL_UPSERT = auto()
+    IP_POOL_UPDATE = auto()
+    IP_POOL_RELEASE = auto()
 
 
 class DeferredTask(BaseModel):
@@ -230,6 +233,18 @@ class IpPoolAddressInDB(BaseModel):
     current_host: str | None = None
     created_at: dt.datetime | None = None
     updated_at: dt.datetime | None = None
+
+
+class IpPoolUpsertRequest(BaseModel):
+    ip_addresses: list[str] = Field(min_length=1)
+    status: IpAddressStatus = IpAddressStatus.FREE
+    current_host: str | None = None
+
+
+class IpPoolUpdateRequest(BaseModel):
+    status: IpAddressStatus | None = None
+    allocation_id: str | None = None
+    current_host: str | None = None
 
 
 class BaseServer(BaseModel):
