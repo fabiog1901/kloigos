@@ -2,10 +2,11 @@ import logging
 
 from cpkit.audit import log_event
 from cpkit.jobs.types import JobID
-from cpkit.playbooks import run_playbook
 
 from kloigos.models import (
+    AllocationCreateCommand,
     AllocationCreateResponse,
+    AllocationDeallocateCommand,
     AllocationInDB,
     AllocationScaleCommand,
     AllocationScaleRequest,
@@ -14,16 +15,30 @@ from kloigos.models import (
     ComputeUnitOperationError,
     ComputeUnitOverview,
     ComputeUnitRequest,
+    ComputeUnitStateError,
     ComputeUnitStatus,
     Event,
     IpAddressStatus,
+    IpPoolAddressInDB,
     NoFreeComputeUnitError,
-    Playbook,
+    NoFreeIpAddressError,
     QueueCommand,
 )
 
 from ..repos import Repo
-from .compute_unit import ComputeUnitService, _ansible_host
+
+
+def _request_allocation_identity(
+    req: ComputeUnitRequest,
+    cu: ComputeUnitOverview,
+) -> tuple[str, str]:
+    tags = req.tags if isinstance(req.tags, dict) else {}
+    tagged_name = (
+        tags.get("allocation_id") or tags.get("deployment_id") or tags.get("name")
+    )
+    allocation_id = str(req.allocation_id or tagged_name or cu.compute_id).strip()
+    name = str(req.name or tagged_name or allocation_id).strip()
+    return allocation_id, name
 
 
 class AllocationService:
@@ -57,24 +72,186 @@ class AllocationService:
         actor_id: str,
         req: ComputeUnitRequest,
     ) -> AllocationCreateResponse:
-        """Create an allocation and queue compute-unit preparation."""
-        return ComputeUnitService(self.repo).allocate(actor_id, req)
+        """Reserve capacity, create allocation metadata, and queue preparation."""
+        log_event(
+            self.repo,
+            actor_id,
+            Event.CU_ALLOCATION_REQUEST,
+            req.model_dump(),
+        )
+
+        cu: ComputeUnitOverview = self.repo.lock_compute_unit(
+            compute_id=req.compute_id,
+            region=req.region,
+            zone=req.zone,
+            cpu_count=req.cpu_count,
+            free_status=ComputeUnitStatus.FREE,
+            allocated_status=ComputeUnitStatus.ALLOCATING,
+        )
+        if not cu:
+            raise NoFreeComputeUnitError()
+
+        allocation: AllocationInDB | None = None
+        ip_address: IpPoolAddressInDB | None = None
+        try:
+            ip_address = self.repo.lock_ip_pool_address(
+                free_status=IpAddressStatus.FREE,
+                reserved_status=IpAddressStatus.RESERVED,
+                ip_address=req.ip_address,
+            )
+            if not ip_address:
+                self.repo.update_compute_unit(
+                    cu.compute_id,
+                    status=ComputeUnitStatus.FREE,
+                    tags={},
+                )
+                raise NoFreeIpAddressError()
+
+            allocation_id, allocation_name = _request_allocation_identity(req, cu)
+            allocation = AllocationInDB(
+                allocation_id=allocation_id,
+                name=allocation_name,
+                ip_address=ip_address.ip_address,
+                compute_id=cu.compute_id,
+                current_host=cu.hostname,
+                status=AllocationStatus.ALLOCATING,
+                tags=req.tags,
+            )
+            log_event(
+                self.repo,
+                actor_id,
+                Event.ALLOCATION_CREATE_REQUEST,
+                allocation.model_dump(),
+            )
+            self.repo.insert_allocation(allocation)
+            self.repo.update_ip_pool_address(
+                ip_address.ip_address,
+                status=IpAddressStatus.RESERVED,
+                allocation_id=allocation.allocation_id,
+                current_host=cu.hostname,
+            )
+            self.repo.update_compute_unit(
+                cu.compute_id,
+                tags={
+                    **(req.tags or {}),
+                    "allocation_id": allocation.allocation_id,
+                    "allocation_name": allocation.name,
+                    "ip_address": allocation.ip_address,
+                },
+            )
+            job: JobID = self.repo.enqueue_command(
+                QueueCommand.CU_ALLOCATE,
+                AllocationCreateCommand(
+                    allocation_id=allocation.allocation_id,
+                    compute_id=cu.compute_id,
+                    ssh_public_key=req.ssh_public_key,
+                ),
+                actor_id,
+            )
+        except NoFreeIpAddressError:
+            raise
+        except Exception as exc:
+            try:
+                if allocation:
+                    self.repo.clear_allocation_placement(
+                        allocation.allocation_id,
+                        status=AllocationStatus.ALLOCATION_FAIL,
+                    )
+                    self.repo.clear_ip_pool_host(
+                        allocation.ip_address,
+                        status=IpAddressStatus.RESERVED,
+                    )
+                elif ip_address:
+                    self.repo.release_ip_pool_address(ip_address.ip_address)
+                self.repo.update_compute_unit(
+                    cu.compute_id,
+                    status=ComputeUnitStatus.FREE,
+                    tags={},
+                )
+            except Exception:
+                logging.exception(
+                    "Failed to release compute unit %s after allocation preparation failed",
+                    cu.compute_id,
+                )
+
+            log_event(
+                self.repo,
+                actor_id,
+                Event.ALLOCATION_CREATE_FAILED,
+                {
+                    **cu.model_dump(),
+                    "request": req.model_dump(),
+                    "ip_address": ip_address.model_dump() if ip_address else None,
+                    "error": "Failed to persist allocation metadata before scheduling the allocation job.",
+                },
+            )
+            raise ComputeUnitOperationError(
+                "Unable to prepare compute unit allocation."
+            ) from exc
+
+        return AllocationCreateResponse(
+            allocation_id=allocation.allocation_id,
+            job_id=job.job_id,
+        )
 
     def deallocate(
         self,
         actor_id: str,
         allocation_id: str,
     ) -> JobID:
-        """Schedule cleanup for the compute unit currently backing an allocation."""
+        """Mark an allocation as deallocating and queue compute-unit cleanup."""
         allocation = self._get_allocation(allocation_id)
         if allocation.compute_id is None:
             raise ComputeUnitOperationError(
                 f"Allocation '{allocation_id}' has no active compute unit."
             )
+        cu = self._get_active_compute_unit(allocation)
 
-        return ComputeUnitService(self.repo).deallocate(
+        log_event(
+            self.repo,
             actor_id,
-            allocation.compute_id,
+            Event.CU_DEALLOCATION_REQUEST,
+            {"compute_id": cu.compute_id, "allocation_id": allocation_id},
+        )
+
+        allowed_statuses = {
+            ComputeUnitStatus.ALLOCATED,
+            ComputeUnitStatus.ALLOCATION_FAIL,
+            ComputeUnitStatus.DEALLOCATION_FAIL,
+        }
+        current_status = ComputeUnitStatus(cu.status)
+        if current_status not in allowed_statuses:
+            allowed = ", ".join(sorted(status.value for status in allowed_statuses))
+            raise ComputeUnitStateError(
+                f"Compute unit '{cu.compute_id}' cannot be deallocated from status '{current_status.value}'. Allowed statuses: {allowed}."
+            )
+
+        try:
+            self.repo.update_compute_unit(
+                cu.compute_id,
+                status=ComputeUnitStatus.DEALLOCATING,
+                tags={},
+            )
+            self.repo.update_allocation(
+                allocation.allocation_id,
+                status=AllocationStatus.DEALLOCATING,
+            )
+            self.repo.update_ip_pool_address(
+                allocation.ip_address,
+                status=IpAddressStatus.RELEASING,
+            )
+        except Exception as exc:
+            raise ComputeUnitOperationError(
+                "Unable to prepare allocation deallocation."
+            ) from exc
+
+        return self.repo.enqueue_command(
+            QueueCommand.CU_DEALLOCATE,
+            AllocationDeallocateCommand(
+                allocation_id=allocation.allocation_id,
+                compute_id=cu.compute_id,
+            ),
+            actor_id,
         )
 
     def scale(
@@ -125,75 +302,6 @@ class AllocationService:
                 "Unable to enqueue allocation scale job."
             ) from exc
 
-    def run_scale_job(
-        self,
-        job_id: int,
-        command: AllocationScaleCommand,
-        actor_id: str,
-    ) -> None:
-        """Run a queued allocation scale job and reconcile final placement state."""
-        allocation = self._get_allocation(command.allocation_id)
-        source = self._get_active_compute_unit(allocation)
-        try:
-            target = self._lock_target_compute_unit(command)
-        except Exception as exc:
-            details = {
-                "job_id": job_id,
-                "allocation": allocation.model_dump(),
-                "source_compute_unit": source.model_dump(),
-                "request": command.model_dump(),
-                "error": str(exc),
-            }
-            log_event(
-                self.repo,
-                actor_id,
-                Event.ALLOCATION_SCALE_FAILED,
-                details,
-            )
-            raise
-
-        details = {
-            "job_id": job_id,
-            "allocation": allocation.model_dump(),
-            "source_compute_unit": source.model_dump(),
-            "target_compute_unit": target.model_dump(),
-            "request": command.model_dump(),
-        }
-
-        try:
-            result = run_playbook(
-                repo=self.repo,
-                job_id=job_id,
-                playbook_name=Playbook.ALLOCATION_SCALE.value,
-                extra_vars=self._scale_extra_vars(allocation, source, target),
-            )
-            job_ok = result.status == "successful"
-        except Exception as exc:
-            job_ok = False
-            details["error"] = f"Unhandled exception during scale playbook: {exc}"
-            logging.exception(
-                "Unhandled exception during allocation scale for %s",
-                allocation.allocation_id,
-            )
-
-        if job_ok:
-            self._finish_successful_scale(allocation, source, target)
-            event = Event.ALLOCATION_SCALE_DONE
-        else:
-            self._finish_failed_scale(allocation, source, target)
-            event = Event.ALLOCATION_SCALE_FAILED
-
-        log_event(
-            self.repo,
-            actor_id,
-            event,
-            details,
-        )
-        if not job_ok:
-            raise ComputeUnitOperationError(
-                f"Allocation scale job '{job_id}' failed."
-            )
-
     def _get_allocation(self, allocation_id: str) -> AllocationInDB:
         matches = self.repo.get_allocations(allocation_id=allocation_id)
         if not matches:
@@ -216,120 +324,3 @@ class AllocationService:
                 f"Compute unit '{allocation.compute_id}' does not exist."
             )
         return matches[0]
-
-    def _lock_target_compute_unit(
-        self,
-        command: AllocationScaleCommand,
-    ) -> ComputeUnitOverview:
-        target = self.repo.lock_compute_unit(
-            compute_id=command.compute_id,
-            region=command.region,
-            zone=command.zone,
-            cpu_count=command.cpu_count,
-            free_status=ComputeUnitStatus.FREE,
-            allocated_status=ComputeUnitStatus.ALLOCATING,
-        )
-        if not target:
-            self.repo.update_allocation(
-                command.allocation_id,
-                status=AllocationStatus.SCALE_FAIL,
-            )
-            raise NoFreeComputeUnitError(
-                "No free target compute unit found for allocation scale request."
-            )
-        return target
-
-    def _scale_extra_vars(
-        self,
-        allocation: AllocationInDB,
-        source: ComputeUnitOverview,
-        target: ComputeUnitOverview,
-    ) -> dict:
-        return {
-            "allocation_id": allocation.allocation_id,
-            "allocation_name": allocation.name,
-            "allocation_ip_address": allocation.ip_address,
-            "private_ip": allocation.ip_address,
-            "source_compute_id": source.compute_id,
-            "source_hostname": source.hostname,
-            "source_ansible_host": _ansible_host(
-                source.server_public_ip,
-                source.server_private_ip,
-            ),
-            "source_server_private_ip": source.server_private_ip,
-            "source_server_public_ip": source.server_public_ip,
-            "source_compute_unit_private_ip": source.private_ip,
-            "source_cu_user": source.cu_user,
-            "source_cpu_range": source.cpu_range,
-            "target_compute_id": target.compute_id,
-            "target_hostname": target.hostname,
-            "target_ansible_host": _ansible_host(
-                target.server_public_ip,
-                target.server_private_ip,
-            ),
-            "target_server_private_ip": target.server_private_ip,
-            "target_server_public_ip": target.server_public_ip,
-            "target_compute_unit_private_ip": target.private_ip,
-            "target_cu_user": target.cu_user,
-            "target_cpu_range": target.cpu_range,
-            "target_cpu_count": target.cpu_count,
-        }
-
-    def _finish_successful_scale(
-        self,
-        allocation: AllocationInDB,
-        source: ComputeUnitOverview,
-        target: ComputeUnitOverview,
-    ) -> None:
-        tags = {
-            **(allocation.tags or {}),
-            "allocation_id": allocation.allocation_id,
-            "allocation_name": allocation.name,
-            "ip_address": allocation.ip_address,
-        }
-        self.repo.update_compute_unit(
-            source.compute_id,
-            status=ComputeUnitStatus.FREE,
-            tags={},
-        )
-        self.repo.update_compute_unit(
-            target.compute_id,
-            status=ComputeUnitStatus.ALLOCATED,
-            tags=tags,
-        )
-        self.repo.update_allocation(
-            allocation.allocation_id,
-            status=AllocationStatus.ALLOCATED,
-            compute_id=target.compute_id,
-            current_host=target.hostname,
-        )
-        self.repo.update_ip_pool_address(
-            allocation.ip_address,
-            status=IpAddressStatus.ALLOCATED,
-            allocation_id=allocation.allocation_id,
-            current_host=target.hostname,
-        )
-
-    def _finish_failed_scale(
-        self,
-        allocation: AllocationInDB,
-        source: ComputeUnitOverview,
-        target: ComputeUnitOverview,
-    ) -> None:
-        self.repo.update_compute_unit(
-            target.compute_id,
-            status=ComputeUnitStatus.ALLOCATION_FAIL,
-            tags={},
-        )
-        self.repo.update_allocation(
-            allocation.allocation_id,
-            status=AllocationStatus.SCALE_FAIL,
-            compute_id=source.compute_id,
-            current_host=source.hostname,
-        )
-        self.repo.update_ip_pool_address(
-            allocation.ip_address,
-            status=IpAddressStatus.ALLOCATED,
-            allocation_id=allocation.allocation_id,
-            current_host=source.hostname,
-        )
