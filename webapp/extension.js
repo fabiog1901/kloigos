@@ -1,14 +1,21 @@
 window.cpkitWebappExtension = {
   htmlPath: "/app/extension.html",
   navItems: [
+    { view: "allocations", label: "Allocations" },
     { view: "compute_units", label: "Compute" },
     { view: "kloigos_servers", label: "Servers" },
   ],
   routes: {
+    allocations: {
+      path: "/allocations",
+      label: "Allocations",
+      subtitle: "Durable workload identities and lifecycle",
+      ensure: "ensureAllocationsView",
+    },
     compute_units: {
       path: "/compute-units",
       label: "Compute Units",
-      subtitle: "Kloigos capacity allocation and lifecycle",
+      subtitle: "Kloigos capacity inventory",
       ensure: "ensureComputeUnitsView",
     },
     kloigos_servers: {
@@ -19,6 +26,31 @@ window.cpkitWebappExtension = {
     },
   },
   state: {
+    allocations: [],
+    allocationsVisibleRows: [],
+    allocationsFilterQuery: "",
+    allocationsLastUpdatedUtc: null,
+    allocationsSortIndex: null,
+    allocationsSortDir: "asc",
+    allocationsSortTypeByIndex: {
+      0: "string",
+      1: "string",
+      2: "ip",
+      3: "string",
+      4: "string",
+      5: "string",
+      6: "string",
+      7: "date",
+    },
+    allocationsLoading: {
+      list: false,
+      allocate: false,
+      deallocateConfirm: false,
+      scale: false,
+    },
+    allocationsBusyKey: null,
+    allocationsAutoRefreshEnabled: true,
+    _allocationsAutoTimer: null,
     servers: [],
     serversVisibleRows: [],
     serversFilterQuery: "",
@@ -59,16 +91,15 @@ window.cpkitWebappExtension = {
     },
     computeLoading: {
       list: false,
-      allocate: false,
-      deallocateConfirm: false,
     },
-    computeBusyKey: null,
     computeAutoRefreshEnabled: true,
     _computeAutoTimer: null,
     modal: {
       allocate: {
         open: false,
-        deployment_id: "",
+        allocation_id: "",
+        name: "",
+        ip_address: "",
         cpu_count: null,
         region: "",
         zone: "",
@@ -76,7 +107,17 @@ window.cpkitWebappExtension = {
         tagsText: "{}",
         ssh_public_key: "",
       },
-      deallocateConfirm: { open: false, compute_id: "", hostname: "" },
+      allocationDetails: { open: false, row: null },
+      allocationScale: {
+        open: false,
+        allocation_id: "",
+        name: "",
+        compute_id: "",
+        cpu_count: null,
+        region: "",
+        zone: "",
+      },
+      deallocateConfirm: { open: false, allocation_id: "", name: "", compute_id: "" },
       computeDetails: { open: false, row: null },
       serverDetails: { open: false, row: null },
       serverActionConfirm: { open: false, hostname: "", action: "decommission" },
@@ -98,16 +139,24 @@ window.cpkitWebappExtension = {
     },
     modalError: {
       allocate: "",
+      allocationScale: "",
       deallocateConfirm: "",
       serverActionConfirm: "",
       serverInit: "",
     },
   },
   async init() {
+    this.restoreAllocationsLocalState();
     this.restoreComputeLocalState();
     this.restoreServersLocalState();
+    if (this.view === "allocations") await this.ensureAllocationsView();
     if (this.view === "compute_units") await this.ensureComputeUnitsView();
     if (this.view === "kloigos_servers") await this.ensureKloigosServersView();
+    this.setManagedInterval("_allocationsAutoTimer", () => {
+      if (this.allocationsAutoRefreshEnabled && this.view === "allocations") {
+        this.refreshAllocations();
+      }
+    }, 10000);
     this.setManagedInterval("_computeAutoTimer", () => {
       if (this.computeAutoRefreshEnabled && this.view === "compute_units") {
         this.refreshComputeUnits();
@@ -120,6 +169,18 @@ window.cpkitWebappExtension = {
     }, 15000);
   },
   methods: {
+    restoreAllocationsLocalState() {
+      const sortIndex = localStorage.getItem("kloigos_allocations_sort_index");
+      const sortDir = localStorage.getItem("kloigos_allocations_sort_dir");
+      const filter = localStorage.getItem("kloigos_allocations_filter");
+
+      if (sortIndex !== null && !Number.isNaN(Number(sortIndex))) {
+        this.allocationsSortIndex = Number(sortIndex);
+      }
+      if (sortDir === "asc" || sortDir === "desc") this.allocationsSortDir = sortDir;
+      if (filter !== null) this.allocationsFilterQuery = filter;
+    },
+
     restoreServersLocalState() {
       const sortIndex = localStorage.getItem("kloigos_servers_sort_index");
       const sortDir = localStorage.getItem("kloigos_servers_sort_dir");
@@ -144,11 +205,38 @@ window.cpkitWebappExtension = {
       if (filter !== null) this.computeFilterQuery = filter;
     },
 
+    async ensureAllocationsView() {
+      if (this.allocations.length === 0 && !this.allocationsLoading.list) {
+        await this.refreshAllocations();
+      } else {
+        this.applyAllocationsFilterSort();
+      }
+    },
+
     async ensureComputeUnitsView() {
       if (this.computeUnits.length === 0 && !this.computeLoading.list) {
         await this.refreshComputeUnits();
       } else {
         this.applyComputeFilterSort();
+      }
+    },
+
+    async refreshAllocations() {
+      this.allocationsLoading.list = true;
+      try {
+        const data = await this.apiFetch("/allocations/", { method: "GET" });
+        this.allocations = Array.isArray(data)
+          ? data.map((row) => ({
+              ...row,
+              allocation_id: row.allocation_id === undefined || row.allocation_id === null ? "" : String(row.allocation_id),
+            }))
+          : [];
+        this.allocationsLastUpdatedUtc = this.utcNowString();
+        this.applyAllocationsFilterSort();
+      } catch (error) {
+        this.viewNotice = this.errorMessage(error, "Failed to load allocations.");
+      } finally {
+        this.allocationsLoading.list = false;
       }
     },
 
@@ -183,7 +271,7 @@ window.cpkitWebappExtension = {
       }
     },
 
-    canManageCompute() {
+    canManageAllocations() {
       return this.authIsUnauthenticatedMode() || this.hasRole("CP_USER") || this.hasRole("CP_ADMIN");
     },
 
@@ -193,6 +281,103 @@ window.cpkitWebappExtension = {
 
     persistServersFilter() {
       localStorage.setItem("kloigos_servers_filter", this.serversFilterQuery || "");
+    },
+
+    persistAllocationsFilter() {
+      localStorage.setItem("kloigos_allocations_filter", this.allocationsFilterQuery || "");
+    },
+
+    allocationsRowText(row) {
+      const tags = row.tags && typeof row.tags === "object"
+        ? Object.entries(row.tags).map(([key, value]) => `${key}:${Array.isArray(value) ? value.join(",") : value}`)
+        : [];
+      return [
+        row.allocation_id,
+        row.name,
+        row.ip_address,
+        row.compute_id,
+        row.current_host,
+        row.status,
+        ...tags,
+      ].filter(Boolean).join(" ").toLowerCase();
+    },
+
+    allocationsCellText(row, colIndex) {
+      switch (colIndex) {
+        case 0:
+          return row.allocation_id || "";
+        case 1:
+          return row.name || "";
+        case 2:
+          return row.ip_address || "";
+        case 3:
+          return row.compute_id || "";
+        case 4:
+          return row.current_host || "";
+        case 5:
+          return this.serversTagsCompact(row.tags);
+        case 6:
+          return row.status || "";
+        case 7:
+          return row.updated_at || "";
+        default:
+          return "";
+      }
+    },
+
+    allocationsStatusClass(status) {
+      const normalized = String(status || "").toLowerCase();
+      if (normalized === "allocated") return "success";
+      if (normalized.includes("ing") || normalized === "requested") return "pending";
+      if (normalized.includes("deallocated")) return "neutral";
+      if (!normalized || normalized === "unknown") return "neutral";
+      return "danger";
+    },
+
+    allocationCanDeallocate(row) {
+      return ["allocated", "allocation_fail", "deallocation_fail"].includes(String(row?.status || "").toLowerCase());
+    },
+
+    allocationCanScale(row) {
+      return String(row?.status || "").toLowerCase() === "allocated";
+    },
+
+    allocationSortClass(index) {
+      if (this.allocationsSortIndex !== index) return "";
+      return this.allocationsSortDir === "asc" ? "sort-asc" : "sort-desc";
+    },
+
+    toggleAllocationsSort(index) {
+      if (this.allocationsSortIndex === index) {
+        this.allocationsSortDir = this.allocationsSortDir === "asc" ? "desc" : "asc";
+      } else {
+        this.allocationsSortIndex = index;
+        this.allocationsSortDir = "asc";
+      }
+      localStorage.setItem("kloigos_allocations_sort_index", String(this.allocationsSortIndex));
+      localStorage.setItem("kloigos_allocations_sort_dir", this.allocationsSortDir);
+      this.applyAllocationsFilterSort();
+    },
+
+    applyAllocationsFilterSort() {
+      const query = (this.allocationsFilterQuery || "").toLowerCase().trim();
+      let rows = this.allocations.slice();
+      if (query) rows = rows.filter((row) => this.allocationsRowText(row).includes(query));
+
+      if (this.allocationsSortIndex !== null) {
+        const index = this.allocationsSortIndex;
+        const dir = this.allocationsSortDir;
+        const type = this.allocationsSortTypeByIndex[index] || "string";
+        rows.sort((left, right) => {
+          const leftValue = this.parseComputeSortValue(type, this.allocationsCellText(left, index));
+          const rightValue = this.parseComputeSortValue(type, this.allocationsCellText(right, index));
+          if (leftValue < rightValue) return dir === "asc" ? -1 : 1;
+          if (leftValue > rightValue) return dir === "asc" ? 1 : -1;
+          return 0;
+        });
+      }
+
+      this.allocationsVisibleRows = rows;
     },
 
     serversRowText(server) {
@@ -335,7 +520,7 @@ window.cpkitWebappExtension = {
         row.region,
         row.zone,
         row.status,
-        this.tagValue(row, "deployment_id"),
+        this.allocationTagValue(row),
         ...tags,
       ].filter(Boolean).join(" ").toLowerCase();
     },
@@ -343,7 +528,7 @@ window.cpkitWebappExtension = {
     computeCellText(row, colIndex) {
       switch (colIndex) {
         case 0:
-          return this.tagValue(row, "deployment_id") || "";
+          return this.allocationTagValue(row) || "";
         case 1:
           return row.compute_id || "";
         case 2:
@@ -425,6 +610,10 @@ window.cpkitWebappExtension = {
       return Array.isArray(value) ? value.join(",") : String(value);
     },
 
+    allocationTagValue(row) {
+      return this.tagValue(row, "allocation_id") || this.tagValue(row, "deployment_id");
+    },
+
     computeStatusClass(status) {
       const normalized = String(status || "").toLowerCase();
       if (normalized.includes("free")) return "success";
@@ -434,8 +623,16 @@ window.cpkitWebappExtension = {
       return "danger";
     },
 
-    openAllocateModal(computeId = "") {
+    openAllocationCreateModal(computeId = "") {
+      this.modal.allocate.allocation_id = "";
+      this.modal.allocate.name = "";
+      this.modal.allocate.ip_address = "";
+      this.modal.allocate.cpu_count = null;
+      this.modal.allocate.region = "";
+      this.modal.allocate.zone = "";
       this.modal.allocate.compute_id = computeId ? String(computeId) : "";
+      this.modal.allocate.tagsText = "{}";
+      this.modal.allocate.ssh_public_key = "";
       this.modalError.allocate = "";
       this.modal.allocate.open = true;
     },
@@ -445,8 +642,8 @@ window.cpkitWebappExtension = {
       this.modalError.allocate = "";
     },
 
-    async allocateComputeUnit() {
-      this.computeLoading.allocate = true;
+    async createAllocation() {
+      this.allocationsLoading.allocate = true;
       this.modalError.allocate = "";
       try {
         const tags = JSON.parse((this.modal.allocate.tagsText || "{}").trim() || "{}");
@@ -454,31 +651,38 @@ window.cpkitWebappExtension = {
           throw new Error("Tags must be a JSON object.");
         }
 
-        const deploymentId = (this.modal.allocate.deployment_id || "").trim();
+        const allocationId = (this.modal.allocate.allocation_id || "").trim();
+        const allocationName = (this.modal.allocate.name || "").trim();
         const payload = {
+          allocation_id: allocationId || null,
+          name: allocationName || allocationId || null,
+          ip_address: (this.modal.allocate.ip_address || "").trim() || null,
           cpu_count: this.modal.allocate.cpu_count ?? null,
           region: (this.modal.allocate.region || "").trim() || null,
           zone: (this.modal.allocate.zone || "").trim() || null,
           compute_id: (this.modal.allocate.compute_id || "").trim() || null,
-          tags: deploymentId ? { ...tags, deployment_id: deploymentId } : tags,
+          tags: allocationId ? { ...tags, allocation_id: allocationId } : tags,
           ssh_public_key: (this.modal.allocate.ssh_public_key || "").trim(),
         };
 
         if (!payload.ssh_public_key) throw new Error("SSH public key is required.");
 
-        await this.apiFetch("/compute_units/allocate", { method: "POST", body: payload });
+        const result = await this.apiFetch("/allocations/", { method: "POST", body: payload });
         this.closeAllocateModal();
+        this.viewNotice = result?.job_id ? `Allocation queued as job ${result.job_id}.` : "Allocation queued.";
+        await this.refreshAllocations();
         await this.refreshComputeUnits();
       } catch (error) {
         this.modalError.allocate = this.errorMessage(error, "Allocation failed.");
       } finally {
-        this.computeLoading.allocate = false;
+        this.allocationsLoading.allocate = false;
       }
     },
 
-    openDeallocateConfirm(row) {
-      this.modal.deallocateConfirm.compute_id = String(row.compute_id || "");
-      this.modal.deallocateConfirm.hostname = row.hostname || "";
+    openAllocationDeallocateConfirm(row) {
+      this.modal.deallocateConfirm.allocation_id = String(row.allocation_id || "");
+      this.modal.deallocateConfirm.name = row.name || "";
+      this.modal.deallocateConfirm.compute_id = row.compute_id || "";
       this.modalError.deallocateConfirm = "";
       this.modal.deallocateConfirm.open = true;
     },
@@ -488,21 +692,80 @@ window.cpkitWebappExtension = {
       this.modalError.deallocateConfirm = "";
     },
 
-    async confirmDeallocateComputeUnit() {
-      const computeId = String(this.modal.deallocateConfirm.compute_id || "");
-      this.computeLoading.deallocateConfirm = true;
-      this.computeBusyKey = computeId;
+    async confirmDeallocateAllocation() {
+      const allocationId = String(this.modal.deallocateConfirm.allocation_id || "");
+      this.allocationsLoading.deallocateConfirm = true;
+      this.allocationsBusyKey = allocationId;
       this.modalError.deallocateConfirm = "";
       try {
-        await this.apiFetch(`/compute_units/deallocate/${encodeURIComponent(computeId)}`, { method: "DELETE" });
+        const result = await this.apiFetch(`/allocations/${encodeURIComponent(allocationId)}`, { method: "DELETE" });
         this.closeDeallocateConfirm();
+        this.viewNotice = result?.job_id ? `Deallocation queued as job ${result.job_id}.` : "Deallocation queued.";
+        await this.refreshAllocations();
         await this.refreshComputeUnits();
       } catch (error) {
         this.modalError.deallocateConfirm = this.errorMessage(error, "Deallocate failed.");
       } finally {
-        this.computeLoading.deallocateConfirm = false;
-        this.computeBusyKey = null;
+        this.allocationsLoading.deallocateConfirm = false;
+        this.allocationsBusyKey = null;
       }
+    },
+
+    openAllocationScaleModal(row) {
+      this.modal.allocationScale.allocation_id = String(row?.allocation_id || "");
+      this.modal.allocationScale.name = row?.name || "";
+      this.modal.allocationScale.compute_id = "";
+      this.modal.allocationScale.cpu_count = null;
+      this.modal.allocationScale.region = "";
+      this.modal.allocationScale.zone = "";
+      this.modalError.allocationScale = "";
+      this.modal.allocationScale.open = true;
+    },
+
+    closeAllocationScaleModal() {
+      this.modal.allocationScale.open = false;
+      this.modalError.allocationScale = "";
+    },
+
+    async scaleAllocation() {
+      const allocationId = String(this.modal.allocationScale.allocation_id || "").trim();
+      this.allocationsLoading.scale = true;
+      this.allocationsBusyKey = allocationId;
+      this.modalError.allocationScale = "";
+      try {
+        const payload = {
+          compute_id: (this.modal.allocationScale.compute_id || "").trim() || null,
+          cpu_count: this.modal.allocationScale.cpu_count ?? null,
+          region: (this.modal.allocationScale.region || "").trim() || null,
+          zone: (this.modal.allocationScale.zone || "").trim() || null,
+        };
+        if (!payload.compute_id && !payload.cpu_count && !payload.region && !payload.zone) {
+          throw new Error("Provide at least one target constraint.");
+        }
+        const result = await this.apiFetch(`/allocations/${encodeURIComponent(allocationId)}/scale`, {
+          method: "POST",
+          body: payload,
+        });
+        this.closeAllocationScaleModal();
+        this.viewNotice = result?.job_id ? `Scale queued as job ${result.job_id}.` : "Scale queued.";
+        await this.refreshAllocations();
+        await this.refreshComputeUnits();
+      } catch (error) {
+        this.modalError.allocationScale = this.errorMessage(error, "Scale failed.");
+      } finally {
+        this.allocationsLoading.scale = false;
+        this.allocationsBusyKey = null;
+      }
+    },
+
+    openAllocationDetails(row) {
+      this.modal.allocationDetails.row = row || null;
+      this.modal.allocationDetails.open = true;
+    },
+
+    closeAllocationDetails() {
+      this.modal.allocationDetails.open = false;
+      this.modal.allocationDetails.row = null;
     },
 
     openComputeDetails(row) {
@@ -552,6 +815,7 @@ window.cpkitWebappExtension = {
         }
         this.closeServerActionConfirm();
         await this.refreshServers();
+        await this.refreshAllocations();
         await this.refreshComputeUnits();
       } catch (error) {
         this.modalError.serverActionConfirm = this.errorMessage(error, "Failed to run server action.");
@@ -642,6 +906,7 @@ window.cpkitWebappExtension = {
         });
         this.closeServerInitModal();
         await this.refreshServers();
+        await this.refreshAllocations();
         await this.refreshComputeUnits();
       } catch (error) {
         this.modalError.serverInit = this.errorMessage(error, "Server init failed.");
