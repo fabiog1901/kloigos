@@ -1,0 +1,283 @@
+---
+#
+# Playbook invoked by Kloigos after each allocation scale request.
+#
+# Scaling is replacement plus migration:
+#   1. run an initial rsync from source CU storage to controller scratch
+#   2. run an initial rsync from controller scratch to target CU storage
+#   3. stop the source user systemd instance
+#   4. run a final rsync delta through the same scratch path
+#   5. move the allocation floating IP alias from source host to target host
+#   6. update nftables source-IP enforcement for the source and target users
+#   7. start the target user systemd instance
+#
+# The following extra-vars are passed:
+#   allocation_id
+#   allocation_name
+#   allocation_ip_address
+#   private_ip
+#   source_compute_id
+#   source_hostname
+#   source_ansible_host
+#   source_server_private_ip
+#   source_server_public_ip
+#   source_compute_unit_private_ip
+#   source_cu_user
+#   source_cpu_range
+#   target_compute_id
+#   target_hostname
+#   target_ansible_host
+#   target_server_private_ip
+#   target_server_public_ip
+#   target_compute_unit_private_ip
+#   target_cu_user
+#   target_cpu_range
+#   target_cpu_count
+#
+- name: GATHER ALLOCATION SCALE HOSTS
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: no
+  tasks:
+    - name: Build source host inventory dynamically
+      add_host:
+        name: "{{ source_compute_id }}"
+        ansible_user: ubuntu
+        public_hostname: "{{ source_hostname }}"
+        ansible_host: "{{ source_ansible_host }}"
+        server_private_ip: "{{ source_server_private_ip }}"
+        server_public_ip: "{{ source_server_public_ip | default('', true) }}"
+        compute_unit_private_ip: "{{ source_compute_unit_private_ip }}"
+        cu_user: "{{ source_cu_user }}"
+        groups: scale_source
+
+    - name: Build target host inventory dynamically
+      add_host:
+        name: "{{ target_compute_id }}"
+        ansible_user: ubuntu
+        public_hostname: "{{ target_hostname }}"
+        ansible_host: "{{ target_ansible_host }}"
+        server_private_ip: "{{ target_server_private_ip }}"
+        server_public_ip: "{{ target_server_public_ip | default('', true) }}"
+        compute_unit_private_ip: "{{ target_compute_unit_private_ip }}"
+        cu_user: "{{ target_cu_user }}"
+        cpu_count: "{{ target_cpu_count }}"
+        groups: scale_target
+
+    - name: Create controller migration scratch directories
+      file:
+        path: "/tmp/kloigos-scale/{{ allocation_id }}/{{ item }}"
+        state: directory
+        mode: "0700"
+      loop:
+        - home
+        - opt
+        - mnt
+
+- name: PREPARE TARGET COMPUTE UNIT
+  hosts: scale_target
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Ensure target data directories exist
+      shell: |
+        set -euo pipefail
+        mkdir -p /home/{{ target_cu_user }}/.ssh
+        mkdir -p /opt/{{ target_cu_user }}
+        mkdir -p /mnt/{{ target_cu_user }}
+        chown -R {{ target_cu_user }}:{{ target_cu_user }} /home/{{ target_cu_user }}
+        chown -R {{ target_cu_user }}:{{ target_cu_user }} /opt/{{ target_cu_user }}
+        chown -R {{ target_cu_user }}:{{ target_cu_user }} /mnt/{{ target_cu_user }}
+        chmod 0750 /home/{{ target_cu_user }}
+        chmod 0750 /opt/{{ target_cu_user }}
+        chmod 0750 /mnt/{{ target_cu_user }}
+      args:
+        executable: /bin/bash
+
+- name: INITIAL RSYNC SOURCE TO CONTROLLER
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: no
+  vars:
+    scratch_root: "/tmp/kloigos-scale/{{ allocation_id }}"
+    ssh_opts: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  tasks:
+    - name: Initial rsync home from source to controller
+      shell: |
+        set -euo pipefail
+        rsync -a --delete \
+          -e "ssh {{ ssh_opts }}" \
+          --rsync-path="sudo rsync" \
+          ubuntu@{{ source_ansible_host }}:/home/{{ source_cu_user }}/ {{ scratch_root }}/home/
+      args:
+        executable: /bin/bash
+
+    - name: Initial rsync opt from source to controller
+      shell: |
+        set -euo pipefail
+        rsync -a --delete \
+          -e "ssh {{ ssh_opts }}" \
+          --rsync-path="sudo rsync" \
+          ubuntu@{{ source_ansible_host }}:/opt/{{ source_cu_user }}/ {{ scratch_root }}/opt/
+      args:
+        executable: /bin/bash
+
+    - name: Initial rsync mnt from source to controller
+      shell: |
+        set -euo pipefail
+        rsync -a --delete \
+          -e "ssh {{ ssh_opts }}" \
+          --rsync-path="sudo rsync" \
+          ubuntu@{{ source_ansible_host }}:/mnt/{{ source_cu_user }}/ {{ scratch_root }}/mnt/
+      args:
+        executable: /bin/bash
+
+    - name: Initial rsync controller to target
+      shell: |
+        set -euo pipefail
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ ubuntu@{{ target_ansible_host }}:/home/{{ target_cu_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ ubuntu@{{ target_ansible_host }}:/opt/{{ target_cu_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ ubuntu@{{ target_ansible_host }}:/mnt/{{ target_cu_user }}/
+      args:
+        executable: /bin/bash
+
+- name: QUIESCE SOURCE COMPUTE UNIT
+  hosts: scale_source
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Stop source user services and sessions
+      shell: |
+        set -euo pipefail
+        SOURCE_UID="$(id -u {{ source_cu_user }})"
+        systemctl stop user@"$SOURCE_UID".service || true
+        loginctl kill-user {{ source_cu_user }} || true
+      args:
+        executable: /bin/bash
+
+- name: FINAL RSYNC DELTA THROUGH CONTROLLER
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: no
+  vars:
+    scratch_root: "/tmp/kloigos-scale/{{ allocation_id }}"
+    ssh_opts: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  tasks:
+    - name: Final rsync source to controller
+      shell: |
+        set -euo pipefail
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" ubuntu@{{ source_ansible_host }}:/home/{{ source_cu_user }}/ {{ scratch_root }}/home/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" ubuntu@{{ source_ansible_host }}:/opt/{{ source_cu_user }}/ {{ scratch_root }}/opt/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" ubuntu@{{ source_ansible_host }}:/mnt/{{ source_cu_user }}/ {{ scratch_root }}/mnt/
+      args:
+        executable: /bin/bash
+
+    - name: Final rsync controller to target
+      shell: |
+        set -euo pipefail
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ ubuntu@{{ target_ansible_host }}:/home/{{ target_cu_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ ubuntu@{{ target_ansible_host }}:/opt/{{ target_cu_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ ubuntu@{{ target_ansible_host }}:/mnt/{{ target_cu_user }}/
+      args:
+        executable: /bin/bash
+
+- name: MOVE FLOATING IP OFF SOURCE
+  hosts: scale_source
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Remove floating IP alias from source host
+      shell: |
+        set -euo pipefail
+        IFACE="$(ip -o route show default | awk '{for (i=1; i<=NF; i++) if ($i == "dev") print $(i+1)}' | head -1)"
+        ip addr del {{ allocation_ip_address }}/32 dev "$IFACE" || true
+      args:
+        executable: /bin/bash
+
+    - name: Restore source user nftables rule to compute-unit private IP
+      shell: |
+        set -euo pipefail
+        SOURCE_UID="$(id -u {{ source_cu_user }})"
+        NFT_FILE="/etc/nftables.d/kloigos-compute-units.nft"
+        if [ -f "$NFT_FILE" ]; then
+          sed -i -E "s/meta skuid ${SOURCE_UID} ip saddr != [^ ]+ drop/meta skuid ${SOURCE_UID} ip saddr != {{ source_compute_unit_private_ip }} drop/g" "$NFT_FILE"
+          nft -c -f "$NFT_FILE"
+          nft -f "$NFT_FILE"
+        fi
+      args:
+        executable: /bin/bash
+
+    - name: Clear source compute unit data after final rsync
+      shell: |
+        set -euo pipefail
+        rm -rf /home/{{ source_cu_user }}/*
+        rm -rf /opt/{{ source_cu_user }}/*
+        rm -rf /mnt/{{ source_cu_user }}/*
+        mkdir -p /home/{{ source_cu_user }}/.ssh
+        chown {{ source_cu_user }}:{{ source_cu_user }} /home/{{ source_cu_user }}/.ssh
+        chmod 700 /home/{{ source_cu_user }}/.ssh
+        touch /home/{{ source_cu_user }}/.ssh/authorized_keys
+        chown {{ source_cu_user }}:{{ source_cu_user }} /home/{{ source_cu_user }}/.ssh/authorized_keys
+        chmod 600 /home/{{ source_cu_user }}/.ssh/authorized_keys
+      args:
+        executable: /bin/bash
+
+- name: MOVE FLOATING IP TO TARGET
+  hosts: scale_target
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Add floating IP alias to target host
+      shell: |
+        set -euo pipefail
+        IFACE="$(ip -o route show default | awk '{for (i=1; i<=NF; i++) if ($i == "dev") print $(i+1)}' | head -1)"
+        ip addr show dev "$IFACE" | grep -q "{{ allocation_ip_address }}/" || ip addr add {{ allocation_ip_address }}/32 dev "$IFACE"
+      args:
+        executable: /bin/bash
+
+    - name: Make target file ownership match target compute-unit user
+      shell: |
+        set -euo pipefail
+        chown -R {{ target_cu_user }}:{{ target_cu_user }} /home/{{ target_cu_user }}
+        chown -R {{ target_cu_user }}:{{ target_cu_user }} /opt/{{ target_cu_user }}
+        chown -R {{ target_cu_user }}:{{ target_cu_user }} /mnt/{{ target_cu_user }}
+      args:
+        executable: /bin/bash
+
+    - name: Update target nftables source-IP rule to floating IP
+      shell: |
+        set -euo pipefail
+        TARGET_UID="$(id -u {{ target_cu_user }})"
+        NFT_FILE="/etc/nftables.d/kloigos-compute-units.nft"
+        if [ -f "$NFT_FILE" ]; then
+          sed -i -E "s/meta skuid ${TARGET_UID} ip saddr != [^ ]+ drop/meta skuid ${TARGET_UID} ip saddr != {{ allocation_ip_address }} drop/g" "$NFT_FILE"
+          nft -c -f "$NFT_FILE"
+          nft -f "$NFT_FILE"
+        fi
+      args:
+        executable: /bin/bash
+
+    - name: Start target user services
+      shell: |
+        set -euo pipefail
+        TARGET_UID="$(id -u {{ target_cu_user }})"
+        systemctl daemon-reload
+        loginctl enable-linger {{ target_cu_user }}
+        systemctl restart user@"$TARGET_UID".service
+        systemctl restart user-"$TARGET_UID".slice || true
+      args:
+        executable: /bin/bash
+
+- name: CLEAN CONTROLLER MIGRATION SCRATCH
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: no
+  tasks:
+    - name: Remove controller migration scratch directory
+      file:
+        path: "/tmp/kloigos-scale/{{ allocation_id }}"
+        state: absent
