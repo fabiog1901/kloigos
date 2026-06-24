@@ -1,14 +1,10 @@
-from cpkit import create_cpkit_app, create_cpkit_bundle, get_repo, template_webapp_directory
+from cpkit import create_cpkit_app, create_cpkit_bundle, template_webapp_directory
 
 from . import DB_URL
 from .api import admin, allocation, compute_unit
 from .models import AllocationScaleCommand, QueueCommand
 from .repos import Repo
-from .services.allocation import AllocationService
-
-
-def run_allocation_scale(job_id: int, payload: AllocationScaleCommand, actor_id: str):
-    AllocationService(get_repo()).run_scale_job(job_id, payload, actor_id)
+from .workers.remote import run_allocation_scale
 
 cpkit_capabilities = create_cpkit_bundle(
     command_models={

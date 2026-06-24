@@ -42,6 +42,7 @@ async def list_allocations(
     status: str | None = None,
     service: AllocationService = Depends(get_allocation_service),
 ) -> list[AllocationInDB]:
+    """List allocation records, optionally filtered by identity or placement."""
     return service.list_allocations(
         allocation_id=allocation_id,
         compute_id=compute_id,
@@ -61,6 +62,7 @@ async def allocate(
     actor_id: str = Depends(get_audit_actor),
     service: AllocationService = Depends(get_allocation_service),
 ) -> str:
+    """Create an allocation and schedule compute-unit setup in the background."""
     try:
         allocation_id, tasks = service.allocate(actor_id, req)
     except NoFreeComputeUnitError:
@@ -88,6 +90,7 @@ async def get_allocation(
     allocation_id: str,
     service: AllocationService = Depends(get_allocation_service),
 ) -> AllocationInDB:
+    """Fetch one allocation by durable allocation id."""
     try:
         return service.get_allocation(allocation_id)
     except ComputeUnitNotFoundError as exc:
@@ -107,6 +110,7 @@ async def deallocate_allocation(
     actor_id: str = Depends(get_audit_actor),
     service: AllocationService = Depends(get_allocation_service),
 ) -> Response:
+    """Deallocate the compute unit currently backing an allocation."""
     try:
         tasks: list[DeferredTask] = service.deallocate(actor_id, allocation_id)
     except ComputeUnitNotFoundError as exc:
@@ -142,6 +146,7 @@ async def scale_allocation(
     actor_id: str = Depends(get_audit_actor),
     service: AllocationService = Depends(get_allocation_service),
 ) -> JobID:
+    """Queue a cpkit job to scale an allocation onto another compute unit."""
     try:
         return service.scale(actor_id, allocation_id, req)
     except ComputeUnitNotFoundError as exc:

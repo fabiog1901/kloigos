@@ -1,8 +1,7 @@
 import logging
 
-from cpkit.audit import AuditLogRecord
+from cpkit.audit import log_event
 from cpkit.jobs.types import JobID
-from cpkit.logging import request_id_ctx
 from cpkit.playbooks import run_playbook
 
 from kloigos.models import (
@@ -41,6 +40,7 @@ class AllocationService:
         ip_address: str | None = None,
         status: str | None = None,
     ) -> list[AllocationInDB]:
+        """Return allocations filtered by durable identity, placement, IP, or status."""
         return self.repo.get_allocations(
             allocation_id=allocation_id,
             compute_id=compute_id,
@@ -49,6 +49,7 @@ class AllocationService:
         )
 
     def get_allocation(self, allocation_id: str) -> AllocationInDB:
+        """Return one allocation by durable allocation id."""
         return self._get_allocation(allocation_id)
 
     def allocate(
@@ -56,6 +57,7 @@ class AllocationService:
         actor_id: str,
         req: ComputeUnitRequest,
     ) -> tuple[str, list[DeferredTask]]:
+        """Create an allocation and schedule compute-unit preparation."""
         compute_id, tasks = ComputeUnitService(self.repo).allocate(actor_id, req)
         allocations = self.repo.get_allocations(compute_id=compute_id)
         if not allocations:
@@ -69,6 +71,7 @@ class AllocationService:
         actor_id: str,
         allocation_id: str,
     ) -> list[DeferredTask]:
+        """Schedule cleanup for the compute unit currently backing an allocation."""
         allocation = self._get_allocation(allocation_id)
         if allocation.compute_id is None:
             raise ComputeUnitOperationError(
@@ -86,6 +89,7 @@ class AllocationService:
         allocation_id: str,
         req: AllocationScaleRequest,
     ) -> JobID:
+        """Queue a cpkit job that migrates an allocation to another compute unit."""
         allocation = self._get_allocation(allocation_id)
         if allocation.compute_id is None:
             raise ComputeUnitOperationError(
@@ -106,11 +110,11 @@ class AllocationService:
             allocation_id,
             status=AllocationStatus.SCALING,
         )
-        self.log_event(
+        log_event(
+            self.repo,
             actor_id,
             Event.ALLOCATION_SCALE_REQUEST,
             command.model_dump(),
-            request_id=request_id_ctx.get(),
         )
         try:
             return self.repo.enqueue_command(
@@ -133,7 +137,7 @@ class AllocationService:
         command: AllocationScaleCommand,
         actor_id: str,
     ) -> None:
-        request_id = request_id_ctx.get()
+        """Run a queued allocation scale job and reconcile final placement state."""
         allocation = self._get_allocation(command.allocation_id)
         source = self._get_active_compute_unit(allocation)
         try:
@@ -146,11 +150,11 @@ class AllocationService:
                 "request": command.model_dump(),
                 "error": str(exc),
             }
-            self.log_event(
+            log_event(
+                self.repo,
                 actor_id,
                 Event.ALLOCATION_SCALE_FAILED,
                 details,
-                request_id=request_id,
             )
             raise
 
@@ -185,11 +189,11 @@ class AllocationService:
             self._finish_failed_scale(allocation, source, target)
             event = Event.ALLOCATION_SCALE_FAILED
 
-        self.log_event(
+        log_event(
+            self.repo,
             actor_id,
             event,
             details,
-            request_id=request_id,
         )
         if not job_ok:
             raise ComputeUnitOperationError(
@@ -334,20 +338,4 @@ class AllocationService:
             status=IpAddressStatus.ALLOCATED,
             allocation_id=allocation.allocation_id,
             current_host=source.hostname,
-        )
-
-    def log_event(
-        self,
-        actor_id: str,
-        action: Event,
-        details: dict | None,
-        request_id: str | None,
-    ) -> None:
-        self.repo.log_event(
-            AuditLogRecord(
-                user_id=actor_id,
-                action=action,
-                details=details,
-                request_id=request_id,
-            )
         )
