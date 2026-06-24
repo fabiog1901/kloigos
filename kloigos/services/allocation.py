@@ -5,6 +5,7 @@ from cpkit.jobs.types import JobID
 from cpkit.playbooks import run_playbook
 
 from kloigos.models import (
+    AllocationCreateResponse,
     AllocationInDB,
     AllocationScaleCommand,
     AllocationScaleRequest,
@@ -56,15 +57,9 @@ class AllocationService:
         self,
         actor_id: str,
         req: ComputeUnitRequest,
-    ) -> tuple[str, list[DeferredTask]]:
-        """Create an allocation and schedule compute-unit preparation."""
-        compute_id, tasks = ComputeUnitService(self.repo).allocate(actor_id, req)
-        allocations = self.repo.get_allocations(compute_id=compute_id)
-        if not allocations:
-            raise ComputeUnitOperationError(
-                f"Compute unit '{compute_id}' was reserved without allocation metadata."
-            )
-        return allocations[0].allocation_id, tasks
+    ) -> AllocationCreateResponse:
+        """Create an allocation and queue compute-unit preparation."""
+        return ComputeUnitService(self.repo).allocate(actor_id, req)
 
     def deallocate(
         self,

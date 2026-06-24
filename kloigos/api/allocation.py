@@ -13,6 +13,7 @@ from fastapi import (
 from ..dep import get_allocation_service
 from ..models import (
     AllocationInDB,
+    AllocationCreateResponse,
     AllocationScaleRequest,
     ComputeUnitNotFoundError,
     ComputeUnitOperationError,
@@ -53,18 +54,17 @@ async def list_allocations(
 
 @router.post(
     "/",
-    response_model=str,
+    response_model=AllocationCreateResponse,
     dependencies=[Security(require_user)],
 )
 async def allocate(
     req: ComputeUnitRequest,
-    bg_task: BackgroundTasks,
     actor_id: str = Depends(get_audit_actor),
     service: AllocationService = Depends(get_allocation_service),
-) -> str:
-    """Create an allocation and schedule compute-unit setup in the background."""
+) -> AllocationCreateResponse:
+    """Create an allocation and queue compute-unit setup as a cpkit job."""
     try:
-        allocation_id, tasks = service.allocate(actor_id, req)
+        return service.allocate(actor_id, req)
     except NoFreeComputeUnitError:
         raise HTTPException(460, "No free Compute Unit found to match your request")
     except NoFreeIpAddressError:
@@ -74,11 +74,6 @@ async def allocate(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         ) from exc
-
-    for task in tasks:
-        bg_task.add_task(task.fn, *task.args, **task.kwargs)
-
-    return allocation_id
 
 
 @router.get(

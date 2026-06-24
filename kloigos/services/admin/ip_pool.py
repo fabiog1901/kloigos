@@ -1,5 +1,4 @@
-from cpkit.audit import AuditLogRecord
-from cpkit.logging import request_id_ctx
+from cpkit.audit import log_event
 
 from ...models import (
     Event,
@@ -40,13 +39,11 @@ class IpPoolAdminService(AdminServiceBase):
                 current_host=req.current_host,
             )
 
-        self.repo.log_event(
-            AuditLogRecord(
-                user_id=actor_id,
-                action=Event.IP_POOL_UPSERT,
-                details=req.model_dump(),
-                request_id=request_id_ctx.get(),
-            )
+        log_event(
+            self.repo,
+            actor_id,
+            Event.IP_POOL_UPSERT,
+            req.model_dump(),
         )
 
         return self.repo.get_ip_pool_addresses()
@@ -64,16 +61,14 @@ class IpPoolAdminService(AdminServiceBase):
             current_host=req.current_host,
         )
 
-        self.repo.log_event(
-            AuditLogRecord(
-                user_id=actor_id,
-                action=Event.IP_POOL_UPDATE,
-                details={
-                    "ip_address": ip_address,
-                    **req.model_dump(),
-                },
-                request_id=request_id_ctx.get(),
-            )
+        log_event(
+            self.repo,
+            actor_id,
+            Event.IP_POOL_UPDATE,
+            {
+                "ip_address": ip_address,
+                **req.model_dump(),
+            },
         )
 
         matches = self.repo.get_ip_pool_addresses(ip_address=ip_address)
@@ -94,16 +89,14 @@ class IpPoolAdminService(AdminServiceBase):
             status=IpAddressStatus.FREE,
         )
 
-        self.repo.log_event(
-            AuditLogRecord(
-                user_id=actor_id,
-                action=Event.IP_POOL_RELEASE,
-                details={
-                    "allocation_id": allocation_id,
-                    "ip_address": ip_address,
-                },
-                request_id=request_id_ctx.get(),
-            )
+        log_event(
+            self.repo,
+            actor_id,
+            Event.IP_POOL_RELEASE,
+            {
+                "allocation_id": allocation_id,
+                "ip_address": ip_address,
+            },
         )
 
         matches = self.repo.get_ip_pool_addresses(ip_address=ip_address)

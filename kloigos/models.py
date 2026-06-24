@@ -106,6 +106,7 @@ class Playbook(AutoNameStrEnum):
 
 
 class QueueCommand(AutoNameStrEnum):
+    CU_ALLOCATE = auto()
     ALLOCATION_SCALE = auto()
 
 
@@ -217,6 +218,17 @@ class ComputeUnitRequest(BaseModel):
     ip_address: str | None = None
     tags: dict[str, Any] | None = None
     ssh_public_key: str
+
+
+class AllocationCreateCommand(BaseModel):
+    allocation_id: str
+    compute_id: str
+    ssh_public_key: str
+
+
+class AllocationCreateResponse(BaseModel):
+    allocation_id: str
+    job_id: int
 
 
 class AllocationScaleRequest(BaseModel):

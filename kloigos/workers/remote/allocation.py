@@ -2,8 +2,18 @@
 
 from cpkit import get_repo
 
-from ...models import AllocationScaleCommand
+from ...models import AllocationCreateCommand, AllocationScaleCommand
 from ...services.allocation import AllocationService
+from ...services.compute_unit import ComputeUnitService
+
+
+def run_compute_unit_allocate(
+    job_id: int,
+    payload: AllocationCreateCommand,
+    actor_id: str,
+) -> None:
+    """Run the remote playbook job that prepares a compute unit allocation."""
+    ComputeUnitService(get_repo()).run_allocate_job(job_id, payload, actor_id)
 
 
 def run_allocation_scale(

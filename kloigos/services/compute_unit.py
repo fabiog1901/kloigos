@@ -1,10 +1,12 @@
 import logging
 
-from cpkit.audit import AuditLogRecord
-from cpkit.logging import request_id_ctx
-from cpkit.playbooks import run_playbook_lite
+from cpkit.audit import log_event
+from cpkit.jobs.types import JobID
+from cpkit.playbooks import run_playbook, run_playbook_lite
 
 from kloigos.models import (
+    AllocationCreateCommand,
+    AllocationCreateResponse,
     AllocationInDB,
     AllocationStatus,
     ComputeUnitNotFoundError,
@@ -20,6 +22,7 @@ from kloigos.models import (
     NoFreeComputeUnitError,
     NoFreeIpAddressError,
     Playbook,
+    QueueCommand,
 )
 
 from ..repos import Repo
@@ -50,26 +53,25 @@ class ComputeUnitService:
         self,
         actor_id: str,
         req: ComputeUnitRequest,
-    ) -> tuple[str, list[DeferredTask]]:
+    ) -> AllocationCreateResponse:
         """
-        Reserve a free compute unit and queue the playbook that finishes allocation.
+        Reserve a free compute unit and queue the cpkit job that finishes allocation.
 
         The method performs the synchronous part of the workflow:
         1. log that the caller requested an allocation
         2. atomically lock one free compute unit into the ALLOCATING state
         3. attach request metadata such as tags
-        4. return the background task that will run the playbook
+        4. enqueue the cpkit job that will run the playbook
 
         Raises:
             NoFreeComputeUnitError: if no matching compute unit is available.
             ComputeUnitOperationError: if the unit was locked but setup could not finish.
         """
-        request_id = request_id_ctx.get()
-        self.log_event(
+        log_event(
+            self.repo,
             actor_id,
             Event.CU_ALLOCATION_REQUEST,
             req.model_dump(),
-            request_id=request_id,
         )
 
         # find and return a free instance that matches the allocate request
@@ -112,11 +114,11 @@ class ComputeUnitService:
                 status=AllocationStatus.ALLOCATING,
                 tags=req.tags,
             )
-            self.log_event(
+            log_event(
+                self.repo,
                 actor_id,
                 Event.ALLOCATION_CREATE_REQUEST,
                 allocation.model_dump(),
-                request_id=request_id,
             )
             self.repo.insert_allocation(allocation)
             self.repo.update_ip_pool_address(
@@ -138,6 +140,16 @@ class ComputeUnitService:
             self.repo.update_compute_unit(
                 cu.compute_id,
                 tags=allocation_tags,
+            )
+            command = AllocationCreateCommand(
+                allocation_id=allocation.allocation_id,
+                compute_id=cu.compute_id,
+                ssh_public_key=req.ssh_public_key,
+            )
+            job: JobID = self.repo.enqueue_command(
+                QueueCommand.CU_ALLOCATE,
+                command,
+                actor_id,
             )
         except NoFreeIpAddressError:
             raise
@@ -165,7 +177,8 @@ class ComputeUnitService:
                     cu.compute_id,
                 )
 
-            self.log_event(
+            log_event(
+                self.repo,
                 actor_id,
                 Event.ALLOCATION_CREATE_FAILED,
                 {
@@ -174,28 +187,15 @@ class ComputeUnitService:
                     "ip_address": ip_address.model_dump() if ip_address else None,
                     "error": "Failed to persist allocation metadata before scheduling the background task.",
                 },
-                request_id=request_id,
             )
             raise ComputeUnitOperationError(
                 "Unable to prepare compute unit allocation."
             ) from exc
 
-        # The background task does the slow playbook execution and final status update.
-        tasks = [
-            DeferredTask(
-                fn=self._run_allocate,
-                args=(
-                    cu,
-                    allocation,
-                    req.ssh_public_key,
-                    actor_id,
-                    request_id,
-                ),
-                kwargs={},
-            ),
-        ]
-
-        return cu.compute_id, tasks
+        return AllocationCreateResponse(
+            allocation_id=allocation.allocation_id,
+            job_id=job.job_id,
+        )
 
     def deallocate(
         self,
@@ -210,13 +210,11 @@ class ComputeUnitService:
             ComputeUnitStateError: if the compute unit is not in a state we can deallocate.
             ComputeUnitOperationError: if the state transition could not be persisted.
         """
-        request_id = request_id_ctx.get()
-
-        self.log_event(
+        log_event(
+            self.repo,
             actor_id,
             Event.CU_DEALLOCATION_REQUEST,
             {"compute_id": compute_id},
-            request_id=request_id,
         )
 
         matches = self.repo.get_compute_units(compute_id=compute_id)
@@ -267,7 +265,7 @@ class ComputeUnitService:
         tasks = [
             DeferredTask(
                 fn=self._run_deallocate,
-                args=(cu, allocation, actor_id, request_id),
+                args=(cu, allocation, actor_id),
                 kwargs={},
             )
         ]
@@ -295,20 +293,20 @@ class ComputeUnitService:
             status,
         )
 
-    def _run_allocate(
+    def run_allocate_job(
         self,
-        cu: ComputeUnitOverview,
-        allocation: AllocationInDB,
-        ssh_public_key: str,
+        job_id: int,
+        command: AllocationCreateCommand,
         actor_id: str,
-        request_id: str | None,
     ) -> None:
         """
-        Execute the allocation playbook and always record the final outcome.
+        Execute the queued allocation playbook and record final placement state.
 
         Any unexpected exception is treated as a failed allocation so the compute unit
         cannot remain stuck in ALLOCATING.
         """
+        cu = self._get_compute_unit(command.compute_id)
+        allocation = self._get_allocation(command.allocation_id)
         details = {
             **cu.model_dump(),
             "allocation": allocation.model_dump(),
@@ -316,9 +314,9 @@ class ComputeUnitService:
         job_ok = False
 
         try:
-            result = run_playbook_lite(
+            result = run_playbook(
                 repo=self.repo,
-                job_id=cu.compute_id,
+                job_id=job_id,
                 playbook_name=Playbook.CU_ALLOCATE.value,
                 extra_vars={
                     "compute_id": cu.compute_id,
@@ -337,7 +335,7 @@ class ComputeUnitService:
                     "cu_user": cu.cu_user,
                     "cpu_range": cu.cpu_range,
                     "cpu_count": cu.cpu_count,
-                    "ssh_public_key": ssh_public_key,
+                    "ssh_public_key": command.ssh_public_key,
                 },
             )
             job_ok = result.status == "successful"
@@ -379,25 +377,28 @@ class ComputeUnitService:
                 final_status,
             )
 
-        self.log_event(
+        log_event(
+            self.repo,
             actor_id,
             final_event,
             details,
-            request_id=request_id,
         )
-        self.log_event(
+        log_event(
+            self.repo,
             actor_id,
             Event.ALLOCATION_CREATE_DONE if job_ok else Event.ALLOCATION_CREATE_FAILED,
             details,
-            request_id=request_id,
         )
+        if not job_ok:
+            raise ComputeUnitOperationError(
+                f"Compute unit allocation job '{job_id}' failed."
+            )
 
     def _run_deallocate(
         self,
         cu: ComputeUnitOverview,
         allocation: AllocationInDB | None,
         actor_id: str,
-        request_id: str | None,
     ) -> None:
         """
         Execute the deallocation playbook and always record the final outcome.
@@ -480,29 +481,25 @@ class ComputeUnitService:
                 final_status,
             )
 
-        self.log_event(
+        log_event(
+            self.repo,
             actor_id,
             final_event,
             details,
-            request_id=request_id,
         )
 
-    def log_event(
-        self,
-        actor_id: str,
-        action: Event,
-        details: dict | None,
-        request_id: str | None,
-    ) -> None:
-        """Attempt to write an audit event without letting secondary logging failures crash the flow."""
-        try:
-            self.repo.log_event(
-                AuditLogRecord(
-                    user_id=actor_id,
-                    action=action,
-                    details=details,
-                    request_id=request_id,
-                )
+    def _get_compute_unit(self, compute_id: str) -> ComputeUnitOverview:
+        matches = self.repo.get_compute_units(compute_id=compute_id)
+        if not matches:
+            raise ComputeUnitNotFoundError(
+                f"Compute unit '{compute_id}' does not exist."
             )
-        except Exception:
-            logging.exception("Failed to write compute unit event %s", action)
+        return matches[0]
+
+    def _get_allocation(self, allocation_id: str) -> AllocationInDB:
+        matches = self.repo.get_allocations(allocation_id=allocation_id)
+        if not matches:
+            raise ComputeUnitNotFoundError(
+                f"Allocation '{allocation_id}' does not exist."
+            )
+        return matches[0]

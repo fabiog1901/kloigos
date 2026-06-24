@@ -22,14 +22,14 @@ python tools/codemap.py --write
 
 | Package | Modules | Classes | Functions | Routes |
 | --- | ---: | ---: | ---: | ---: |
-| `kloigos` | 23 | 39 | 20 | 14 |
+| `kloigos` | 23 | 41 | 21 | 14 |
 
 ## API Routes
 
 | Method | Path | Handler | Response Model |
 | --- | --- | --- | --- |
 | `GET` | `/allocations` | `kloigos.api.allocation.list_allocations` | `list[AllocationInDB]` |
-| `POST` | `/allocations` | `kloigos.api.allocation.allocate` | `str` |
+| `POST` | `/allocations` | `kloigos.api.allocation.allocate` | `AllocationCreateResponse` |
 | `DELETE` | `/allocations/{allocation_id}` | `kloigos.api.allocation.deallocate_allocation` | `-` |
 | `GET` | `/allocations/{allocation_id}` | `kloigos.api.allocation.get_allocation` | `AllocationInDB` |
 | `POST` | `/allocations/{allocation_id}/scale` | `kloigos.api.allocation.scale_allocation` | `JobID` |
@@ -60,7 +60,7 @@ python tools/codemap.py --write
 | `kloigos/api/compute_unit.py` | functions: list_compute_units; routes: 1 |
 | `kloigos/dep.py` | functions: get_allocation_service, get_compute_unit_service, get_admin_service |
 | `kloigos/main.py` | no public surface |
-| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, ServerNotFoundError, ServerStateError, Event, DeferredTask, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, ComputeUnitRequest, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolUpsertRequest, IpPoolUpdateRequest, BaseServer, ServerInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
+| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, ServerNotFoundError, ServerStateError, Event, DeferredTask, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, ComputeUnitRequest, AllocationCreateCommand, AllocationCreateResponse, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolUpsertRequest, IpPoolUpdateRequest, BaseServer, ServerInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
 | `kloigos/repos/__init__.py` | classes: Repo |
 | `kloigos/repos/postgres.py` | classes: PostgresRepo |
 | `kloigos/services/__init__.py` | no public surface |
@@ -73,4 +73,4 @@ python tools/codemap.py --write
 | `kloigos/util.py` | functions: to_cpu_set, parse_cpu_range |
 | `kloigos/workers/__init__.py` | Job worker entry points for Kloigos. |
 | `kloigos/workers/remote/__init__.py` | Remote job handlers that execute playbooks on Kloigos-managed servers. |
-| `kloigos/workers/remote/allocation.py` | Remote allocation worker handlers.; functions: run_allocation_scale |
+| `kloigos/workers/remote/allocation.py` | Remote allocation worker handlers.; functions: run_compute_unit_allocate, run_allocation_scale |
