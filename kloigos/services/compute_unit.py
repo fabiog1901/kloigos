@@ -2,11 +2,12 @@ import logging
 
 from cpkit.audit import log_event
 from cpkit.jobs.types import JobID
-from cpkit.playbooks import run_playbook, run_playbook_lite
+from cpkit.playbooks import run_playbook
 
 from kloigos.models import (
     AllocationCreateCommand,
     AllocationCreateResponse,
+    AllocationDeallocateCommand,
     AllocationInDB,
     AllocationStatus,
     ComputeUnitNotFoundError,
@@ -15,7 +16,6 @@ from kloigos.models import (
     ComputeUnitRequest,
     ComputeUnitStateError,
     ComputeUnitStatus,
-    DeferredTask,
     Event,
     IpAddressStatus,
     IpPoolAddressInDB,
@@ -201,7 +201,7 @@ class ComputeUnitService:
         self,
         actor_id: str,
         compute_id: str,
-    ) -> list[DeferredTask]:
+    ) -> JobID:
         """
         Mark a compute unit as DEALLOCATING and queue the cleanup playbook.
 
@@ -262,15 +262,19 @@ class ComputeUnitService:
                 "Unable to prepare compute unit deallocation."
             ) from exc
 
-        tasks = [
-            DeferredTask(
-                fn=self._run_deallocate,
-                args=(cu, allocation, actor_id),
-                kwargs={},
+        if allocation is None:
+            raise ComputeUnitOperationError(
+                f"Compute unit '{compute_id}' has no allocation metadata."
             )
-        ]
 
-        return tasks
+        return self.repo.enqueue_command(
+            QueueCommand.CU_DEALLOCATE,
+            AllocationDeallocateCommand(
+                allocation_id=allocation.allocation_id,
+                compute_id=cu.compute_id,
+            ),
+            actor_id,
+        )
 
     def list_compute_units(
         self,
@@ -394,28 +398,30 @@ class ComputeUnitService:
                 f"Compute unit allocation job '{job_id}' failed."
             )
 
-    def _run_deallocate(
+    def run_deallocate_job(
         self,
-        cu: ComputeUnitOverview,
-        allocation: AllocationInDB | None,
+        job_id: int,
+        command: AllocationDeallocateCommand,
         actor_id: str,
     ) -> None:
         """
-        Execute the deallocation playbook and always record the final outcome.
+        Execute the queued deallocation playbook and record final placement state.
 
         Any unexpected exception is treated as a failed deallocation so the compute
         unit cannot remain stuck in DEALLOCATING.
         """
+        cu = self._get_compute_unit(command.compute_id)
+        allocation = self._get_allocation(command.allocation_id)
         details = {
             **cu.model_dump(),
-            "allocation": allocation.model_dump() if allocation else None,
+            "allocation": allocation.model_dump(),
         }
         job_ok = False
 
         try:
-            result = run_playbook_lite(
+            result = run_playbook(
                 repo=self.repo,
-                job_id=cu.compute_id,
+                job_id=job_id,
                 playbook_name=Playbook.CU_DEALLOCATE.value,
                 extra_vars={
                     "compute_id": cu.compute_id,
@@ -425,9 +431,9 @@ class ComputeUnitService:
                     ),
                     "server_private_ip": cu.server_private_ip,
                     "server_public_ip": cu.server_public_ip,
-                    "private_ip": allocation.ip_address if allocation else cu.private_ip,
-                    "allocation_id": allocation.allocation_id if allocation else None,
-                    "allocation_ip_address": allocation.ip_address if allocation else None,
+                    "private_ip": allocation.ip_address,
+                    "allocation_id": allocation.allocation_id,
+                    "allocation_ip_address": allocation.ip_address,
                     "compute_unit_private_ip": cu.private_ip,
                     "cu_user": cu.cu_user,
                 },
@@ -454,7 +460,7 @@ class ComputeUnitService:
                 cu.compute_id,
                 status=final_status,
             )
-            if allocation and job_ok:
+            if job_ok:
                 self.repo.clear_allocation_placement(
                     allocation.allocation_id,
                     status=AllocationStatus.DEALLOCATED,
@@ -463,7 +469,7 @@ class ComputeUnitService:
                     allocation.ip_address,
                     status=IpAddressStatus.ALLOCATED,
                 )
-            elif allocation:
+            else:
                 self.repo.update_allocation(
                     allocation.allocation_id,
                     status=AllocationStatus.DEALLOCATION_FAIL,
@@ -487,6 +493,10 @@ class ComputeUnitService:
             final_event,
             details,
         )
+        if not job_ok:
+            raise ComputeUnitOperationError(
+                f"Compute unit deallocation job '{job_id}' failed."
+            )
 
     def _get_compute_unit(self, compute_id: str) -> ComputeUnitOverview:
         matches = self.repo.get_compute_units(compute_id=compute_id)

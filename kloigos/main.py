@@ -2,18 +2,37 @@ from cpkit import create_cpkit_app, create_cpkit_bundle, template_webapp_directo
 
 from . import DB_URL
 from .api import admin, allocation, compute_unit
-from .models import AllocationCreateCommand, AllocationScaleCommand, QueueCommand
+from .models import (
+    AllocationCreateCommand,
+    AllocationDeallocateCommand,
+    AllocationScaleCommand,
+    QueueCommand,
+    ServerDecommRequest,
+    ServerInitRequest,
+)
 from .repos import Repo
-from .workers.remote import run_allocation_scale, run_compute_unit_allocate
+from .workers.remote import (
+    run_allocation_scale,
+    run_compute_unit_allocate,
+    run_compute_unit_deallocate,
+    run_server_decommission,
+    run_server_init,
+)
 
 cpkit_capabilities = create_cpkit_bundle(
     command_models={
         QueueCommand.CU_ALLOCATE: AllocationCreateCommand,
+        QueueCommand.CU_DEALLOCATE: AllocationDeallocateCommand,
         QueueCommand.ALLOCATION_SCALE: AllocationScaleCommand,
+        QueueCommand.SERVER_INIT: ServerInitRequest,
+        QueueCommand.SERVER_DECOMM: ServerDecommRequest,
     },
     command_handlers={
         QueueCommand.CU_ALLOCATE: run_compute_unit_allocate,
+        QueueCommand.CU_DEALLOCATE: run_compute_unit_deallocate,
         QueueCommand.ALLOCATION_SCALE: run_allocation_scale,
+        QueueCommand.SERVER_INIT: run_server_init,
+        QueueCommand.SERVER_DECOMM: run_server_decommission,
     },
 )
 

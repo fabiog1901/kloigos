@@ -1,9 +1,9 @@
 from cpkit import get_audit_actor
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
+from cpkit.jobs.types import JobID
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from ...dep import get_admin_service
 from ...models import (
-    DeferredTask,
     ServerDecommRequest,
     ServerInDB,
     ServerInitRequest,
@@ -33,13 +33,16 @@ async def list_servers(
     return service.list_servers(hostname)
 
 
-@router.post("/", summary="Initialize a physical server and its compute units.")
+@router.post(
+    "/",
+    summary="Initialize a physical server and its compute units.",
+    response_model=JobID,
+)
 async def init_server(
     sir: ServerInitRequest,
-    bg_task: BackgroundTasks,
     actor_id: str = Depends(get_audit_actor),
     service: AdminService = Depends(get_admin_service),
-) -> Response:
+) -> JobID:
     """
     Register a physical server and schedule bootstrap for its compute units.
 
@@ -64,31 +67,16 @@ async def init_server(
     }
     ```
     """
-    tasks: list[DeferredTask] = service.init_server(actor_id, sir)
-
-    # async, run the init task
-    for t in tasks:
-        bg_task.add_task(t.fn, *t.args, **t.kwargs)
-
-    # returns immediately
-    return Response(status_code=status.HTTP_200_OK)
+    return service.init_server(actor_id, sir)
 
 
-@router.put("/")
+@router.put("/", response_model=JobID)
 async def decommission_server(
     sdr: ServerDecommRequest,
-    bg_task: BackgroundTasks,
     actor_id: str = Depends(get_audit_actor),
     service: AdminService = Depends(get_admin_service),
-) -> Response:
-    tasks: list[DeferredTask] = service.decommission_server(actor_id, sdr)
-
-    # async, run the decomm task
-    for t in tasks:
-        bg_task.add_task(t.fn, *t.args, **t.kwargs)
-
-    # returns immediately
-    return Response(status_code=status.HTTP_200_OK)
+) -> JobID:
+    return service.decommission_server(actor_id, sdr)
 
 
 @router.delete(

@@ -2,10 +2,8 @@ from cpkit import get_audit_actor, require_readonly, require_user
 from cpkit.jobs.types import JobID
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     HTTPException,
-    Response,
     Security,
     status,
 )
@@ -19,7 +17,6 @@ from ..models import (
     ComputeUnitOperationError,
     ComputeUnitRequest,
     ComputeUnitStateError,
-    DeferredTask,
     NoFreeComputeUnitError,
     NoFreeIpAddressError,
 )
@@ -97,17 +94,17 @@ async def get_allocation(
 
 @router.delete(
     "/{allocation_id}",
+    response_model=JobID,
     dependencies=[Security(require_user)],
 )
 async def deallocate_allocation(
     allocation_id: str,
-    bg_task: BackgroundTasks,
     actor_id: str = Depends(get_audit_actor),
     service: AllocationService = Depends(get_allocation_service),
-) -> Response:
-    """Deallocate the compute unit currently backing an allocation."""
+) -> JobID:
+    """Queue a cpkit job to deallocate the compute unit backing an allocation."""
     try:
-        tasks: list[DeferredTask] = service.deallocate(actor_id, allocation_id)
+        return service.deallocate(actor_id, allocation_id)
     except ComputeUnitNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -123,11 +120,6 @@ async def deallocate_allocation(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         ) from exc
-
-    for task in tasks:
-        bg_task.add_task(task.fn, *task.args, **task.kwargs)
-
-    return Response(status_code=status.HTTP_200_OK)
 
 
 @router.post(

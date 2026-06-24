@@ -1,12 +1,12 @@
-from cpkit.audit import AuditLogRecord
-from cpkit.logging import request_id_ctx
-from cpkit.playbooks import run_playbook_lite
+from cpkit.audit import log_event
+from cpkit.jobs.types import JobID
+from cpkit.playbooks import run_playbook
 
 from ...models import (
-    DeferredTask,
     Event,
     InitComputeUnit,
     Playbook,
+    QueueCommand,
     ServerDecommRequest,
     ServerInDB,
     ServerInitRequest,
@@ -52,25 +52,16 @@ def _init_compute_units(sir: ServerInitRequest) -> list[InitComputeUnit]:
 
 
 class ServersAdminService(AdminServiceBase):
-    def init_server(self, actor_id: str, sir: ServerInitRequest) -> list[DeferredTask]:
-        self.repo.log_event(
-            AuditLogRecord(
-                user_id=actor_id,
-                action=Event.SERVER_INIT_REQUEST,
-                details=sir.model_dump(),
-                request_id=request_id_ctx.get(),
-            )
+    def init_server(self, actor_id: str, sir: ServerInitRequest) -> JobID:
+        log_event(
+            self.repo,
+            actor_id,
+            Event.SERVER_INIT_REQUEST,
+            sir.model_dump(),
         )
 
         self.repo.server_init_new(sir, ServerStatus.INITIALIZING)
-
-        # async, run the init task
-        return [
-            DeferredTask(
-                fn=self._run_init_server,
-                args=(sir, actor_id),
-            ),
-        ]
+        return self.repo.enqueue_command(QueueCommand.SERVER_INIT, sir, actor_id)
 
     def list_servers(
         self,
@@ -82,27 +73,17 @@ class ServersAdminService(AdminServiceBase):
         self,
         actor_id: str,
         sdr: ServerDecommRequest,
-    ) -> list[DeferredTask]:
-        self.repo.log_event(
-            AuditLogRecord(
-                user_id=actor_id,
-                action=Event.SERVER_DECOMM_REQUEST,
-                details=sdr.model_dump(),
-                request_id=request_id_ctx.get(),
-            )
+    ) -> JobID:
+        log_event(
+            self.repo,
+            actor_id,
+            Event.SERVER_DECOMM_REQUEST,
+            sdr.model_dump(),
         )
 
         self.repo.server_update_status(sdr.hostname, ServerStatus.DECOMMISSIONING)
         self.repo.delete_compute_units(sdr.hostname)
-        srv = self.repo.get_servers(sdr.hostname)[0]
-
-        # async, run the decomm task
-        return [
-            DeferredTask(
-                fn=self._run_decommission_server,
-                args=(srv, actor_id),
-            ),
-        ]
+        return self.repo.enqueue_command(QueueCommand.SERVER_DECOMM, sdr, actor_id)
 
     def delete_server(self, actor_id: str, hostname: str) -> None:
         matches = self.repo.get_servers(hostname)
@@ -117,23 +98,27 @@ class ServersAdminService(AdminServiceBase):
                 f"delete is only allowed for {allowed}."
             )
 
-        self.repo.log_event(
-            AuditLogRecord(
-                user_id=actor_id,
-                action=Event.SERVER_DELETE_REQUEST,
-                details={"hostname": hostname},
-                request_id=request_id_ctx.get(),
-            )
+        log_event(
+            self.repo,
+            actor_id,
+            Event.SERVER_DELETE_REQUEST,
+            {"hostname": hostname},
         )
 
         self.repo.delete_server(hostname)
 
-    def _run_init_server(self, sir: ServerInitRequest, actor_id: str) -> None:
+    def run_init_server_job(
+        self,
+        job_id: int,
+        sir: ServerInitRequest,
+        actor_id: str,
+    ) -> None:
+        """Run the queued server initialization playbook and persist compute units."""
         compute_units = _init_compute_units(sir)
 
-        result = run_playbook_lite(
+        result = run_playbook(
             repo=self.repo,
-            job_id=sir.hostname,
+            job_id=job_id,
             playbook_name=Playbook.SERVER_INIT.value,
             extra_vars={
                 "hostname": sir.hostname,
@@ -154,24 +139,34 @@ class ServersAdminService(AdminServiceBase):
         else:
             self.repo.server_update_status(sir.hostname, ServerStatus.INIT_FAIL)
 
-        self.repo.log_event(
-            AuditLogRecord(
-                user_id=actor_id,
-                action=Event.SERVER_INIT_DONE if job_ok else Event.SERVER_INIT_FAILED,
-                details=sir.model_dump(),
-                request_id=request_id_ctx.get(),
-            )
+        log_event(
+            self.repo,
+            actor_id,
+            Event.SERVER_INIT_DONE if job_ok else Event.SERVER_INIT_FAILED,
+            sir.model_dump(),
         )
+        if not job_ok:
+            raise ServerStateError(f"Server initialization job '{job_id}' failed.")
 
-    def _run_decommission_server(self, srv: ServerInDB, actor_id: str) -> None:
+    def run_decommission_server_job(
+        self,
+        job_id: int,
+        sdr: ServerDecommRequest,
+        actor_id: str,
+    ) -> None:
         """
-        Execute Ansible Playbook `decommission.yaml`.
+        Execute the queued Ansible decommission playbook.
+
         The playbook decommissions the server with the requested hostname.
         """
+        matches = self.repo.get_servers(sdr.hostname)
+        if not matches:
+            raise ServerNotFoundError(f"Server {sdr.hostname} was not found.")
+        srv = matches[0]
 
-        result = run_playbook_lite(
+        result = run_playbook(
             repo=self.repo,
-            job_id=srv.hostname,
+            job_id=job_id,
             playbook_name=Playbook.SERVER_DECOMM.value,
             extra_vars={
                 "hostname": srv.hostname,
@@ -189,13 +184,11 @@ class ServersAdminService(AdminServiceBase):
             ServerStatus.DECOMMISSIONED if job_ok else ServerStatus.DECOMMISSION_FAIL,
         )
 
-        self.repo.log_event(
-            AuditLogRecord(
-                user_id=actor_id,
-                action=(
-                    Event.SERVER_DECOMM_DONE if job_ok else Event.SERVER_DECOMM_FAILED
-                ),
-                details=srv.model_dump(),
-                request_id=request_id_ctx.get(),
-            )
+        log_event(
+            self.repo,
+            actor_id,
+            Event.SERVER_DECOMM_DONE if job_ok else Event.SERVER_DECOMM_FAILED,
+            srv.model_dump(),
         )
+        if not job_ok:
+            raise ServerStateError(f"Server decommission job '{job_id}' failed.")

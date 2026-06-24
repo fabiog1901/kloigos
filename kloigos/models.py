@@ -1,6 +1,6 @@
 import datetime as dt
 from enum import StrEnum, auto
-from typing import Any, Callable
+from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -90,12 +90,6 @@ class Event(AutoNameStrEnum):
     IP_POOL_RELEASE = auto()
 
 
-class DeferredTask(BaseModel):
-    fn: Callable[..., None]
-    args: tuple | None
-    kwargs: dict = {}
-
-
 class Playbook(AutoNameStrEnum):
     # compute unit level statuses
     CU_ALLOCATE = auto()
@@ -107,7 +101,10 @@ class Playbook(AutoNameStrEnum):
 
 class QueueCommand(AutoNameStrEnum):
     CU_ALLOCATE = auto()
+    CU_DEALLOCATE = auto()
     ALLOCATION_SCALE = auto()
+    SERVER_INIT = auto()
+    SERVER_DECOMM = auto()
 
 
 class ComputeUnitStatus(AutoNameStrEnum):
@@ -229,6 +226,11 @@ class AllocationCreateCommand(BaseModel):
 class AllocationCreateResponse(BaseModel):
     allocation_id: str
     job_id: int
+
+
+class AllocationDeallocateCommand(BaseModel):
+    allocation_id: str
+    compute_id: str
 
 
 class AllocationScaleRequest(BaseModel):

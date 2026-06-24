@@ -15,7 +15,6 @@ from kloigos.models import (
     ComputeUnitOverview,
     ComputeUnitRequest,
     ComputeUnitStatus,
-    DeferredTask,
     Event,
     IpAddressStatus,
     NoFreeComputeUnitError,
@@ -65,7 +64,7 @@ class AllocationService:
         self,
         actor_id: str,
         allocation_id: str,
-    ) -> list[DeferredTask]:
+    ) -> JobID:
         """Schedule cleanup for the compute unit currently backing an allocation."""
         allocation = self._get_allocation(allocation_id)
         if allocation.compute_id is None:

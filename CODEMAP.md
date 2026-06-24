@@ -22,7 +22,7 @@ python tools/codemap.py --write
 
 | Package | Modules | Classes | Functions | Routes |
 | --- | ---: | ---: | ---: | ---: |
-| `kloigos` | 23 | 41 | 21 | 14 |
+| `kloigos` | 24 | 41 | 24 | 14 |
 
 ## API Routes
 
@@ -30,7 +30,7 @@ python tools/codemap.py --write
 | --- | --- | --- | --- |
 | `GET` | `/allocations` | `kloigos.api.allocation.list_allocations` | `list[AllocationInDB]` |
 | `POST` | `/allocations` | `kloigos.api.allocation.allocate` | `AllocationCreateResponse` |
-| `DELETE` | `/allocations/{allocation_id}` | `kloigos.api.allocation.deallocate_allocation` | `-` |
+| `DELETE` | `/allocations/{allocation_id}` | `kloigos.api.allocation.deallocate_allocation` | `JobID` |
 | `GET` | `/allocations/{allocation_id}` | `kloigos.api.allocation.get_allocation` | `AllocationInDB` |
 | `POST` | `/allocations/{allocation_id}/scale` | `kloigos.api.allocation.scale_allocation` | `JobID` |
 | `GET` | `/compute_units` | `kloigos.api.compute_unit.list_compute_units` | `list[ComputeUnitOverview]` |
@@ -39,8 +39,8 @@ python tools/codemap.py --write
 | `DELETE` | `/ip_pool/{allocation_id}` | `kloigos.api.admin.ip_pool.release_ip_pool_address` | `-` |
 | `PUT` | `/ip_pool/{ip_address}` | `kloigos.api.admin.ip_pool.update_ip_pool_address` | `IpPoolAddressInDB` |
 | `GET` | `/servers` | `kloigos.api.admin.servers.list_servers` | `list[ServerInDB]` |
-| `POST` | `/servers` | `kloigos.api.admin.servers.init_server` | `-` |
-| `PUT` | `/servers` | `kloigos.api.admin.servers.decommission_server` | `-` |
+| `POST` | `/servers` | `kloigos.api.admin.servers.init_server` | `JobID` |
+| `PUT` | `/servers` | `kloigos.api.admin.servers.decommission_server` | `JobID` |
 | `DELETE` | `/servers/{hostname}` | `kloigos.api.admin.servers.delete_server` | `-` |
 
 ## Command Handlers
@@ -60,7 +60,7 @@ python tools/codemap.py --write
 | `kloigos/api/compute_unit.py` | functions: list_compute_units; routes: 1 |
 | `kloigos/dep.py` | functions: get_allocation_service, get_compute_unit_service, get_admin_service |
 | `kloigos/main.py` | no public surface |
-| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, ServerNotFoundError, ServerStateError, Event, DeferredTask, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, ComputeUnitRequest, AllocationCreateCommand, AllocationCreateResponse, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolUpsertRequest, IpPoolUpdateRequest, BaseServer, ServerInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
+| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, ServerNotFoundError, ServerStateError, Event, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, ComputeUnitRequest, AllocationCreateCommand, AllocationCreateResponse, AllocationDeallocateCommand, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolUpsertRequest, IpPoolUpdateRequest, BaseServer, ServerInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
 | `kloigos/repos/__init__.py` | classes: Repo |
 | `kloigos/repos/postgres.py` | classes: PostgresRepo |
 | `kloigos/services/__init__.py` | no public surface |
@@ -73,4 +73,5 @@ python tools/codemap.py --write
 | `kloigos/util.py` | functions: to_cpu_set, parse_cpu_range |
 | `kloigos/workers/__init__.py` | Job worker entry points for Kloigos. |
 | `kloigos/workers/remote/__init__.py` | Remote job handlers that execute playbooks on Kloigos-managed servers. |
-| `kloigos/workers/remote/allocation.py` | Remote allocation worker handlers.; functions: run_compute_unit_allocate, run_allocation_scale |
+| `kloigos/workers/remote/allocation.py` | Remote allocation worker handlers.; functions: run_compute_unit_allocate, run_compute_unit_deallocate, run_allocation_scale |
+| `kloigos/workers/remote/server.py` | Remote server worker handlers.; functions: run_server_init, run_server_decommission |
