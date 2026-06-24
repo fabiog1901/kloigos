@@ -52,16 +52,16 @@ async def update_ip_pool_address(
     return updated
 
 
-@router.post("/{ip_address}/release")
+@router.delete("/{allocation_id}")
 async def release_ip_pool_address(
-    ip_address: str,
+    allocation_id: str,
     actor_id: str = Depends(get_audit_actor),
     service: AdminService = Depends(get_admin_service),
 ) -> Response:
-    released = service.release_ip_pool_address(actor_id, ip_address)
+    released = service.release_ip_pool_address(actor_id, allocation_id)
     if not released:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"IP address {ip_address} was not found.",
+            detail=f"Allocation {allocation_id} has no assigned IP address.",
         )
     return Response(status_code=status.HTTP_200_OK)

@@ -82,8 +82,13 @@ class IpPoolAdminService(AdminServiceBase):
     def release_ip_pool_address(
         self,
         actor_id: str,
-        ip_address: str,
+        allocation_id: str,
     ) -> IpPoolAddressInDB | None:
+        matches = self.repo.get_ip_pool_addresses(allocation_id=allocation_id)
+        if not matches:
+            return None
+
+        ip_address = matches[0].ip_address
         self.repo.release_ip_pool_address(
             ip_address=ip_address,
             status=IpAddressStatus.FREE,
@@ -93,7 +98,10 @@ class IpPoolAdminService(AdminServiceBase):
             AuditLogRecord(
                 user_id=actor_id,
                 action=Event.IP_POOL_RELEASE,
-                details={"ip_address": ip_address},
+                details={
+                    "allocation_id": allocation_id,
+                    "ip_address": ip_address,
+                },
                 request_id=request_id_ctx.get(),
             )
         )
