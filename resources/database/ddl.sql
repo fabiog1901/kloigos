@@ -88,9 +88,9 @@ ADD CONSTRAINT ip_pool_allocation FOREIGN KEY (allocation_id) REFERENCES allocat
 -- kloigos specific playbooks. the yaml content is done via the webapp.
 INSERT INTO cpkit.playbooks (name, content, created_by, default_version, updated_by)
 VALUES
-    ('CU_ALLOCATE',   NULL, 'system', now():::TIMESTAMPTZ, 'system'),
-    ('CU_DEALLOCATE', NULL, 'system', now():::TIMESTAMPTZ, 'system'),
+    ('CU_ALLOCATE'     , NULL, 'system', now():::TIMESTAMPTZ, 'system'),
+    ('CU_DEALLOCATE'   , NULL, 'system', now():::TIMESTAMPTZ, 'system'),
     ('ALLOCATION_SCALE', NULL, 'system', now():::TIMESTAMPTZ, 'system'),
-    ('SERVER_DECOMM', NULL, 'system', now():::TIMESTAMPTZ, 'system'),
-    ('SERVER_INIT',   NULL, 'system', now():::TIMESTAMPTZ, 'system')
+    ('SERVER_DECOMM'   , NULL, 'system', now():::TIMESTAMPTZ, 'system'),
+    ('SERVER_INIT'     , NULL, 'system', now():::TIMESTAMPTZ, 'system')
 ;

@@ -1,6 +1,14 @@
 from cpkit import get_audit_actor, require_readonly, require_user
 from cpkit.jobs.types import JobID
-from fastapi import APIRouter, Depends, HTTPException, Security, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Response,
+    Security,
+    status,
+)
 
 from ..dep import get_allocation_service
 from ..models import (
@@ -8,6 +16,11 @@ from ..models import (
     AllocationScaleRequest,
     ComputeUnitNotFoundError,
     ComputeUnitOperationError,
+    ComputeUnitRequest,
+    ComputeUnitStateError,
+    DeferredTask,
+    NoFreeComputeUnitError,
+    NoFreeIpAddressError,
 )
 from ..services.allocation import AllocationService
 
@@ -37,6 +50,35 @@ async def list_allocations(
     )
 
 
+@router.post(
+    "/",
+    response_model=str,
+    dependencies=[Security(require_user)],
+)
+async def allocate(
+    req: ComputeUnitRequest,
+    bg_task: BackgroundTasks,
+    actor_id: str = Depends(get_audit_actor),
+    service: AllocationService = Depends(get_allocation_service),
+) -> str:
+    try:
+        allocation_id, tasks = service.allocate(actor_id, req)
+    except NoFreeComputeUnitError:
+        raise HTTPException(460, "No free Compute Unit found to match your request")
+    except NoFreeIpAddressError:
+        raise HTTPException(460, "No free IP address found to match your request")
+    except ComputeUnitOperationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    for task in tasks:
+        bg_task.add_task(task.fn, *task.args, **task.kwargs)
+
+    return allocation_id
+
+
 @router.get(
     "/{allocation_id}",
     response_model=AllocationInDB,
@@ -53,6 +95,40 @@ async def get_allocation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
+
+
+@router.delete(
+    "/{allocation_id}",
+    dependencies=[Security(require_user)],
+)
+async def deallocate_allocation(
+    allocation_id: str,
+    bg_task: BackgroundTasks,
+    actor_id: str = Depends(get_audit_actor),
+    service: AllocationService = Depends(get_allocation_service),
+) -> Response:
+    try:
+        tasks: list[DeferredTask] = service.deallocate(actor_id, allocation_id)
+    except ComputeUnitNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except ComputeUnitStateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    except ComputeUnitOperationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    for task in tasks:
+        bg_task.add_task(task.fn, *task.args, **task.kwargs)
+
+    return Response(status_code=status.HTTP_200_OK)
 
 
 @router.post(

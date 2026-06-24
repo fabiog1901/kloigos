@@ -13,7 +13,9 @@ from kloigos.models import (
     ComputeUnitNotFoundError,
     ComputeUnitOperationError,
     ComputeUnitOverview,
+    ComputeUnitRequest,
     ComputeUnitStatus,
+    DeferredTask,
     Event,
     IpAddressStatus,
     NoFreeComputeUnitError,
@@ -22,7 +24,7 @@ from kloigos.models import (
 )
 
 from ..repos import Repo
-from .compute_unit import _ansible_host
+from .compute_unit import ComputeUnitService, _ansible_host
 
 
 class AllocationService:
@@ -48,6 +50,35 @@ class AllocationService:
 
     def get_allocation(self, allocation_id: str) -> AllocationInDB:
         return self._get_allocation(allocation_id)
+
+    def allocate(
+        self,
+        actor_id: str,
+        req: ComputeUnitRequest,
+    ) -> tuple[str, list[DeferredTask]]:
+        compute_id, tasks = ComputeUnitService(self.repo).allocate(actor_id, req)
+        allocations = self.repo.get_allocations(compute_id=compute_id)
+        if not allocations:
+            raise ComputeUnitOperationError(
+                f"Compute unit '{compute_id}' was reserved without allocation metadata."
+            )
+        return allocations[0].allocation_id, tasks
+
+    def deallocate(
+        self,
+        actor_id: str,
+        allocation_id: str,
+    ) -> list[DeferredTask]:
+        allocation = self._get_allocation(allocation_id)
+        if allocation.compute_id is None:
+            raise ComputeUnitOperationError(
+                f"Allocation '{allocation_id}' has no active compute unit."
+            )
+
+        return ComputeUnitService(self.repo).deallocate(
+            actor_id,
+            allocation.compute_id,
+        )
 
     def scale(
         self,
