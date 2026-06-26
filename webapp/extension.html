@@ -58,11 +58,12 @@
             <th @click="toggleAllocationsSort(0)" :class="allocationSortClass(0)">Allocation ID</th>
             <th @click="toggleAllocationsSort(1)" :class="allocationSortClass(1)">Name</th>
             <th @click="toggleAllocationsSort(2)" :class="allocationSortClass(2)">IP</th>
-            <th @click="toggleAllocationsSort(3)" :class="allocationSortClass(3)">Compute ID</th>
-            <th @click="toggleAllocationsSort(4)" :class="allocationSortClass(4)">Host</th>
-            <th @click="toggleAllocationsSort(5)" :class="allocationSortClass(5)">Tags</th>
-            <th @click="toggleAllocationsSort(6)" :class="allocationSortClass(6)">Status</th>
-            <th @click="toggleAllocationsSort(7)" :class="allocationSortClass(7)">Updated</th>
+            <th @click="toggleAllocationsSort(3)" :class="allocationSortClass(3)">Login</th>
+            <th @click="toggleAllocationsSort(4)" :class="allocationSortClass(4)">Compute ID</th>
+            <th @click="toggleAllocationsSort(5)" :class="allocationSortClass(5)">Host</th>
+            <th @click="toggleAllocationsSort(6)" :class="allocationSortClass(6)">Tags</th>
+            <th @click="toggleAllocationsSort(7)" :class="allocationSortClass(7)">Status</th>
+            <th @click="toggleAllocationsSort(8)" :class="allocationSortClass(8)">Updated</th>
             <th>Act</th>
           </tr>
         </thead>
@@ -81,6 +82,7 @@
               </td>
               <td x-text="row.name || '-'"></td>
               <td x-text="row.ip_address || '-'"></td>
+              <td x-text="row.login_user || '-'"></td>
               <td x-text="row.compute_id || '-'"></td>
               <td x-text="row.current_host || '-'"></td>
               <td>
@@ -126,7 +128,7 @@
           </template>
 
           <tr x-show="!allocationsLoading.list && allocationsVisibleRows.length === 0">
-            <td colspan="9" class="empty-cell">No allocations found.</td>
+            <td colspan="10" class="empty-cell">No allocations found.</td>
           </tr>
         </tbody>
       </table>
@@ -189,6 +191,7 @@
             <th @click="toggleComputeSort(3)" :class="computeSortClass(3)">Hostname</th>
             <th @click="toggleComputeSort(4)" :class="computeSortClass(4)">Private IP</th>
             <th @click="toggleComputeSort(5)" :class="computeSortClass(5)">CPUs</th>
+            <th @click="toggleComputeSort(6)" :class="computeSortClass(6)">System User</th>
             <th @click="toggleComputeSort(8)" :class="computeSortClass(8)">Started</th>
             <th @click="toggleComputeSort(9)" :class="computeSortClass(9)">Status</th>
           </tr>
@@ -218,6 +221,7 @@
               <td x-text="row.hostname || '-'"></td>
               <td x-text="row.private_ip || '-'"></td>
               <td x-text="row.cpu_count ?? '-'"></td>
+              <td x-text="row.system_user || '-'"></td>
               <td x-text="toUtcStringMaybe(row.started_at)"></td>
               <td>
                 <span class="status-pill" :class="computeStatusClass(row.status)">
@@ -228,7 +232,7 @@
           </template>
 
           <tr x-show="!computeLoading.list && computeVisibleRows.length === 0">
-            <td colspan="8" class="empty-cell">No compute units found.</td>
+            <td colspan="9" class="empty-cell">No compute units found.</td>
           </tr>
         </tbody>
       </table>

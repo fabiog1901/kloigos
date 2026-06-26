@@ -40,7 +40,8 @@ window.cpkitWebappExtension = {
       4: "string",
       5: "string",
       6: "string",
-      7: "date",
+      7: "string",
+      8: "date",
     },
     allocationsLoading: {
       list: false,
@@ -86,6 +87,7 @@ window.cpkitWebappExtension = {
       3: "string",
       4: "ip",
       5: "number",
+      6: "string",
       8: "date",
       9: "string",
     },
@@ -295,6 +297,7 @@ window.cpkitWebappExtension = {
         row.allocation_id,
         row.name,
         row.ip_address,
+        row.login_user,
         row.compute_id,
         row.current_host,
         row.status,
@@ -311,14 +314,16 @@ window.cpkitWebappExtension = {
         case 2:
           return row.ip_address || "";
         case 3:
-          return row.compute_id || "";
+          return row.login_user || "";
         case 4:
-          return row.current_host || "";
+          return row.compute_id || "";
         case 5:
-          return this.serversTagsCompact(row.tags);
+          return row.current_host || "";
         case 6:
-          return row.status || "";
+          return this.serversTagsCompact(row.tags);
         case 7:
+          return row.status || "";
+        case 8:
           return row.updated_at || "";
         default:
           return "";
@@ -514,6 +519,7 @@ window.cpkitWebappExtension = {
         row.compute_id,
         row.hostname,
         row.private_ip,
+        row.system_user,
         row.public_ip,
         row.server_private_ip,
         row.server_public_ip,
@@ -539,6 +545,8 @@ window.cpkitWebappExtension = {
           return row.private_ip || "";
         case 5:
           return row.cpu_count ?? "";
+        case 6:
+          return row.system_user || "";
         case 8:
           return row.started_at || "";
         case 9:

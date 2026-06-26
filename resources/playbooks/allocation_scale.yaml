@@ -22,7 +22,7 @@
 #   source_server_private_ip
 #   source_server_public_ip
 #   source_compute_unit_private_ip
-#   source_cu_user
+#   source_system_user
 #   source_cpu_range
 #   target_compute_id
 #   target_hostname
@@ -30,7 +30,7 @@
 #   target_server_private_ip
 #   target_server_public_ip
 #   target_compute_unit_private_ip
-#   target_cu_user
+#   target_system_user
 #   target_cpu_range
 #   target_cpu_count
 #
@@ -49,7 +49,7 @@
         server_private_ip: "{{ source_server_private_ip }}"
         server_public_ip: "{{ source_server_public_ip | default('', true) }}"
         compute_unit_private_ip: "{{ source_compute_unit_private_ip }}"
-        cu_user: "{{ source_cu_user }}"
+        system_user: "{{ source_system_user }}"
         groups: scale_source
 
     - name: Build target host inventory dynamically
@@ -61,7 +61,7 @@
         server_private_ip: "{{ target_server_private_ip }}"
         server_public_ip: "{{ target_server_public_ip | default('', true) }}"
         compute_unit_private_ip: "{{ target_compute_unit_private_ip }}"
-        cu_user: "{{ target_cu_user }}"
+        system_user: "{{ target_system_user }}"
         cpu_count: "{{ target_cpu_count }}"
         groups: scale_target
 
@@ -83,15 +83,15 @@
     - name: Ensure target data directories exist
       shell: |
         set -euo pipefail
-        mkdir -p /home/{{ target_cu_user }}/.ssh
-        mkdir -p /opt/{{ target_cu_user }}
-        mkdir -p /mnt/{{ target_cu_user }}
-        chown -R {{ target_cu_user }}:{{ target_cu_user }} /home/{{ target_cu_user }}
-        chown -R {{ target_cu_user }}:{{ target_cu_user }} /opt/{{ target_cu_user }}
-        chown -R {{ target_cu_user }}:{{ target_cu_user }} /mnt/{{ target_cu_user }}
-        chmod 0750 /home/{{ target_cu_user }}
-        chmod 0750 /opt/{{ target_cu_user }}
-        chmod 0750 /mnt/{{ target_cu_user }}
+        mkdir -p /home/{{ target_system_user }}/.ssh
+        mkdir -p /opt/{{ target_system_user }}
+        mkdir -p /mnt/{{ target_system_user }}
+        chown -R {{ target_system_user }}:{{ target_system_user }} /home/{{ target_system_user }}
+        chown -R {{ target_system_user }}:{{ target_system_user }} /opt/{{ target_system_user }}
+        chown -R {{ target_system_user }}:{{ target_system_user }} /mnt/{{ target_system_user }}
+        chmod 0750 /home/{{ target_system_user }}
+        chmod 0750 /opt/{{ target_system_user }}
+        chmod 0750 /mnt/{{ target_system_user }}
       args:
         executable: /bin/bash
 
@@ -110,7 +110,7 @@
         rsync -a --delete \
           -e "ssh {{ ssh_opts }}" \
           --rsync-path="sudo rsync" \
-          ubuntu@{{ source_ansible_host }}:/home/{{ source_cu_user }}/ {{ scratch_root }}/home/
+          ubuntu@{{ source_ansible_host }}:/home/{{ source_system_user }}/ {{ scratch_root }}/home/
       args:
         executable: /bin/bash
 
@@ -120,7 +120,7 @@
         rsync -a --delete \
           -e "ssh {{ ssh_opts }}" \
           --rsync-path="sudo rsync" \
-          ubuntu@{{ source_ansible_host }}:/opt/{{ source_cu_user }}/ {{ scratch_root }}/opt/
+          ubuntu@{{ source_ansible_host }}:/opt/{{ source_system_user }}/ {{ scratch_root }}/opt/
       args:
         executable: /bin/bash
 
@@ -130,16 +130,16 @@
         rsync -a --delete \
           -e "ssh {{ ssh_opts }}" \
           --rsync-path="sudo rsync" \
-          ubuntu@{{ source_ansible_host }}:/mnt/{{ source_cu_user }}/ {{ scratch_root }}/mnt/
+          ubuntu@{{ source_ansible_host }}:/mnt/{{ source_system_user }}/ {{ scratch_root }}/mnt/
       args:
         executable: /bin/bash
 
     - name: Initial rsync controller to target
       shell: |
         set -euo pipefail
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ ubuntu@{{ target_ansible_host }}:/home/{{ target_cu_user }}/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ ubuntu@{{ target_ansible_host }}:/opt/{{ target_cu_user }}/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ ubuntu@{{ target_ansible_host }}:/mnt/{{ target_cu_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ ubuntu@{{ target_ansible_host }}:/home/{{ target_system_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ ubuntu@{{ target_ansible_host }}:/opt/{{ target_system_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ ubuntu@{{ target_ansible_host }}:/mnt/{{ target_system_user }}/
       args:
         executable: /bin/bash
 
@@ -151,9 +151,9 @@
     - name: Stop source user services and sessions
       shell: |
         set -euo pipefail
-        SOURCE_UID="$(id -u {{ source_cu_user }})"
+        SOURCE_UID="$(id -u {{ source_system_user }})"
         systemctl stop user@"$SOURCE_UID".service || true
-        loginctl kill-user {{ source_cu_user }} || true
+        loginctl kill-user {{ source_system_user }} || true
       args:
         executable: /bin/bash
 
@@ -169,18 +169,18 @@
     - name: Final rsync source to controller
       shell: |
         set -euo pipefail
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" ubuntu@{{ source_ansible_host }}:/home/{{ source_cu_user }}/ {{ scratch_root }}/home/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" ubuntu@{{ source_ansible_host }}:/opt/{{ source_cu_user }}/ {{ scratch_root }}/opt/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" ubuntu@{{ source_ansible_host }}:/mnt/{{ source_cu_user }}/ {{ scratch_root }}/mnt/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" ubuntu@{{ source_ansible_host }}:/home/{{ source_system_user }}/ {{ scratch_root }}/home/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" ubuntu@{{ source_ansible_host }}:/opt/{{ source_system_user }}/ {{ scratch_root }}/opt/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" ubuntu@{{ source_ansible_host }}:/mnt/{{ source_system_user }}/ {{ scratch_root }}/mnt/
       args:
         executable: /bin/bash
 
     - name: Final rsync controller to target
       shell: |
         set -euo pipefail
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ ubuntu@{{ target_ansible_host }}:/home/{{ target_cu_user }}/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ ubuntu@{{ target_ansible_host }}:/opt/{{ target_cu_user }}/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ ubuntu@{{ target_ansible_host }}:/mnt/{{ target_cu_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ ubuntu@{{ target_ansible_host }}:/home/{{ target_system_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ ubuntu@{{ target_ansible_host }}:/opt/{{ target_system_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ ubuntu@{{ target_ansible_host }}:/mnt/{{ target_system_user }}/
       args:
         executable: /bin/bash
 
@@ -200,7 +200,7 @@
     - name: Restore source user nftables rule to compute-unit private IP
       shell: |
         set -euo pipefail
-        SOURCE_UID="$(id -u {{ source_cu_user }})"
+        SOURCE_UID="$(id -u {{ source_system_user }})"
         NFT_FILE="/etc/nftables.d/kloigos-compute-units.nft"
         if [ -f "$NFT_FILE" ]; then
           sed -i -E "s/meta skuid ${SOURCE_UID} ip saddr != [^ ]+ drop/meta skuid ${SOURCE_UID} ip saddr != {{ source_compute_unit_private_ip }} drop/g" "$NFT_FILE"
@@ -213,15 +213,15 @@
     - name: Clear source compute unit data after final rsync
       shell: |
         set -euo pipefail
-        rm -rf /home/{{ source_cu_user }}/*
-        rm -rf /opt/{{ source_cu_user }}/*
-        rm -rf /mnt/{{ source_cu_user }}/*
-        mkdir -p /home/{{ source_cu_user }}/.ssh
-        chown {{ source_cu_user }}:{{ source_cu_user }} /home/{{ source_cu_user }}/.ssh
-        chmod 700 /home/{{ source_cu_user }}/.ssh
-        touch /home/{{ source_cu_user }}/.ssh/authorized_keys
-        chown {{ source_cu_user }}:{{ source_cu_user }} /home/{{ source_cu_user }}/.ssh/authorized_keys
-        chmod 600 /home/{{ source_cu_user }}/.ssh/authorized_keys
+        rm -rf /home/{{ source_system_user }}/*
+        rm -rf /opt/{{ source_system_user }}/*
+        rm -rf /mnt/{{ source_system_user }}/*
+        mkdir -p /home/{{ source_system_user }}/.ssh
+        chown {{ source_system_user }}:{{ source_system_user }} /home/{{ source_system_user }}/.ssh
+        chmod 700 /home/{{ source_system_user }}/.ssh
+        touch /home/{{ source_system_user }}/.ssh/authorized_keys
+        chown {{ source_system_user }}:{{ source_system_user }} /home/{{ source_system_user }}/.ssh/authorized_keys
+        chmod 600 /home/{{ source_system_user }}/.ssh/authorized_keys
       args:
         executable: /bin/bash
 
@@ -241,16 +241,16 @@
     - name: Make target file ownership match target compute-unit user
       shell: |
         set -euo pipefail
-        chown -R {{ target_cu_user }}:{{ target_cu_user }} /home/{{ target_cu_user }}
-        chown -R {{ target_cu_user }}:{{ target_cu_user }} /opt/{{ target_cu_user }}
-        chown -R {{ target_cu_user }}:{{ target_cu_user }} /mnt/{{ target_cu_user }}
+        chown -R {{ target_system_user }}:{{ target_system_user }} /home/{{ target_system_user }}
+        chown -R {{ target_system_user }}:{{ target_system_user }} /opt/{{ target_system_user }}
+        chown -R {{ target_system_user }}:{{ target_system_user }} /mnt/{{ target_system_user }}
       args:
         executable: /bin/bash
 
     - name: Update target nftables source-IP rule to floating IP
       shell: |
         set -euo pipefail
-        TARGET_UID="$(id -u {{ target_cu_user }})"
+        TARGET_UID="$(id -u {{ target_system_user }})"
         NFT_FILE="/etc/nftables.d/kloigos-compute-units.nft"
         if [ -f "$NFT_FILE" ]; then
           sed -i -E "s/meta skuid ${TARGET_UID} ip saddr != [^ ]+ drop/meta skuid ${TARGET_UID} ip saddr != {{ allocation_ip_address }} drop/g" "$NFT_FILE"
@@ -263,9 +263,9 @@
     - name: Start target user services
       shell: |
         set -euo pipefail
-        TARGET_UID="$(id -u {{ target_cu_user }})"
+        TARGET_UID="$(id -u {{ target_system_user }})"
         systemctl daemon-reload
-        loginctl enable-linger {{ target_cu_user }}
+        loginctl enable-linger {{ target_system_user }}
         systemctl restart user@"$TARGET_UID".service
         systemctl restart user-"$TARGET_UID".slice || true
       args:

@@ -23,12 +23,13 @@ CREATE TABLE compute_units (
     cpu_set TEXT NOT NULL,
     private_ip TEXT NOT NULL,
     public_ip TEXT NULL,
-    cu_user TEXT NOT NULL,
+    system_user TEXT NOT NULL,
     STATUS TEXT NOT NULL,
     started_at TIMESTAMPTZ NULL,
     tags JSONB NULL,
     CONSTRAINT pk_compute_units PRIMARY KEY (compute_id),
     CONSTRAINT uq_compute_units_hostname_ordinal UNIQUE (hostname, ordinal),
+    CONSTRAINT uq_compute_units_system_user UNIQUE (system_user),
     CONSTRAINT uq_compute_units_hostname_private_ip UNIQUE (hostname, private_ip),
     CONSTRAINT hostname_in_servers FOREIGN KEY (hostname) REFERENCES servers(hostname) ON UPDATE CASCADE ON DELETE CASCADE
 );

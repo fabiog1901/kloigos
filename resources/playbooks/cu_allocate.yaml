@@ -10,7 +10,7 @@
 #   server_public_ip
 #   private_ip
 #   public_ip
-#   cu_user
+#   system_user
 #   cpu_range
 #   cpu_count
 #   ssh_public_key
@@ -32,7 +32,7 @@
         server_public_ip: "{{ server_public_ip | default('', true) }}"
         private_ip: "{{ private_ip }}"
         public_ip: "{{ public_ip | default('', true) }}"
-        cu_user: "{{ cu_user }}"
+        system_user: "{{ system_user }}"
         cpu_count: "{{ cpu_count }}"
         groups: new_alloc
 
@@ -46,9 +46,9 @@
       copy:
         content: |
           {{ ssh_public_key }}
-        dest: /home/{{ cu_user }}/.ssh/authorized_keys
-        owner: "{{ cu_user }}"
-        group: "{{ cu_user }}"
+        dest: /home/{{ system_user }}/.ssh/authorized_keys
+        owner: "{{ system_user }}"
+        group: "{{ system_user }}"
         mode: "0600"
 
     - name: create welcome file
@@ -63,7 +63,7 @@
             - Private IP: {{ private_ip }}
             - Public IP: {{ public_ip | default('', true) }}
             - Network bandwidth:
-            - Disk volume at /mnt/{{ cu_user }}
+            - Disk volume at /mnt/{{ system_user }}
             - IOPS/MBPS:
 
           
@@ -80,4 +80,4 @@
           systemctl --user enable myservice
           systemctl --user start myservice
 
-        dest: /home/{{ cu_user }}/WELCOME.txt
+        dest: /home/{{ system_user }}/WELCOME.txt

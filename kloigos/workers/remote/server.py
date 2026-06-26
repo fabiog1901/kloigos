@@ -1,5 +1,7 @@
 """Remote server worker handlers."""
 
+import re
+
 from cpkit import get_repo
 from cpkit.audit import log_event
 from cpkit.playbooks import run_playbook
@@ -14,25 +16,52 @@ from ...models import (
     ServerStateError,
     ServerStatus,
 )
-from ...util import to_cpu_set
+from ...util import parse_cpu_range, to_cpu_set
+
+SYSTEM_USER_PATTERN = re.compile(r"^k(\d+)$")
 
 
-def _cu_user(ordinal: int) -> str:
-    return f"c{ordinal:02d}"
+def _system_user(index: int) -> str:
+    return f"k{index:03d}"
+
+
+def _used_system_user_numbers(system_users: list[str]) -> set[int]:
+    used: set[int] = set()
+    for system_user in system_users:
+        match = SYSTEM_USER_PATTERN.match(system_user)
+        if match:
+            used.add(int(match.group(1)))
+    return used
+
+
+def _next_system_user(used: set[int]) -> str:
+    index = 1
+    while index in used:
+        index += 1
+    used.add(index)
+    return _system_user(index)
 
 
 def _ansible_host(public_ip: str | None, private_ip: str) -> str:
     return public_ip or private_ip
 
 
-def _init_compute_units(sir: ServerInitRequest) -> list[InitComputeUnit]:
+def _init_compute_units(
+    sir: ServerInitRequest,
+    existing_system_users: list[str],
+) -> list[InitComputeUnit]:
     units: list[InitComputeUnit] = []
-    for cu in sorted(sir.compute_units, key=lambda item: item.ordinal):
+    used_system_user_numbers = _used_system_user_numbers(existing_system_users)
+    compute_units = sorted(
+        sir.compute_units,
+        key=lambda item: (parse_cpu_range(item.cpu_range)[0], item.ordinal),
+    )
+    for cu in compute_units:
         cpu_set = to_cpu_set(cu.cpu_range)
         units.append(
             InitComputeUnit(
                 ordinal=cu.ordinal,
-                cu_user=_cu_user(cu.ordinal),
+                system_user=_next_system_user(used_system_user_numbers),
                 cpu_range=cu.cpu_range,
                 cpu_set=cpu_set,
                 cpu_count=len(cpu_set.split(",")),
@@ -50,7 +79,8 @@ def run_server_init(
 ) -> None:
     """Run the remote playbook job that initializes a server."""
     repo = get_repo()
-    compute_units = _init_compute_units(payload)
+    existing_system_users = [cu.system_user for cu in repo.get_compute_units()]
+    compute_units = _init_compute_units(payload, existing_system_users)
 
     result = run_playbook(
         repo=repo,

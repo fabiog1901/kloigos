@@ -33,7 +33,7 @@
   tasks:
     - name: create users
       shell: |
-        id {{ item.cu_user }} || useradd --create-home --home-dir /home/{{ item.cu_user }} --shell /bin/bash {{ item.cu_user }}
+        id {{ item.system_user }} || useradd --create-home --home-dir /home/{{ item.system_user }} --shell /bin/bash {{ item.system_user }}
       loop: "{{ compute_units }}"
 
     - name: Find attached disks
@@ -101,9 +101,9 @@
 
     - name: add disks to /etc/fstab
       shell: |
-        mkdir -p /mnt/{{ item.1.cu_user }}
+        mkdir -p /mnt/{{ item.1.system_user }}
         DISKUUID=`lsblk -no UUID {{ item.0 }}`
-        grep -q $DISKUUID /etc/fstab || echo "UUID=$DISKUUID /mnt/{{ item.1.cu_user }} ext4 defaults 0 2" >> /etc/fstab
+        grep -q $DISKUUID /etc/fstab || echo "UUID=$DISKUUID /mnt/{{ item.1.system_user }} ext4 defaults 0 2" >> /etc/fstab
       loop: "{{ disks.stdout_lines | zip(compute_units) | list }}"
 
     - name: reload systemd and mount disks
@@ -113,21 +113,21 @@
 
     - name: create directories and setting ownership
       shell: |
-        mkdir -p /opt/{{ item.cu_user }}
-        mkdir -p /mnt/{{ item.cu_user }}
-        mkdir -p /home/{{ item.cu_user }}
-        mkdir -p /home/{{ item.cu_user }}/.ssh
-        chown -R {{ item.cu_user }}:{{ item.cu_user }} /opt/{{ item.cu_user }}
-        chown -R {{ item.cu_user }}:{{ item.cu_user }} /mnt/{{ item.cu_user }}
-        chown -R {{ item.cu_user }}:{{ item.cu_user }} /home/{{ item.cu_user }}
-        chmod 0750 /opt/{{ item.cu_user }}
-        chmod 0750 /mnt/{{ item.cu_user }}
-        chmod 0750 /home/{{ item.cu_user }}
+        mkdir -p /opt/{{ item.system_user }}
+        mkdir -p /mnt/{{ item.system_user }}
+        mkdir -p /home/{{ item.system_user }}
+        mkdir -p /home/{{ item.system_user }}/.ssh
+        chown -R {{ item.system_user }}:{{ item.system_user }} /opt/{{ item.system_user }}
+        chown -R {{ item.system_user }}:{{ item.system_user }} /mnt/{{ item.system_user }}
+        chown -R {{ item.system_user }}:{{ item.system_user }} /home/{{ item.system_user }}
+        chmod 0750 /opt/{{ item.system_user }}
+        chmod 0750 /mnt/{{ item.system_user }}
+        chmod 0750 /home/{{ item.system_user }}
       loop: "{{ compute_units }}"
 
     - name: finding id for each user
       shell: |
-        id -u {{ item.cu_user }}
+        id -u {{ item.system_user }}
       loop: "{{ compute_units }}"
       register: user_ids
 
@@ -226,7 +226,7 @@
       shell: |
         systemctl restart user@{{ item.0.stdout }}.service
         systemctl restart user-{{ item.0.stdout }}.slice
-        loginctl enable-linger {{ item.1.cu_user }}
+        loginctl enable-linger {{ item.1.system_user }}
       loop: "{{ user_ids.results | zip(compute_units) | list }}"
 
     - name: enforce disk util
@@ -290,9 +290,9 @@
     # - name: create sudoers files to run kloigos-apt
     #   copy:
     #     content: |
-    #       c{{ item }} ALL=(root) NOPASSWD: /usr/local/bin/kloigos-{{ pkgmgr }}
-    #       Defaults:c{{ item }} env_reset
-    #       Defaults:c{{ item }} secure_path="/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin"
+    #       {{ item.system_user }} ALL=(root) NOPASSWD: /usr/local/bin/kloigos-{{ pkgmgr }}
+    #       Defaults:{{ item.system_user }} env_reset
+    #       Defaults:{{ item.system_user }} secure_path="/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin"
 
-    #     dest: /etc/sudoers.d/kloigos-c{{ item }}
+    #     dest: /etc/sudoers.d/kloigos-{{ item.system_user }}
     #   loop: "{{ compute_units }}"

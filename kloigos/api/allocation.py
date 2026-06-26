@@ -40,7 +40,7 @@ async def list_allocations(
     status: str | None = None,
     service: AllocationService = Depends(get_allocation_service),
 ) -> list[AllocationInDB]:
-    """List allocation records, optionally filtered by identity or placement."""
+    """List allocations with floating IP and current login user, optionally filtered."""
     return service.list_allocations(
         allocation_id=allocation_id,
         compute_id=compute_id,
@@ -82,7 +82,7 @@ async def get_allocation(
     allocation_id: str,
     service: AllocationService = Depends(get_allocation_service),
 ) -> AllocationInDB:
-    """Fetch one allocation by durable allocation id."""
+    """Fetch one allocation by durable allocation id, including current login user."""
     try:
         return service.get_allocation(allocation_id)
     except ComputeUnitNotFoundError as exc:

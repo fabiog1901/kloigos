@@ -126,7 +126,11 @@ class PostgresRepo(CPKitRepo):
                     allocation.compute_id,
                     allocation.current_host,
                     allocation.status,
-                    json.dumps(allocation.tags) if allocation.tags is not None else None,
+                    (
+                        json.dumps(allocation.tags)
+                        if allocation.tags is not None
+                        else None
+                    ),
                 ),
             )
 
@@ -193,25 +197,32 @@ class PostgresRepo(CPKitRepo):
         params = []
 
         if allocation_id is not None:
-            conditions.append("allocation_id = %s")
+            conditions.append("a.allocation_id = %s")
             params.append(allocation_id)
 
         if compute_id is not None:
-            conditions.append("compute_id = %s")
+            conditions.append("a.compute_id = %s")
             params.append(compute_id)
 
         if ip_address is not None:
-            conditions.append("ip_address = %s")
+            conditions.append("a.ip_address = %s")
             params.append(ip_address)
 
         if status is not None:
-            conditions.append("status = %s")
+            conditions.append("a.status = %s")
             params.append(status)
 
-        sql = "SELECT * FROM allocations"
+        sql = """
+            SELECT
+                a.*,
+                c.system_user AS login_user
+            FROM allocations a
+            LEFT JOIN compute_units c
+              ON a.compute_id = c.compute_id
+        """
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
-        sql += " ORDER BY created_at DESC, allocation_id"
+        sql += " ORDER BY a.created_at DESC, a.allocation_id"
 
         with self.pool.connection() as conn:
             cur = conn.cursor(row_factory=class_row(AllocationInDB))
@@ -407,7 +418,7 @@ class PostgresRepo(CPKitRepo):
                 """
                 INSERT INTO compute_units (
                     hostname, ordinal, cpu_range, cpu_count, 
-                    cpu_set, private_ip, public_ip, cu_user,
+                    cpu_set, private_ip, public_ip, system_user,
                     status, started_at, tags
                 ) 
                 VALUES (
@@ -425,7 +436,7 @@ class PostgresRepo(CPKitRepo):
                     cudb.cpu_set,
                     cudb.private_ip,
                     cudb.public_ip,
-                    cudb.cu_user,
+                    cudb.system_user,
                     cudb.status,
                     cudb.started_at,
                     cudb.tags,
@@ -518,7 +529,7 @@ class PostgresRepo(CPKitRepo):
                     c.cpu_set,
                     c.private_ip,
                     c.public_ip,
-                    c.cu_user,
+                    c.system_user,
                     c.cpu_count,
                     c.status,
                     c.started_at,
@@ -548,7 +559,7 @@ class PostgresRepo(CPKitRepo):
             compute_units.cpu_set,
             compute_units.private_ip,
             compute_units.public_ip,
-            compute_units.cu_user,
+            compute_units.system_user,
             compute_units.cpu_count,
             compute_units.status,
             compute_units.started_at,
@@ -621,7 +632,7 @@ class PostgresRepo(CPKitRepo):
                 c.cpu_set,
                 c.private_ip,
                 c.public_ip,
-                c.cu_user,
+                c.system_user,
                 c.cpu_count,
                 c.status,
                 c.started_at,
