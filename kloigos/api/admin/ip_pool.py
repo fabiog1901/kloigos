@@ -2,7 +2,12 @@ from cpkit import get_audit_actor
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from ...dep import get_admin_service
-from ...models import IpPoolAddressInDB, IpPoolUpdateRequest, IpPoolUpsertRequest
+from ...models import (
+    ComputeUnitOperationError,
+    IpPoolAddressInDB,
+    IpPoolInsertRequest,
+    IpPoolUpdateRequest,
+)
 from ...services.admin import AdminService
 
 router = APIRouter(
@@ -28,12 +33,18 @@ async def list_ip_pool_addresses(
 
 
 @router.post("/", response_model=list[IpPoolAddressInDB])
-async def upsert_ip_pool_addresses(
-    req: IpPoolUpsertRequest,
+async def insert_ip_pool_addresses(
+    req: IpPoolInsertRequest,
     actor_id: str = Depends(get_audit_actor),
     service: AdminService = Depends(get_admin_service),
 ) -> list[IpPoolAddressInDB]:
-    return service.upsert_ip_pool_addresses(actor_id, req)
+    try:
+        return service.insert_ip_pool_addresses(actor_id, req)
+    except ComputeUnitOperationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
 
 
 @router.put("/{ip_address}", response_model=IpPoolAddressInDB)
@@ -52,7 +63,28 @@ async def update_ip_pool_address(
     return updated
 
 
-@router.delete("/{allocation_id}")
+@router.delete("/{ip_address}")
+async def delete_ip_pool_address(
+    ip_address: str,
+    actor_id: str = Depends(get_audit_actor),
+    service: AdminService = Depends(get_admin_service),
+) -> Response:
+    try:
+        deleted = service.delete_ip_pool_address(actor_id, ip_address)
+    except ComputeUnitOperationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"IP address {ip_address} was not found.",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/{allocation_id}/release")
 async def release_ip_pool_address(
     allocation_id: str,
     actor_id: str = Depends(get_audit_actor),

@@ -1,11 +1,12 @@
 from cpkit.audit import log_event
 
 from ...models import (
+    ComputeUnitOperationError,
     Event,
     IpAddressStatus,
     IpPoolAddressInDB,
+    IpPoolInsertRequest,
     IpPoolUpdateRequest,
-    IpPoolUpsertRequest,
 )
 from .base import AdminServiceBase
 
@@ -25,15 +26,29 @@ class IpPoolAdminService(AdminServiceBase):
             current_host=current_host,
         )
 
-    def upsert_ip_pool_addresses(
+    def insert_ip_pool_addresses(
         self,
         actor_id: str,
-        req: IpPoolUpsertRequest,
+        req: IpPoolInsertRequest,
     ) -> list[IpPoolAddressInDB]:
         # Floating IPs are durable allocation resources, so admins manage them
         # independently from server/CU initialization.
+        requested = set()
         for ip_address in req.ip_addresses:
-            self.repo.upsert_ip_pool_address(
+            if ip_address in requested:
+                raise ComputeUnitOperationError(
+                    f"IP address {ip_address} is duplicated in the request."
+                )
+            requested.add(ip_address)
+
+            existing = self.repo.get_ip_pool_addresses(ip_address=ip_address)
+            if existing:
+                raise ComputeUnitOperationError(
+                    f"IP address {ip_address} already exists in the pool."
+                )
+
+        for ip_address in req.ip_addresses:
+            self.repo.insert_ip_pool_address(
                 ip_address=ip_address,
                 status=req.status,
                 current_host=req.current_host,
@@ -42,7 +57,7 @@ class IpPoolAdminService(AdminServiceBase):
         log_event(
             self.repo,
             actor_id,
-            Event.IP_POOL_UPSERT,
+            Event.IP_POOL_INSERT,
             req.model_dump(),
         )
 
@@ -73,6 +88,35 @@ class IpPoolAdminService(AdminServiceBase):
 
         matches = self.repo.get_ip_pool_addresses(ip_address=ip_address)
         return matches[0] if matches else None
+
+    def delete_ip_pool_address(
+        self,
+        actor_id: str,
+        ip_address: str,
+    ) -> bool:
+        matches = self.repo.get_ip_pool_addresses(ip_address=ip_address)
+        if not matches:
+            return False
+
+        existing = matches[0]
+        if (
+            existing.status != IpAddressStatus.FREE
+            or existing.allocation_id is not None
+            or existing.current_host is not None
+        ):
+            raise ComputeUnitOperationError(
+                f"IP address {ip_address} must be free and unassigned before removal."
+            )
+
+        deleted = self.repo.delete_ip_pool_address(ip_address)
+        if deleted:
+            log_event(
+                self.repo,
+                actor_id,
+                Event.IP_POOL_DELETE,
+                existing.model_dump(),
+            )
+        return deleted
 
     def release_ip_pool_address(
         self,

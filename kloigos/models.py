@@ -85,9 +85,10 @@ class Event(AutoNameStrEnum):
     ALLOCATION_SCALE_REQUEST = auto()
     ALLOCATION_SCALE_DONE = auto()
     ALLOCATION_SCALE_FAILED = auto()
-    IP_POOL_UPSERT = auto()
+    IP_POOL_INSERT = auto()
     IP_POOL_UPDATE = auto()
     IP_POOL_RELEASE = auto()
+    IP_POOL_DELETE = auto()
 
 
 class Playbook(AutoNameStrEnum):
@@ -261,7 +262,7 @@ class IpPoolAddressInDB(BaseModel):
     updated_at: dt.datetime | None = None
 
 
-class IpPoolUpsertRequest(BaseModel):
+class IpPoolInsertRequest(BaseModel):
     ip_addresses: list[str] = Field(min_length=1)
     status: IpAddressStatus = IpAddressStatus.FREE
     current_host: str | None = None

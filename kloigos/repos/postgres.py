@@ -229,7 +229,7 @@ class PostgresRepo(CPKitRepo):
     #
     # IP POOL
     #
-    def upsert_ip_pool_address(
+    def insert_ip_pool_address(
         self,
         ip_address: str,
         status: IpAddressStatus = IpAddressStatus.FREE,
@@ -243,12 +243,6 @@ class PostgresRepo(CPKitRepo):
                     ip_address, status, allocation_id, current_host
                 )
                 VALUES (%s, %s, %s, %s)
-                ON CONFLICT (ip_address)
-                DO UPDATE SET
-                    status = excluded.status,
-                    allocation_id = excluded.allocation_id,
-                    current_host = excluded.current_host,
-                    updated_at = now()
                 """,
                 (
                     ip_address,
@@ -257,6 +251,19 @@ class PostgresRepo(CPKitRepo):
                     current_host,
                 ),
             )
+
+    def delete_ip_pool_address(self, ip_address: str) -> bool:
+        with self.pool.connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                DELETE
+                FROM ip_pool
+                WHERE ip_address = %s
+                """,
+                (ip_address,),
+            )
+            return cur.rowcount > 0
 
     def update_ip_pool_address(
         self,
