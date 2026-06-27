@@ -10,7 +10,7 @@
 #   server_public_ip
 #   private_ip
 #   public_ip
-#   username
+#   login_user
 #   cpu_range
 #   cpu_set
 #   cpu_count
@@ -33,7 +33,7 @@
         server_public_ip: "{{ server_public_ip | default('', true) }}"
         private_ip: "{{ private_ip }}"
         public_ip: "{{ public_ip | default('', true) }}"
-        username: "{{ username }}"
+        login_user: "{{ login_user }}"
         cpu_set: "{{ cpu_set }}"
         cpu_count: "{{ cpu_count }}"
         groups: new_alloc
@@ -47,24 +47,24 @@
     - name: Create allocation user
       shell: |
         set -euo pipefail
-        id {{ username }} || useradd --create-home --home-dir /home/{{ username }} --shell /bin/bash {{ username }}
+        id {{ login_user }} || useradd --create-home --home-dir /home/{{ login_user }} --shell /bin/bash {{ login_user }}
       args:
         executable: /bin/bash
 
     - name: Create allocation directories
       shell: |
         set -euo pipefail
-        mkdir -p /opt/{{ username }}
-        mkdir -p /mnt/{{ username }}
-        mkdir -p /home/{{ username }}
-        mkdir -p /home/{{ username }}/.ssh
-        chown -R {{ username }}:{{ username }} /opt/{{ username }}
-        chown -R {{ username }}:{{ username }} /mnt/{{ username }}
-        chown -R {{ username }}:{{ username }} /home/{{ username }}
-        chmod 0750 /opt/{{ username }}
-        chmod 0750 /mnt/{{ username }}
-        chmod 0750 /home/{{ username }}
-        chmod 0700 /home/{{ username }}/.ssh
+        mkdir -p /opt/{{ login_user }}
+        mkdir -p /mnt/{{ login_user }}
+        mkdir -p /home/{{ login_user }}
+        mkdir -p /home/{{ login_user }}/.ssh
+        chown -R {{ login_user }}:{{ login_user }} /opt/{{ login_user }}
+        chown -R {{ login_user }}:{{ login_user }} /mnt/{{ login_user }}
+        chown -R {{ login_user }}:{{ login_user }} /home/{{ login_user }}
+        chmod 0750 /opt/{{ login_user }}
+        chmod 0750 /mnt/{{ login_user }}
+        chmod 0750 /home/{{ login_user }}
+        chmod 0700 /home/{{ login_user }}/.ssh
       args:
         executable: /bin/bash
 
@@ -78,7 +78,7 @@
 
     - name: Find allocation user id
       shell: |
-        id -u {{ username }}
+        id -u {{ login_user }}
       register: user_id
 
     - name: Prepare systemd and nftables directories
@@ -149,9 +149,9 @@
       copy:
         content: |
           {{ ssh_public_key }}
-        dest: /home/{{ username }}/.ssh/authorized_keys
-        owner: "{{ username }}"
-        group: "{{ username }}"
+        dest: /home/{{ login_user }}/.ssh/authorized_keys
+        owner: "{{ login_user }}"
+        group: "{{ login_user }}"
         mode: "0600"
 
     - name: Restart allocation user services
@@ -159,7 +159,7 @@
         set -euo pipefail
         systemctl daemon-reload
         systemctl restart systemd-logind
-        loginctl enable-linger {{ username }}
+        loginctl enable-linger {{ login_user }}
         systemctl restart user@{{ user_id.stdout }}.service || true
         systemctl restart user-{{ user_id.stdout }}.slice || true
       args:
@@ -177,7 +177,7 @@
             - Private IP: {{ private_ip }}
             - Public IP: {{ public_ip | default('', true) }}
             - Network bandwidth:
-            - Disk volume at /mnt/{{ username }}
+            - Disk volume at /mnt/{{ login_user }}
             - IOPS/MBPS:
 
           
@@ -194,4 +194,4 @@
           systemctl --user enable myservice
           systemctl --user start myservice
 
-        dest: /home/{{ username }}/WELCOME.txt
+        dest: /home/{{ login_user }}/WELCOME.txt

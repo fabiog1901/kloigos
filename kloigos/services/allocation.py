@@ -28,8 +28,8 @@ from kloigos.models import (
 
 from ..repos import Repo
 
-USERNAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
-RESERVED_USERNAMES = {
+LOGIN_USER_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+RESERVED_LOGIN_USERS = {
     "root",
     "daemon",
     "bin",
@@ -61,17 +61,17 @@ def _request_allocation_identity(
     tags = req.tags if isinstance(req.tags, dict) else {}
     tagged_name = tags.get("allocation_id") or tags.get("deployment_id")
     allocation_id = str(req.allocation_id or tagged_name or cu.compute_id).strip()
-    username = str(req.username or allocation_id).strip()
-    return allocation_id, username
+    login_user = str(req.login_user or allocation_id).strip()
+    return allocation_id, login_user
 
 
-def _validate_username(username: str) -> None:
-    if not USERNAME_PATTERN.fullmatch(username):
+def _validate_login_user(login_user: str) -> None:
+    if not LOGIN_USER_PATTERN.fullmatch(login_user):
         raise ComputeUnitOperationError(
-            "Username must be 1-32 characters using lowercase letters, digits, hyphen, or underscore, and must start with a letter or digit."
+            "login_user must be 1-32 characters using lowercase letters, digits, hyphen, or underscore, and must start with a letter or digit."
         )
-    if username in RESERVED_USERNAMES or username.startswith("systemd-"):
-        raise ComputeUnitOperationError(f"Username '{username}' is reserved.")
+    if login_user in RESERVED_LOGIN_USERS or login_user.startswith("systemd-"):
+        raise ComputeUnitOperationError(f"login_user '{login_user}' is reserved.")
 
 
 class AllocationService:
@@ -84,7 +84,7 @@ class AllocationService:
         self,
         *,
         allocation_id: str | None = None,
-        username: str | None = None,
+        login_user: str | None = None,
         compute_id: str | None = None,
         ip_address: str | None = None,
         status: str | None = None,
@@ -92,7 +92,7 @@ class AllocationService:
         """Return allocations filtered by durable identity, placement, IP, or status."""
         return self.repo.get_allocations(
             allocation_id=allocation_id,
-            username=username,
+            login_user=login_user,
             compute_id=compute_id,
             ip_address=ip_address,
             status=status,
@@ -142,15 +142,15 @@ class AllocationService:
                 )
                 raise NoFreeIpAddressError()
 
-            allocation_id, username = _request_allocation_identity(req, cu)
-            _validate_username(username)
-            if self.repo.get_allocations(username=username):
+            allocation_id, login_user = _request_allocation_identity(req, cu)
+            _validate_login_user(login_user)
+            if self.repo.get_allocations(login_user=login_user):
                 raise ComputeUnitOperationError(
-                    f"Username '{username}' is already in use."
+                    f"login_user '{login_user}' is already in use."
                 )
             allocation = AllocationInDB(
                 allocation_id=allocation_id,
-                username=username,
+                login_user=login_user,
                 ip_address=ip_address.ip_address,
                 compute_id=cu.compute_id,
                 current_host=cu.hostname,

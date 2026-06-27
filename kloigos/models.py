@@ -203,7 +203,7 @@ class ComputeUnitOverview(ComputeUnitInDB):
 
 class ComputeUnitRequest(BaseModel):
     allocation_id: str | None = None
-    username: str | None = None
+    login_user: str | None = None
     compute_id: str | None = None
     cpu_count: int | None = None
     region: str | None = None
@@ -242,11 +242,10 @@ class AllocationScaleCommand(AllocationScaleRequest):
 
 class AllocationInDB(BaseModel):
     allocation_id: str
-    username: str
+    login_user: str
     ip_address: str
     compute_id: str | None = None
     current_host: str | None = None
-    login_user: str | None = None
     status: str
     tags: dict[str, Any] | None = None
     created_at: dt.datetime | None = None

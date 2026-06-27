@@ -7,7 +7,7 @@
 #   ansible_host
 #   server_private_ip
 #   server_public_ip
-#   username
+#   login_user
 #
 - name: GATHER COMPUTE UNITS TO DEALLOCATE
   hosts: localhost
@@ -23,7 +23,7 @@
         ansible_host: "{{ ansible_host }}"
         server_private_ip: "{{ server_private_ip }}"
         server_public_ip: "{{ server_public_ip | default('', true) }}"
-        username: "{{ username }}"
+        login_user: "{{ login_user }}"
         private_ip: "{{ private_ip }}"
 
         groups: dealloc
@@ -35,12 +35,12 @@
   tasks:
     - name: finding id for user
       shell: |
-        id -u {{ username }}
+        id -u {{ login_user }}
       register: user_id
 
     - name: remove ssh key to block any new connection
       shell: |
-        rm -f /home/{{ username }}/.ssh/authorized_keys
+        rm -f /home/{{ login_user }}/.ssh/authorized_keys
 
     - name: stop the user systemd instance to stop any running process
       shell: |
@@ -48,7 +48,7 @@
 
     - name: severe any open connection
       shell: |
-        loginctl kill-user {{ username }} || true
+        loginctl kill-user {{ login_user }} || true
 
     - name: remove allocation IP alias
       shell: |
@@ -66,16 +66,16 @@
 
     - name: remove all files from the compute_unit
       shell: |
-        rm -rf /home/{{ username }}/*
-        rm -rf /opt/{{ username }}/*
-        rm -rf /mnt/{{ username }}/*
+        rm -rf /home/{{ login_user }}/*
+        rm -rf /opt/{{ login_user }}/*
+        rm -rf /mnt/{{ login_user }}/*
 
     - name: recreate .ssh with safe perms (empty, no keys)
       shell: |
-        mkdir -p /home/{{ username }}/.ssh
-        chown {{ username }}:{{ username }} /home/{{ username }}/.ssh
-        chmod 700 /home/{{ username }}/.ssh
+        mkdir -p /home/{{ login_user }}/.ssh
+        chown {{ login_user }}:{{ login_user }} /home/{{ login_user }}/.ssh
+        chmod 700 /home/{{ login_user }}/.ssh
 
-        touch /home/{{ username }}/.ssh/authorized_keys
-        chown {{ username }}:{{ username }} /home/{{ username }}/.ssh/authorized_keys
-        chmod 600 /home/{{ username }}/.ssh/authorized_keys
+        touch /home/{{ login_user }}/.ssh/authorized_keys
+        chown {{ login_user }}:{{ login_user }} /home/{{ login_user }}/.ssh/authorized_keys
+        chmod 600 /home/{{ login_user }}/.ssh/authorized_keys

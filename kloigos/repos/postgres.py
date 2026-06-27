@@ -114,14 +114,14 @@ class PostgresRepo(CPKitRepo):
             conn.execute(
                 """
                 INSERT INTO allocations (
-                    allocation_id, username, ip_address, compute_id,
+                    allocation_id, login_user, ip_address, compute_id,
                     current_host, status, tags
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     allocation.allocation_id,
-                    allocation.username,
+                    allocation.login_user,
                     allocation.ip_address,
                     allocation.compute_id,
                     allocation.current_host,
@@ -189,7 +189,7 @@ class PostgresRepo(CPKitRepo):
     def get_allocations(
         self,
         allocation_id: str | None = None,
-        username: str | None = None,
+        login_user: str | None = None,
         compute_id: str | None = None,
         ip_address: str | None = None,
         status: str | None = None,
@@ -201,9 +201,9 @@ class PostgresRepo(CPKitRepo):
             conditions.append("a.allocation_id = %s")
             params.append(allocation_id)
 
-        if username is not None:
-            conditions.append("a.username = %s")
-            params.append(username)
+        if login_user is not None:
+            conditions.append("a.login_user = %s")
+            params.append(login_user)
 
         if compute_id is not None:
             conditions.append("a.compute_id = %s")
@@ -217,12 +217,7 @@ class PostgresRepo(CPKitRepo):
             conditions.append("a.status = %s")
             params.append(status)
 
-        sql = """
-            SELECT
-                a.*,
-                a.username AS login_user
-            FROM allocations a
-        """
+        sql = "SELECT a.* FROM allocations a"
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
         sql += " ORDER BY a.created_at DESC, a.allocation_id"

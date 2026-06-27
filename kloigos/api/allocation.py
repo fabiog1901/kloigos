@@ -35,7 +35,7 @@ router = APIRouter(
 )
 async def list_allocations(
     allocation_id: str | None = None,
-    username: str | None = None,
+    login_user: str | None = None,
     compute_id: str | None = None,
     ip_address: str | None = None,
     status: str | None = None,
@@ -44,7 +44,7 @@ async def list_allocations(
     """List allocations with floating IP and current login user, optionally filtered."""
     return service.list_allocations(
         allocation_id=allocation_id,
-        username=username,
+        login_user=login_user,
         compute_id=compute_id,
         ip_address=ip_address,
         status=status,
@@ -75,7 +75,7 @@ async def allocate(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=message,
             ) from exc
-        if message.startswith("Username "):
+        if message.startswith("login_user "):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=message,
