@@ -60,7 +60,7 @@ def run_server_init(
             "server_private_ip": payload.private_ip,
             "server_public_ip": payload.public_ip,
             "ansible_host": _ansible_host(payload.public_ip, payload.private_ip),
-            "user_id": payload.user_id,
+            "server_admin_user": payload.server_admin_user,
             "compute_units": [cu.as_playbook_vars() for cu in compute_units],
         },
     )
@@ -104,7 +104,7 @@ def run_server_decommission(
             "server_private_ip": srv.private_ip,
             "server_public_ip": srv.public_ip,
             "ansible_host": _ansible_host(srv.public_ip, srv.private_ip),
-            "user_id": srv.user_id,
+            "server_admin_user": srv.server_admin_user,
         },
     )
     job_ok = result.status == "successful"

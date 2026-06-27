@@ -277,7 +277,7 @@ class BaseServer(BaseModel):
     hostname: str
     private_ip: str
     public_ip: str | None = None
-    user_id: str
+    server_admin_user: str
     region: str
     zone: str | None = None
     cpu_count: int | None = None

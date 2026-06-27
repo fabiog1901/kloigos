@@ -125,7 +125,7 @@ window.cpkitWebappExtension = {
         private_ip: "",
         public_ip: "",
         hostname: "",
-        user_id: "ubuntu",
+        server_admin_user: "ubuntu",
         region: "",
         zone: "",
         cpu_count: null,
@@ -387,7 +387,7 @@ window.cpkitWebappExtension = {
         server.hostname,
         server.private_ip,
         server.public_ip,
-        server.user_id,
+        server.server_admin_user,
         server.region,
         server.zone,
         server.status,
@@ -402,7 +402,7 @@ window.cpkitWebappExtension = {
         case 1:
           return server.private_ip || "";
         case 2:
-          return server.user_id || "";
+          return server.server_admin_user || "";
         case 3:
           return server.region || "";
         case 4:
@@ -864,7 +864,7 @@ window.cpkitWebappExtension = {
         hostname: String(this.modal.serverInit.hostname || "").trim(),
         private_ip: String(this.modal.serverInit.private_ip || "").trim(),
         public_ip: String(this.modal.serverInit.public_ip || "").trim() || null,
-        user_id: String(this.modal.serverInit.user_id || "ubuntu").trim(),
+        server_admin_user: String(this.modal.serverInit.server_admin_user || "ubuntu").trim(),
         region: String(this.modal.serverInit.region || "").trim(),
         zone: String(this.modal.serverInit.zone || "").trim(),
         cpu_count: numberOrNull(this.modal.serverInit.cpu_count),
@@ -880,7 +880,7 @@ window.cpkitWebappExtension = {
         })),
       };
 
-      for (const key of ["hostname", "private_ip", "user_id", "region", "zone"]) {
+      for (const key of ["hostname", "private_ip", "server_admin_user", "region", "zone"]) {
         if (!payload[key]) throw new Error(`${key} is required.`);
       }
       if (payload.compute_units.length === 0) throw new Error("At least one compute unit is required.");

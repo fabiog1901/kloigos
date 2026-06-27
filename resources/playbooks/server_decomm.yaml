@@ -7,6 +7,7 @@
 #   ansible_host
 #   server_private_ip
 #   server_public_ip
+#   server_admin_user
 #
 - name: ADD SERVER TO DECOMMISSION
   hosts: localhost
@@ -17,7 +18,7 @@
     - name: Build ansible inventory dynamically
       add_host:
         name: "{{ hostname }}"
-        ansible_user: ubuntu
+        ansible_user: "{{ server_admin_user }}"
         public_hostname: "{{ hostname }}"
         ansible_host: "{{ ansible_host }}"
         server_private_ip: "{{ server_private_ip }}"

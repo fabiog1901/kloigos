@@ -307,7 +307,7 @@
                 <button type="button" class="kloigos-id-button" @click="openServerDetails(server)" x-text="server.hostname"></button>
               </td>
               <td x-text="server.private_ip || '-'"></td>
-              <td x-text="server.user_id || '-'"></td>
+              <td x-text="server.server_admin_user || '-'"></td>
               <td x-text="server.region || '-'"></td>
               <td x-text="server.zone || '-'"></td>
               <td x-text="server.cpu_count ?? '-'"></td>
@@ -540,8 +540,8 @@
         <input class="input" x-model="modal.serverInit.public_ip" placeholder="optional" />
       </label>
       <label>
-        <span class="field-label">User ID</span>
-        <input class="input" x-model="modal.serverInit.user_id" placeholder="ubuntu" />
+        <span class="field-label">Server Admin User</span>
+        <input class="input" x-model="modal.serverInit.server_admin_user" placeholder="ubuntu" />
       </label>
       <label>
         <span class="field-label">Region</span>

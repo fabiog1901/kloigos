@@ -3,7 +3,7 @@ CREATE TABLE servers (
     hostname TEXT NOT NULL,
     private_ip TEXT NOT NULL,
     public_ip TEXT NULL,
-    user_id TEXT NOT NULL,
+    server_admin_user TEXT NOT NULL,
     region TEXT NOT NULL,
     zone TEXT NOT NULL,
     STATUS TEXT NOT NULL,

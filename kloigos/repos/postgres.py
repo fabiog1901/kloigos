@@ -32,7 +32,7 @@ class PostgresRepo(CPKitRepo):
             conn.execute(
                 """
                 INSERT INTO servers (
-                    hostname, private_ip, public_ip, user_id, region, zone, status, 
+                    hostname, private_ip, public_ip, server_admin_user, region, zone, status,
                     cpu_count, mem_gb, disk_count, disk_size_gb, tags
                 )
                 VALUES (
@@ -45,7 +45,7 @@ class PostgresRepo(CPKitRepo):
                     sir.hostname,
                     sir.private_ip,
                     sir.public_ip,
-                    sir.user_id,
+                    sir.server_admin_user,
                     sir.region,
                     sir.zone,
                     status,

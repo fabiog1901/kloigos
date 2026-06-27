@@ -79,12 +79,12 @@
     - name: Find allocation user id
       shell: |
         id -u {{ login_user }}
-      register: user_id
+      register: login_uid
 
     - name: Prepare systemd and nftables directories
       shell: |
         set -euo pipefail
-        mkdir -p /etc/systemd/system/user-{{ user_id.stdout }}.slice.d
+        mkdir -p /etc/systemd/system/user-{{ login_uid.stdout }}.slice.d
         mkdir -p /etc/nftables.d
       args:
         executable: /bin/bash
@@ -121,7 +121,7 @@
           MemoryHigh={{ (cpu_set.split(',') | length * mem_kb_per_cpu.stdout | int / 1024 / 1024) | round(0, 'floor') | int }}G
           MemoryMax={{ (cpu_set.split(',') | length * mem_kb_per_cpu.stdout | int * 0.9 / 1024 / 1024) | round(0, 'floor') | int }}G
 
-        dest: /etc/systemd/system/user-{{ user_id.stdout }}.slice.d/50-kloigos.conf
+        dest: /etc/systemd/system/user-{{ login_uid.stdout }}.slice.d/50-kloigos.conf
 
     - name: Update nftables allocation source-IP enforcement
       shell: |
@@ -136,8 +136,8 @@
             '  }' \
             '}' > "$NFT_FILE"
         fi
-        sed -i -E "/meta skuid {{ user_id.stdout }} /d" "$NFT_FILE"
-        sed -i "/policy accept;/a\\              meta skuid {{ user_id.stdout }} ip saddr != {{ private_ip }} drop\\n              meta skuid {{ user_id.stdout }} meta nfproto ipv6 drop" "$NFT_FILE"
+        sed -i -E "/meta skuid {{ login_uid.stdout }} /d" "$NFT_FILE"
+        sed -i "/policy accept;/a\\              meta skuid {{ login_uid.stdout }} ip saddr != {{ private_ip }} drop\\n              meta skuid {{ login_uid.stdout }} meta nfproto ipv6 drop" "$NFT_FILE"
         touch /etc/nftables.conf
         grep -qxF 'include "/etc/nftables.d/*.nft"' /etc/nftables.conf || echo 'include "/etc/nftables.d/*.nft"' >> /etc/nftables.conf
         nft -c -f "$NFT_FILE"
@@ -160,8 +160,8 @@
         systemctl daemon-reload
         systemctl restart systemd-logind
         loginctl enable-linger {{ login_user }}
-        systemctl restart user@{{ user_id.stdout }}.service || true
-        systemctl restart user-{{ user_id.stdout }}.slice || true
+        systemctl restart user@{{ login_uid.stdout }}.service || true
+        systemctl restart user-{{ login_uid.stdout }}.slice || true
       args:
         executable: /bin/bash
 

@@ -36,7 +36,7 @@
     - name: finding id for user
       shell: |
         id -u {{ login_user }}
-      register: user_id
+      register: login_uid
 
     - name: remove ssh key to block any new connection
       shell: |
@@ -44,7 +44,7 @@
 
     - name: stop the user systemd instance to stop any running process
       shell: |
-        systemctl stop user@{{ user_id.stdout }}.service
+        systemctl stop user@{{ login_uid.stdout }}.service
 
     - name: severe any open connection
       shell: |
@@ -59,7 +59,7 @@
       shell: |
         NFT_FILE="/etc/nftables.d/kloigos-compute-units.nft"
         if [ -f "$NFT_FILE" ]; then
-          sed -i -E "/meta skuid {{ user_id.stdout }} /d" "$NFT_FILE"
+          sed -i -E "/meta skuid {{ login_uid.stdout }} /d" "$NFT_FILE"
           nft -c -f "$NFT_FILE"
           nft -f "$NFT_FILE"
         fi

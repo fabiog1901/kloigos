@@ -107,12 +107,12 @@
     - name: Find target allocation user id
       shell: |
         id -u {{ login_user }}
-      register: target_user_id
+      register: target_login_uid
 
     - name: Prepare target allocation slice directory
       shell: |
         set -euo pipefail
-        mkdir -p /etc/systemd/system/user-{{ target_user_id.stdout }}.slice.d
+        mkdir -p /etc/systemd/system/user-{{ target_login_uid.stdout }}.slice.d
         mkdir -p /etc/nftables.d
       args:
         executable: /bin/bash
@@ -149,7 +149,7 @@
           MemoryHigh={{ (target_cpu_set.split(',') | length * mem_kb_per_cpu.stdout | int / 1024 / 1024) | round(0, 'floor') | int }}G
           MemoryMax={{ (target_cpu_set.split(',') | length * mem_kb_per_cpu.stdout | int * 0.9 / 1024 / 1024) | round(0, 'floor') | int }}G
 
-        dest: /etc/systemd/system/user-{{ target_user_id.stdout }}.slice.d/50-kloigos.conf
+        dest: /etc/systemd/system/user-{{ target_login_uid.stdout }}.slice.d/50-kloigos.conf
 
 - name: INITIAL RSYNC SOURCE TO CONTROLLER
   hosts: localhost

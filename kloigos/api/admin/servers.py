@@ -53,7 +53,7 @@ async def init_server(
       "hostname": "s35",
       "private_ip": "10.0.0.10",
       "public_ip": "54.0.0.10",
-      "user_id": "ubuntu",
+      "server_admin_user": "ubuntu",
       "region": "us-east-1",
       "zone": "us-east-1a",
       "compute_units": [
