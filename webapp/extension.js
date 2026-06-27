@@ -34,14 +34,13 @@ window.cpkitWebappExtension = {
     allocationsSortDir: "asc",
     allocationsSortTypeByIndex: {
       0: "string",
-      1: "string",
-      2: "ip",
+      1: "ip",
+      2: "string",
       3: "string",
       4: "string",
       5: "string",
       6: "string",
-      7: "string",
-      8: "date",
+      7: "date",
     },
     allocationsLoading: {
       list: false,
@@ -99,7 +98,6 @@ window.cpkitWebappExtension = {
       allocate: {
         open: false,
         allocation_id: "",
-        name: "",
         username: "",
         ip_address: "",
         cpu_count: null,
@@ -113,13 +111,12 @@ window.cpkitWebappExtension = {
       allocationScale: {
         open: false,
         allocation_id: "",
-        name: "",
         compute_id: "",
         cpu_count: null,
         region: "",
         zone: "",
       },
-      deallocateConfirm: { open: false, allocation_id: "", name: "", compute_id: "" },
+      deallocateConfirm: { open: false, allocation_id: "", compute_id: "" },
       computeDetails: { open: false, row: null },
       serverDetails: { open: false, row: null },
       serverActionConfirm: { open: false, hostname: "", action: "decommission" },
@@ -295,7 +292,6 @@ window.cpkitWebappExtension = {
         : [];
       return [
         row.allocation_id,
-        row.name,
         row.ip_address,
         row.login_user,
         row.compute_id,
@@ -310,20 +306,18 @@ window.cpkitWebappExtension = {
         case 0:
           return row.allocation_id || "";
         case 1:
-          return row.name || "";
-        case 2:
           return row.ip_address || "";
-        case 3:
+        case 2:
           return row.login_user || "";
-        case 4:
+        case 3:
           return row.compute_id || "";
-        case 5:
+        case 4:
           return row.current_host || "";
-        case 6:
+        case 5:
           return this.serversTagsCompact(row.tags);
-        case 7:
+        case 6:
           return row.status || "";
-        case 8:
+        case 7:
           return row.updated_at || "";
         default:
           return "";
@@ -630,7 +624,6 @@ window.cpkitWebappExtension = {
 
     openAllocationCreateModal(computeId = "") {
       this.modal.allocate.allocation_id = "";
-      this.modal.allocate.name = "";
       this.modal.allocate.username = "";
       this.modal.allocate.ip_address = "";
       this.modal.allocate.cpu_count = null;
@@ -658,10 +651,8 @@ window.cpkitWebappExtension = {
         }
 
         const allocationId = (this.modal.allocate.allocation_id || "").trim();
-        const allocationName = (this.modal.allocate.name || "").trim();
         const payload = {
           allocation_id: allocationId || null,
-          name: allocationName || allocationId || null,
           username: (this.modal.allocate.username || "").trim() || null,
           ip_address: (this.modal.allocate.ip_address || "").trim() || null,
           cpu_count: this.modal.allocate.cpu_count ?? null,
@@ -688,7 +679,6 @@ window.cpkitWebappExtension = {
 
     openAllocationDeallocateConfirm(row) {
       this.modal.deallocateConfirm.allocation_id = String(row.allocation_id || "");
-      this.modal.deallocateConfirm.name = row.name || "";
       this.modal.deallocateConfirm.compute_id = row.compute_id || "";
       this.modalError.deallocateConfirm = "";
       this.modal.deallocateConfirm.open = true;
@@ -720,7 +710,6 @@ window.cpkitWebappExtension = {
 
     openAllocationScaleModal(row) {
       this.modal.allocationScale.allocation_id = String(row?.allocation_id || "");
-      this.modal.allocationScale.name = row?.name || "";
       this.modal.allocationScale.compute_id = "";
       this.modal.allocationScale.cpu_count = null;
       this.modal.allocationScale.region = "";

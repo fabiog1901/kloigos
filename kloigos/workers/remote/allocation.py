@@ -71,7 +71,6 @@ def run_compute_unit_allocate(
                 "server_public_ip": cu.server_public_ip,
                 "private_ip": allocation.ip_address,
                 "allocation_id": allocation.allocation_id,
-                "allocation_name": allocation.name,
                 "username": allocation.username,
                 "allocation_ip_address": allocation.ip_address,
                 "compute_unit_private_ip": cu.private_ip,
@@ -275,7 +274,6 @@ def run_allocation_scale(
             playbook_name=Playbook.ALLOCATION_SCALE.value,
             extra_vars={
                 "allocation_id": allocation.allocation_id,
-                "allocation_name": allocation.name,
                 "username": allocation.username,
                 "allocation_ip_address": allocation.ip_address,
                 "private_ip": allocation.ip_address,
@@ -317,7 +315,6 @@ def run_allocation_scale(
         tags = {
             **(allocation.tags or {}),
             "allocation_id": allocation.allocation_id,
-            "allocation_name": allocation.name,
             "ip_address": allocation.ip_address,
         }
         repo.update_compute_unit(

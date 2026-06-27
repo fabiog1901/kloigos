@@ -114,14 +114,13 @@ class PostgresRepo(CPKitRepo):
             conn.execute(
                 """
                 INSERT INTO allocations (
-                    allocation_id, name, username, ip_address, compute_id,
+                    allocation_id, username, ip_address, compute_id,
                     current_host, status, tags
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     allocation.allocation_id,
-                    allocation.name,
                     allocation.username,
                     allocation.ip_address,
                     allocation.compute_id,

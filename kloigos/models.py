@@ -203,7 +203,6 @@ class ComputeUnitOverview(ComputeUnitInDB):
 
 class ComputeUnitRequest(BaseModel):
     allocation_id: str | None = None
-    name: str | None = None
     username: str | None = None
     compute_id: str | None = None
     cpu_count: int | None = None
@@ -243,7 +242,6 @@ class AllocationScaleCommand(AllocationScaleRequest):
 
 class AllocationInDB(BaseModel):
     allocation_id: str
-    name: str
     username: str
     ip_address: str
     compute_id: str | None = None

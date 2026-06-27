@@ -13,7 +13,6 @@
 #
 # The following extra-vars are passed:
 #   allocation_id
-#   allocation_name
 #   allocation_ip_address
 #   private_ip
 #   source_compute_id

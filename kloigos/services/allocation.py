@@ -57,15 +57,12 @@ RESERVED_USERNAMES = {
 def _request_allocation_identity(
     req: ComputeUnitRequest,
     cu: ComputeUnitOverview,
-) -> tuple[str, str, str]:
+) -> tuple[str, str]:
     tags = req.tags if isinstance(req.tags, dict) else {}
-    tagged_name = (
-        tags.get("allocation_id") or tags.get("deployment_id") or tags.get("name")
-    )
+    tagged_name = tags.get("allocation_id") or tags.get("deployment_id")
     allocation_id = str(req.allocation_id or tagged_name or cu.compute_id).strip()
-    name = str(req.name or tagged_name or allocation_id).strip()
     username = str(req.username or allocation_id).strip()
-    return allocation_id, name, username
+    return allocation_id, username
 
 
 def _validate_username(username: str) -> None:
@@ -145,9 +142,7 @@ class AllocationService:
                 )
                 raise NoFreeIpAddressError()
 
-            allocation_id, allocation_name, username = _request_allocation_identity(
-                req, cu
-            )
+            allocation_id, username = _request_allocation_identity(req, cu)
             _validate_username(username)
             if self.repo.get_allocations(username=username):
                 raise ComputeUnitOperationError(
@@ -155,7 +150,6 @@ class AllocationService:
                 )
             allocation = AllocationInDB(
                 allocation_id=allocation_id,
-                name=allocation_name,
                 username=username,
                 ip_address=ip_address.ip_address,
                 compute_id=cu.compute_id,
@@ -181,7 +175,6 @@ class AllocationService:
                 tags={
                     **(req.tags or {}),
                     "allocation_id": allocation.allocation_id,
-                    "allocation_name": allocation.name,
                     "ip_address": allocation.ip_address,
                 },
             )

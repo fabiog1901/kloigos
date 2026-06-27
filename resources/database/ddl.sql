@@ -1,3 +1,10 @@
+alter table if exists ip_pool drop constraint ip_pool_allocation; 
+drop table if exists allocations ;                                                                           
+drop table if exists ip_pool ;                                                                               
+drop table if exists compute_units;                                                                          
+drop table if exists servers;                                                                                
+
+
 CREATE TABLE servers (
     hostname TEXT NOT NULL,
     private_ip TEXT NOT NULL,
@@ -49,7 +56,6 @@ CREATE TABLE ip_pool (
 
 CREATE TABLE allocations (
     allocation_id TEXT NOT NULL,
-    name TEXT NOT NULL,
     username TEXT NOT NULL,
     ip_address TEXT NOT NULL,
     compute_id TEXT NULL,
@@ -59,7 +65,6 @@ CREATE TABLE allocations (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT pk_allocations PRIMARY KEY (allocation_id),
-    CONSTRAINT uq_allocations_name UNIQUE (name),
     CONSTRAINT uq_allocations_username UNIQUE (username),
     CONSTRAINT uq_allocations_ip_address UNIQUE (ip_address),
     CONSTRAINT allocation_ip_in_pool FOREIGN KEY (ip_address) REFERENCES ip_pool(ip_address) ON UPDATE CASCADE,
@@ -87,6 +92,8 @@ ADD CONSTRAINT ip_pool_allocation FOREIGN KEY (allocation_id) REFERENCES allocat
 -- ON CONFLICT (key) DO NOTHING;
 
 -- kloigos specific playbooks. the yaml content is done via the webapp.
+TRUNCATE cpkit.playbooks;
+
 INSERT INTO cpkit.playbooks (name, content, created_by, default_version, updated_by)
 VALUES
     ('CU_ALLOCATE'     , NULL, 'system', now():::TIMESTAMPTZ, 'system'),
