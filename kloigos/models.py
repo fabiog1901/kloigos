@@ -157,7 +157,6 @@ class ComputeUnitInDB(BaseModel):
     cpu_set: str
     private_ip: str
     public_ip: str | None = None
-    system_user: str
     status: str
     started_at: dt.datetime | None = None
     tags: dict[str, Any] | None = None
@@ -165,7 +164,6 @@ class ComputeUnitInDB(BaseModel):
 
 class InitComputeUnit(BaseModel):
     ordinal: int
-    system_user: str
     cpu_range: str
     cpu_set: str
     cpu_count: int
@@ -175,7 +173,6 @@ class InitComputeUnit(BaseModel):
     def as_playbook_vars(self) -> dict:
         return {
             "ordinal": self.ordinal,
-            "system_user": self.system_user,
             "cpu_range": self.cpu_range,
             "cpu_set": self.cpu_set,
             "cpu_count": self.cpu_count,
@@ -193,7 +190,6 @@ class InitComputeUnit(BaseModel):
             cpu_set=self.cpu_set,
             private_ip=self.private_ip,
             public_ip=self.public_ip,
-            system_user=self.system_user,
             status=ComputeUnitStatus.FREE,
         )
 
@@ -208,6 +204,7 @@ class ComputeUnitOverview(ComputeUnitInDB):
 class ComputeUnitRequest(BaseModel):
     allocation_id: str | None = None
     name: str | None = None
+    username: str | None = None
     compute_id: str | None = None
     cpu_count: int | None = None
     region: str | None = None
@@ -247,6 +244,7 @@ class AllocationScaleCommand(AllocationScaleRequest):
 class AllocationInDB(BaseModel):
     allocation_id: str
     name: str
+    username: str
     ip_address: str
     compute_id: str | None = None
     current_host: str | None = None

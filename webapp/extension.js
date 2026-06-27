@@ -87,7 +87,6 @@ window.cpkitWebappExtension = {
       3: "string",
       4: "ip",
       5: "number",
-      6: "string",
       8: "date",
       9: "string",
     },
@@ -101,6 +100,7 @@ window.cpkitWebappExtension = {
         open: false,
         allocation_id: "",
         name: "",
+        username: "",
         ip_address: "",
         cpu_count: null,
         region: "",
@@ -519,7 +519,6 @@ window.cpkitWebappExtension = {
         row.compute_id,
         row.hostname,
         row.private_ip,
-        row.system_user,
         row.public_ip,
         row.server_private_ip,
         row.server_public_ip,
@@ -545,8 +544,6 @@ window.cpkitWebappExtension = {
           return row.private_ip || "";
         case 5:
           return row.cpu_count ?? "";
-        case 6:
-          return row.system_user || "";
         case 8:
           return row.started_at || "";
         case 9:
@@ -634,6 +631,7 @@ window.cpkitWebappExtension = {
     openAllocationCreateModal(computeId = "") {
       this.modal.allocate.allocation_id = "";
       this.modal.allocate.name = "";
+      this.modal.allocate.username = "";
       this.modal.allocate.ip_address = "";
       this.modal.allocate.cpu_count = null;
       this.modal.allocate.region = "";
@@ -664,6 +662,7 @@ window.cpkitWebappExtension = {
         const payload = {
           allocation_id: allocationId || null,
           name: allocationName || allocationId || null,
+          username: (this.modal.allocate.username || "").trim() || null,
           ip_address: (this.modal.allocate.ip_address || "").trim() || null,
           cpu_count: this.modal.allocate.cpu_count ?? null,
           region: (this.modal.allocate.region || "").trim() || null,

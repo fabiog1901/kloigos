@@ -10,8 +10,9 @@
 #   server_public_ip
 #   private_ip
 #   public_ip
-#   system_user
+#   username
 #   cpu_range
+#   cpu_set
 #   cpu_count
 #   ssh_public_key
 #
@@ -32,7 +33,8 @@
         server_public_ip: "{{ server_public_ip | default('', true) }}"
         private_ip: "{{ private_ip }}"
         public_ip: "{{ public_ip | default('', true) }}"
-        system_user: "{{ system_user }}"
+        username: "{{ username }}"
+        cpu_set: "{{ cpu_set }}"
         cpu_count: "{{ cpu_count }}"
         groups: new_alloc
 
@@ -42,14 +44,126 @@
   gather_facts: no
   become: yes
   tasks:
+    - name: Create allocation user
+      shell: |
+        set -euo pipefail
+        id {{ username }} || useradd --create-home --home-dir /home/{{ username }} --shell /bin/bash {{ username }}
+      args:
+        executable: /bin/bash
+
+    - name: Create allocation directories
+      shell: |
+        set -euo pipefail
+        mkdir -p /opt/{{ username }}
+        mkdir -p /mnt/{{ username }}
+        mkdir -p /home/{{ username }}
+        mkdir -p /home/{{ username }}/.ssh
+        chown -R {{ username }}:{{ username }} /opt/{{ username }}
+        chown -R {{ username }}:{{ username }} /mnt/{{ username }}
+        chown -R {{ username }}:{{ username }} /home/{{ username }}
+        chmod 0750 /opt/{{ username }}
+        chmod 0750 /mnt/{{ username }}
+        chmod 0750 /home/{{ username }}
+        chmod 0700 /home/{{ username }}/.ssh
+      args:
+        executable: /bin/bash
+
+    - name: Add allocation IP alias
+      shell: |
+        set -euo pipefail
+        IFACE="$(ip -o route show default | awk '{for (i=1; i<=NF; i++) if ($i == "dev") print $(i+1)}' | head -1)"
+        ip addr show dev "$IFACE" | grep -q "{{ private_ip }}/" || ip addr add {{ private_ip }}/32 dev "$IFACE"
+      args:
+        executable: /bin/bash
+
+    - name: Find allocation user id
+      shell: |
+        id -u {{ username }}
+      register: user_id
+
+    - name: Prepare systemd and nftables directories
+      shell: |
+        set -euo pipefail
+        mkdir -p /etc/systemd/system/user-{{ user_id.stdout }}.slice.d
+        mkdir -p /etc/nftables.d
+      args:
+        executable: /bin/bash
+
+    - name: Allocate memory proportionate to CPU count
+      shell: |
+        MEM_TOT=`cat /proc/meminfo | grep "MemTotal" | awk '{print $2}'`
+        CPU_COUNT=`cat /proc/cpuinfo | grep -c processor`
+        echo $MEM_TOT / $CPU_COUNT | bc
+      register: mem_kb_per_cpu
+
+    - name: Get cpu,numa_node from lscpu
+      shell: |
+        lscpu -p=CPU,NODE | grep -v '#'
+      register: lscpu_p
+
+    - name: Build cpu_to_node dict from lscpu
+      set_fact:
+        cpu_to_node: "{{ cpu_to_node | default({}) | combine({ (item.split(',')[0]): (item.split(',')[1]) }) }}"
+      loop: "{{ lscpu_p.stdout_lines }}"
+
+    - name: Write allocation user slice override
+      copy:
+        content: |
+          [Slice]
+
+          AllowedCPUs={{ cpu_set }}
+          CPUAccounting=yes
+          MemoryAccounting=yes
+          IOAccounting=yes
+          TasksMax=2048
+          AllowedMemoryNodes={{ cpu_to_node[cpu_set.split(',')[0]] }}
+          MemoryNodes={{ cpu_to_node[cpu_set.split(',')[0]] }}
+          MemoryHigh={{ (cpu_set.split(',') | length * mem_kb_per_cpu.stdout | int / 1024 / 1024) | round(0, 'floor') | int }}G
+          MemoryMax={{ (cpu_set.split(',') | length * mem_kb_per_cpu.stdout | int * 0.9 / 1024 / 1024) | round(0, 'floor') | int }}G
+
+        dest: /etc/systemd/system/user-{{ user_id.stdout }}.slice.d/50-kloigos.conf
+
+    - name: Update nftables allocation source-IP enforcement
+      shell: |
+        set -euo pipefail
+        NFT_FILE="/etc/nftables.d/kloigos-compute-units.nft"
+        touch "$NFT_FILE"
+        if ! grep -q 'table inet kloigos_compute_units' "$NFT_FILE"; then
+          printf '%s\n' \
+            'table inet kloigos_compute_units {' \
+            '  chain egress_control {' \
+            '    type filter hook output priority filter; policy accept;' \
+            '  }' \
+            '}' > "$NFT_FILE"
+        fi
+        sed -i -E "/meta skuid {{ user_id.stdout }} /d" "$NFT_FILE"
+        sed -i "/policy accept;/a\\              meta skuid {{ user_id.stdout }} ip saddr != {{ private_ip }} drop\\n              meta skuid {{ user_id.stdout }} meta nfproto ipv6 drop" "$NFT_FILE"
+        touch /etc/nftables.conf
+        grep -qxF 'include "/etc/nftables.d/*.nft"' /etc/nftables.conf || echo 'include "/etc/nftables.d/*.nft"' >> /etc/nftables.conf
+        nft -c -f "$NFT_FILE"
+        nft -f "$NFT_FILE"
+      args:
+        executable: /bin/bash
+
     - name: setup SSH key so user can login
       copy:
         content: |
           {{ ssh_public_key }}
-        dest: /home/{{ system_user }}/.ssh/authorized_keys
-        owner: "{{ system_user }}"
-        group: "{{ system_user }}"
+        dest: /home/{{ username }}/.ssh/authorized_keys
+        owner: "{{ username }}"
+        group: "{{ username }}"
         mode: "0600"
+
+    - name: Restart allocation user services
+      shell: |
+        set -euo pipefail
+        systemctl daemon-reload
+        systemctl restart systemd-logind
+        loginctl enable-linger {{ username }}
+        systemctl restart user@{{ user_id.stdout }}.service || true
+        systemctl restart user-{{ user_id.stdout }}.slice || true
+      args:
+        executable: /bin/bash
 
     - name: create welcome file
       copy:
@@ -63,7 +177,7 @@
             - Private IP: {{ private_ip }}
             - Public IP: {{ public_ip | default('', true) }}
             - Network bandwidth:
-            - Disk volume at /mnt/{{ system_user }}
+            - Disk volume at /mnt/{{ username }}
             - IOPS/MBPS:
 
           
@@ -80,4 +194,4 @@
           systemctl --user enable myservice
           systemctl --user start myservice
 
-        dest: /home/{{ system_user }}/WELCOME.txt
+        dest: /home/{{ username }}/WELCOME.txt

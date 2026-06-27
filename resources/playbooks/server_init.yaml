@@ -31,11 +31,6 @@
   gather_facts: yes
   become: yes
   tasks:
-    - name: create users
-      shell: |
-        id {{ item.system_user }} || useradd --create-home --home-dir /home/{{ item.system_user }} --shell /bin/bash {{ item.system_user }}
-      loop: "{{ compute_units }}"
-
     - name: Find attached disks
       shell: |
         # 1. Get the device path for the root partition
@@ -99,41 +94,10 @@
         blkid {{ item }} -t TYPE="ext4" || mkfs.ext4 {{ item }}
       loop: "{{ disks.stdout_lines }}"
 
-    - name: add disks to /etc/fstab
-      shell: |
-        mkdir -p /mnt/{{ item.1.system_user }}
-        DISKUUID=`lsblk -no UUID {{ item.0 }}`
-        grep -q $DISKUUID /etc/fstab || echo "UUID=$DISKUUID /mnt/{{ item.1.system_user }} ext4 defaults 0 2" >> /etc/fstab
-      loop: "{{ disks.stdout_lines | zip(compute_units) | list }}"
-
-    - name: reload systemd and mount disks
-      shell: |
-        systemctl daemon-reload
-        mount --all
-
-    - name: create directories and setting ownership
-      shell: |
-        mkdir -p /opt/{{ item.system_user }}
-        mkdir -p /mnt/{{ item.system_user }}
-        mkdir -p /home/{{ item.system_user }}
-        mkdir -p /home/{{ item.system_user }}/.ssh
-        chown -R {{ item.system_user }}:{{ item.system_user }} /opt/{{ item.system_user }}
-        chown -R {{ item.system_user }}:{{ item.system_user }} /mnt/{{ item.system_user }}
-        chown -R {{ item.system_user }}:{{ item.system_user }} /home/{{ item.system_user }}
-        chmod 0750 /opt/{{ item.system_user }}
-        chmod 0750 /mnt/{{ item.system_user }}
-        chmod 0750 /home/{{ item.system_user }}
-      loop: "{{ compute_units }}"
-
-    - name: finding id for each user
-      shell: |
-        id -u {{ item.system_user }}
-      loop: "{{ compute_units }}"
-      register: user_ids
-
     - name: create directory for delegate.conf
       shell: |
         mkdir -p /etc/systemd/system/user@.service.d
+        mkdir -p /etc/nftables.d
 
     - name: write user service delegate.conf
       copy:
@@ -144,68 +108,12 @@
 
         dest: /etc/systemd/system/user@.service.d/delegate.conf
 
-    - name: creating user slice and nft directories
-      shell: |
-        mkdir -p /etc/systemd/system/user-{{ item.stdout }}.slice.d
-        mkdir -p /etc/nftables.d
-      loop: "{{ user_ids.results }}"
-
-    - name: allocate memory proportionate to the compute unit cpu count
-      shell: |
-        MEM_TOT=`cat /proc/meminfo | grep "MemTotal" | awk '{print $2}'`
-        CPU_COUNT=`cat /proc/cpuinfo | grep -c processor`
-        echo $MEM_TOT / $CPU_COUNT | bc
-      register: mem_kb_per_cpu
-
-    - name: get cpu,numa_node from lscpu
-      shell: |
-        lscpu -p=CPU,NODE | grep -v '#'
-      register: lscpu_p
-
-    - name: Build cpu_to_node dict from lscpu
-      set_fact:
-        cpu_to_node: "{{ cpu_to_node | default({}) | combine({ (item.split(',')[0]): (item.split(',')[1]) }) }}"
-      loop: "{{ lscpu_p.stdout_lines }}"
-
-    - name: write user slice override
-      copy:
-        content: |
-          [Slice]
-
-          # CPUSET PINNING
-          AllowedCPUs={{ item.1.cpu_set }}
-
-          # Resource controls (tune as needed)
-          CPUAccounting=yes
-          MemoryAccounting=yes
-          IOAccounting=yes
-
-          # Max number of processes allowed
-          TasksMax=2048
-
-          # IOWeight=100
-
-          # MEMORY ALLOCATION
-          #
-          AllowedMemoryNodes={{ cpu_to_node[item.1.cpu_set.split(',')[0]] }}
-          MemoryNodes={{ cpu_to_node[item.1.cpu_set.split(',')[0]] }}
-          MemoryHigh={{ (item.1.cpu_set.split(',') | length * mem_kb_per_cpu.stdout | int / 1024 / 1024) | round(0, 'floor') | int }}G
-          MemoryMax={{ (item.1.cpu_set.split(',') | length * mem_kb_per_cpu.stdout | int * 0.9 / 1024 / 1024) | round(0, 'floor') | int }}G
-
-        dest: /etc/systemd/system/user-{{ item.0.stdout }}.slice.d/50-kloigos.conf
-      loop: "{{ user_ids.results | zip(compute_units) | list }}"
-
-    - name: write nftables compute unit source-IP enforcement
+    - name: write base nftables allocation source-IP enforcement table
       copy:
         content: |
           table inet kloigos_compute_units {
             chain egress_control {
               type filter hook output priority filter; policy accept;
-
-              {% for item in user_ids.results | zip(compute_units) %}
-              meta skuid {{ item.0.stdout }} ip saddr != {{ item.1.private_ip }} drop
-              meta skuid {{ item.0.stdout }} meta nfproto ipv6 drop
-              {% endfor %}
             }
           }
         dest: /etc/nftables.d/kloigos-compute-units.nft
@@ -217,17 +125,10 @@
         nft -c -f /etc/nftables.d/kloigos-compute-units.nft
         nft -f /etc/nftables.d/kloigos-compute-units.nft
 
-    - name: restart logind
+    - name: reload systemd and restart logind
       shell: |
         systemctl daemon-reload
         systemctl restart systemd-logind
-
-    - name: restart user slice and user service and enable linger
-      shell: |
-        systemctl restart user@{{ item.0.stdout }}.service
-        systemctl restart user-{{ item.0.stdout }}.slice
-        loginctl enable-linger {{ item.1.system_user }}
-      loop: "{{ user_ids.results | zip(compute_units) | list }}"
 
     - name: enforce disk util
       shell: |
@@ -286,13 +187,3 @@
     # - name: create sudoers directory
     #   shell: |
     #     mkdir -p /etc/sudoers.d/
-
-    # - name: create sudoers files to run kloigos-apt
-    #   copy:
-    #     content: |
-    #       {{ item.system_user }} ALL=(root) NOPASSWD: /usr/local/bin/kloigos-{{ pkgmgr }}
-    #       Defaults:{{ item.system_user }} env_reset
-    #       Defaults:{{ item.system_user }} secure_path="/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin"
-
-    #     dest: /etc/sudoers.d/kloigos-{{ item.system_user }}
-    #   loop: "{{ compute_units }}"

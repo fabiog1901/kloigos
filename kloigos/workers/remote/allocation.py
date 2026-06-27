@@ -72,11 +72,12 @@ def run_compute_unit_allocate(
                 "private_ip": allocation.ip_address,
                 "allocation_id": allocation.allocation_id,
                 "allocation_name": allocation.name,
+                "username": allocation.username,
                 "allocation_ip_address": allocation.ip_address,
                 "compute_unit_private_ip": cu.private_ip,
                 "public_ip": cu.public_ip,
-                "system_user": cu.system_user,
                 "cpu_range": cu.cpu_range,
+                "cpu_set": cu.cpu_set,
                 "cpu_count": cu.cpu_count,
                 "ssh_public_key": payload.ssh_public_key,
             },
@@ -163,9 +164,10 @@ def run_compute_unit_deallocate(
                 "server_public_ip": cu.server_public_ip,
                 "private_ip": allocation.ip_address,
                 "allocation_id": allocation.allocation_id,
+                "username": allocation.username,
                 "allocation_ip_address": allocation.ip_address,
                 "compute_unit_private_ip": cu.private_ip,
-                "system_user": cu.system_user,
+                "cpu_set": cu.cpu_set,
             },
         )
         job_ok = result.status == "successful"
@@ -274,6 +276,7 @@ def run_allocation_scale(
             extra_vars={
                 "allocation_id": allocation.allocation_id,
                 "allocation_name": allocation.name,
+                "username": allocation.username,
                 "allocation_ip_address": allocation.ip_address,
                 "private_ip": allocation.ip_address,
                 "source_compute_id": source.compute_id,
@@ -285,8 +288,8 @@ def run_allocation_scale(
                 "source_server_private_ip": source.server_private_ip,
                 "source_server_public_ip": source.server_public_ip,
                 "source_compute_unit_private_ip": source.private_ip,
-                "source_system_user": source.system_user,
                 "source_cpu_range": source.cpu_range,
+                "source_cpu_set": source.cpu_set,
                 "target_compute_id": target.compute_id,
                 "target_hostname": target.hostname,
                 "target_ansible_host": _ansible_host(
@@ -296,8 +299,8 @@ def run_allocation_scale(
                 "target_server_private_ip": target.server_private_ip,
                 "target_server_public_ip": target.server_public_ip,
                 "target_compute_unit_private_ip": target.private_ip,
-                "target_system_user": target.system_user,
                 "target_cpu_range": target.cpu_range,
+                "target_cpu_set": target.cpu_set,
                 "target_cpu_count": target.cpu_count,
             },
         )

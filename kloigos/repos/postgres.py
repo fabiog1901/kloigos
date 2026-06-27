@@ -114,14 +114,15 @@ class PostgresRepo(CPKitRepo):
             conn.execute(
                 """
                 INSERT INTO allocations (
-                    allocation_id, name, ip_address, compute_id,
+                    allocation_id, name, username, ip_address, compute_id,
                     current_host, status, tags
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     allocation.allocation_id,
                     allocation.name,
+                    allocation.username,
                     allocation.ip_address,
                     allocation.compute_id,
                     allocation.current_host,
@@ -189,6 +190,7 @@ class PostgresRepo(CPKitRepo):
     def get_allocations(
         self,
         allocation_id: str | None = None,
+        username: str | None = None,
         compute_id: str | None = None,
         ip_address: str | None = None,
         status: str | None = None,
@@ -199,6 +201,10 @@ class PostgresRepo(CPKitRepo):
         if allocation_id is not None:
             conditions.append("a.allocation_id = %s")
             params.append(allocation_id)
+
+        if username is not None:
+            conditions.append("a.username = %s")
+            params.append(username)
 
         if compute_id is not None:
             conditions.append("a.compute_id = %s")
@@ -215,10 +221,8 @@ class PostgresRepo(CPKitRepo):
         sql = """
             SELECT
                 a.*,
-                c.system_user AS login_user
+                a.username AS login_user
             FROM allocations a
-            LEFT JOIN compute_units c
-              ON a.compute_id = c.compute_id
         """
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
@@ -418,12 +422,12 @@ class PostgresRepo(CPKitRepo):
                 """
                 INSERT INTO compute_units (
                     hostname, ordinal, cpu_range, cpu_count, 
-                    cpu_set, private_ip, public_ip, system_user,
+                    cpu_set, private_ip, public_ip,
                     status, started_at, tags
                 ) 
                 VALUES (
                     %s, %s, %s, %s,
-                    %s, %s, %s, %s,
+                    %s, %s, %s,
                     %s, %s, %s
                 )
                 ON CONFLICT DO NOTHING
@@ -436,7 +440,6 @@ class PostgresRepo(CPKitRepo):
                     cudb.cpu_set,
                     cudb.private_ip,
                     cudb.public_ip,
-                    cudb.system_user,
                     cudb.status,
                     cudb.started_at,
                     cudb.tags,
@@ -529,7 +532,6 @@ class PostgresRepo(CPKitRepo):
                     c.cpu_set,
                     c.private_ip,
                     c.public_ip,
-                    c.system_user,
                     c.cpu_count,
                     c.status,
                     c.started_at,
@@ -559,7 +561,6 @@ class PostgresRepo(CPKitRepo):
             compute_units.cpu_set,
             compute_units.private_ip,
             compute_units.public_ip,
-            compute_units.system_user,
             compute_units.cpu_count,
             compute_units.status,
             compute_units.started_at,
@@ -632,7 +633,6 @@ class PostgresRepo(CPKitRepo):
                 c.cpu_set,
                 c.private_ip,
                 c.public_ip,
-                c.system_user,
                 c.cpu_count,
                 c.status,
                 c.started_at,

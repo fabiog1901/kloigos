@@ -1,4 +1,5 @@
 import logging
+import re
 
 from cpkit.audit import log_event
 from cpkit.jobs.types import JobID
@@ -27,18 +28,53 @@ from kloigos.models import (
 
 from ..repos import Repo
 
+USERNAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+RESERVED_USERNAMES = {
+    "root",
+    "daemon",
+    "bin",
+    "sys",
+    "sync",
+    "games",
+    "man",
+    "lp",
+    "mail",
+    "news",
+    "uucp",
+    "proxy",
+    "www-data",
+    "backup",
+    "list",
+    "irc",
+    "gnats",
+    "nobody",
+    "systemd-network",
+    "systemd-resolve",
+    "systemd-timesync",
+}
+
 
 def _request_allocation_identity(
     req: ComputeUnitRequest,
     cu: ComputeUnitOverview,
-) -> tuple[str, str]:
+) -> tuple[str, str, str]:
     tags = req.tags if isinstance(req.tags, dict) else {}
     tagged_name = (
         tags.get("allocation_id") or tags.get("deployment_id") or tags.get("name")
     )
     allocation_id = str(req.allocation_id or tagged_name or cu.compute_id).strip()
     name = str(req.name or tagged_name or allocation_id).strip()
-    return allocation_id, name
+    username = str(req.username or allocation_id).strip()
+    return allocation_id, name, username
+
+
+def _validate_username(username: str) -> None:
+    if not USERNAME_PATTERN.fullmatch(username):
+        raise ComputeUnitOperationError(
+            "Username must be 1-32 characters using lowercase letters, digits, hyphen, or underscore, and must start with a letter or digit."
+        )
+    if username in RESERVED_USERNAMES or username.startswith("systemd-"):
+        raise ComputeUnitOperationError(f"Username '{username}' is reserved.")
 
 
 class AllocationService:
@@ -51,6 +87,7 @@ class AllocationService:
         self,
         *,
         allocation_id: str | None = None,
+        username: str | None = None,
         compute_id: str | None = None,
         ip_address: str | None = None,
         status: str | None = None,
@@ -58,6 +95,7 @@ class AllocationService:
         """Return allocations filtered by durable identity, placement, IP, or status."""
         return self.repo.get_allocations(
             allocation_id=allocation_id,
+            username=username,
             compute_id=compute_id,
             ip_address=ip_address,
             status=status,
@@ -107,10 +145,18 @@ class AllocationService:
                 )
                 raise NoFreeIpAddressError()
 
-            allocation_id, allocation_name = _request_allocation_identity(req, cu)
+            allocation_id, allocation_name, username = _request_allocation_identity(
+                req, cu
+            )
+            _validate_username(username)
+            if self.repo.get_allocations(username=username):
+                raise ComputeUnitOperationError(
+                    f"Username '{username}' is already in use."
+                )
             allocation = AllocationInDB(
                 allocation_id=allocation_id,
                 name=allocation_name,
+                username=username,
                 ip_address=ip_address.ip_address,
                 compute_id=cu.compute_id,
                 current_host=cu.hostname,
@@ -149,6 +195,21 @@ class AllocationService:
                 actor_id,
             )
         except NoFreeIpAddressError:
+            raise
+        except ComputeUnitOperationError:
+            try:
+                if ip_address:
+                    self.repo.release_ip_pool_address(ip_address.ip_address)
+                self.repo.update_compute_unit(
+                    cu.compute_id,
+                    status=ComputeUnitStatus.FREE,
+                    tags={},
+                )
+            except Exception:
+                logging.exception(
+                    "Failed to release compute unit %s after allocation validation failed",
+                    cu.compute_id,
+                )
             raise
         except Exception as exc:
             try:

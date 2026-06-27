@@ -27,8 +27,8 @@ async def list_compute_units(
     Return compute units, optionally filtered by id, host, region, size, tags, or status.
 
     Each compute unit includes its deterministic `compute_id`, parent `hostname`,
-    internal `private_ip`, stable Linux `system_user`, optional external
-    `public_ip`, and the parent server's management IPs.
+    internal `private_ip`, optional external `public_ip`, CPU placement, and
+    the parent server's management IPs.
 
     Example:
     - /compute_units

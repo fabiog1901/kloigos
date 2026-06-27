@@ -23,13 +23,11 @@ CREATE TABLE compute_units (
     cpu_set TEXT NOT NULL,
     private_ip TEXT NOT NULL,
     public_ip TEXT NULL,
-    system_user TEXT NOT NULL,
     STATUS TEXT NOT NULL,
     started_at TIMESTAMPTZ NULL,
     tags JSONB NULL,
     CONSTRAINT pk_compute_units PRIMARY KEY (compute_id),
     CONSTRAINT uq_compute_units_hostname_ordinal UNIQUE (hostname, ordinal),
-    CONSTRAINT uq_compute_units_system_user UNIQUE (system_user),
     CONSTRAINT uq_compute_units_hostname_private_ip UNIQUE (hostname, private_ip),
     CONSTRAINT hostname_in_servers FOREIGN KEY (hostname) REFERENCES servers(hostname) ON UPDATE CASCADE ON DELETE CASCADE
 );
@@ -52,6 +50,7 @@ CREATE TABLE ip_pool (
 CREATE TABLE allocations (
     allocation_id TEXT NOT NULL,
     name TEXT NOT NULL,
+    username TEXT NOT NULL,
     ip_address TEXT NOT NULL,
     compute_id TEXT NULL,
     current_host TEXT NULL,
@@ -61,6 +60,7 @@ CREATE TABLE allocations (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT pk_allocations PRIMARY KEY (allocation_id),
     CONSTRAINT uq_allocations_name UNIQUE (name),
+    CONSTRAINT uq_allocations_username UNIQUE (username),
     CONSTRAINT uq_allocations_ip_address UNIQUE (ip_address),
     CONSTRAINT allocation_ip_in_pool FOREIGN KEY (ip_address) REFERENCES ip_pool(ip_address) ON UPDATE CASCADE,
     CONSTRAINT allocation_compute_unit FOREIGN KEY (compute_id) REFERENCES compute_units(compute_id) ON UPDATE CASCADE ON DELETE SET NULL,

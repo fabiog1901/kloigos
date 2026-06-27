@@ -35,6 +35,7 @@ router = APIRouter(
 )
 async def list_allocations(
     allocation_id: str | None = None,
+    username: str | None = None,
     compute_id: str | None = None,
     ip_address: str | None = None,
     status: str | None = None,
@@ -43,6 +44,7 @@ async def list_allocations(
     """List allocations with floating IP and current login user, optionally filtered."""
     return service.list_allocations(
         allocation_id=allocation_id,
+        username=username,
         compute_id=compute_id,
         ip_address=ip_address,
         status=status,
@@ -67,9 +69,20 @@ async def allocate(
     except NoFreeIpAddressError:
         raise HTTPException(460, "No free IP address found to match your request")
     except ComputeUnitOperationError as exc:
+        message = str(exc)
+        if "already in use" in message:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=message,
+            ) from exc
+        if message.startswith("Username "):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=message,
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+            detail=message,
         ) from exc
 
 

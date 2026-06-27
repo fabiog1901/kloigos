@@ -191,7 +191,6 @@
             <th @click="toggleComputeSort(3)" :class="computeSortClass(3)">Hostname</th>
             <th @click="toggleComputeSort(4)" :class="computeSortClass(4)">Private IP</th>
             <th @click="toggleComputeSort(5)" :class="computeSortClass(5)">CPUs</th>
-            <th @click="toggleComputeSort(6)" :class="computeSortClass(6)">System User</th>
             <th @click="toggleComputeSort(8)" :class="computeSortClass(8)">Started</th>
             <th @click="toggleComputeSort(9)" :class="computeSortClass(9)">Status</th>
           </tr>
@@ -221,7 +220,6 @@
               <td x-text="row.hostname || '-'"></td>
               <td x-text="row.private_ip || '-'"></td>
               <td x-text="row.cpu_count ?? '-'"></td>
-              <td x-text="row.system_user || '-'"></td>
               <td x-text="toUtcStringMaybe(row.started_at)"></td>
               <td>
                 <span class="status-pill" :class="computeStatusClass(row.status)">
@@ -232,7 +230,7 @@
           </template>
 
           <tr x-show="!computeLoading.list && computeVisibleRows.length === 0">
-            <td colspan="9" class="empty-cell">No compute units found.</td>
+            <td colspan="8" class="empty-cell">No compute units found.</td>
           </tr>
         </tbody>
       </table>
@@ -376,6 +374,9 @@
 
     <label class="field-label">Name</label>
     <input class="input" x-model="modal.allocate.name" placeholder="optional display name" />
+
+    <label class="field-label">Username</label>
+    <input class="input" x-model="modal.allocate.username" placeholder="app-prod-1" />
 
     <label class="field-label">Floating IP</label>
     <input class="input" x-model="modal.allocate.ip_address" placeholder="optional" />

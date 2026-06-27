@@ -7,7 +7,7 @@
 #   ansible_host
 #   server_private_ip
 #   server_public_ip
-#   system_user
+#   username
 #
 - name: GATHER COMPUTE UNITS TO DEALLOCATE
   hosts: localhost
@@ -23,7 +23,8 @@
         ansible_host: "{{ ansible_host }}"
         server_private_ip: "{{ server_private_ip }}"
         server_public_ip: "{{ server_public_ip | default('', true) }}"
-        system_user: "{{ system_user }}"
+        username: "{{ username }}"
+        private_ip: "{{ private_ip }}"
 
         groups: dealloc
 
@@ -34,12 +35,12 @@
   tasks:
     - name: finding id for user
       shell: |
-        id -u {{ system_user }}
+        id -u {{ username }}
       register: user_id
 
     - name: remove ssh key to block any new connection
       shell: |
-        rm -f /home/{{ system_user }}/.ssh/authorized_keys
+        rm -f /home/{{ username }}/.ssh/authorized_keys
 
     - name: stop the user systemd instance to stop any running process
       shell: |
@@ -47,20 +48,34 @@
 
     - name: severe any open connection
       shell: |
-        loginctl kill-user {{ system_user }} || true
+        loginctl kill-user {{ username }} || true
+
+    - name: remove allocation IP alias
+      shell: |
+        IFACE="$(ip -o route show default | awk '{for (i=1; i<=NF; i++) if ($i == "dev") print $(i+1)}' | head -1)"
+        ip addr del {{ private_ip }}/32 dev "$IFACE" || true
+
+    - name: remove allocation nftables rules
+      shell: |
+        NFT_FILE="/etc/nftables.d/kloigos-compute-units.nft"
+        if [ -f "$NFT_FILE" ]; then
+          sed -i -E "/meta skuid {{ user_id.stdout }} /d" "$NFT_FILE"
+          nft -c -f "$NFT_FILE"
+          nft -f "$NFT_FILE"
+        fi
 
     - name: remove all files from the compute_unit
       shell: |
-        rm -rf /home/{{ system_user }}/*
-        rm -rf /opt/{{ system_user }}/*
-        rm -rf /mnt/{{ system_user }}/*
+        rm -rf /home/{{ username }}/*
+        rm -rf /opt/{{ username }}/*
+        rm -rf /mnt/{{ username }}/*
 
     - name: recreate .ssh with safe perms (empty, no keys)
       shell: |
-        mkdir -p /home/{{ system_user }}/.ssh
-        chown {{ system_user }}:{{ system_user }} /home/{{ system_user }}/.ssh
-        chmod 700 /home/{{ system_user }}/.ssh
+        mkdir -p /home/{{ username }}/.ssh
+        chown {{ username }}:{{ username }} /home/{{ username }}/.ssh
+        chmod 700 /home/{{ username }}/.ssh
 
-        touch /home/{{ system_user }}/.ssh/authorized_keys
-        chown {{ system_user }}:{{ system_user }} /home/{{ system_user }}/.ssh/authorized_keys
-        chmod 600 /home/{{ system_user }}/.ssh/authorized_keys
+        touch /home/{{ username }}/.ssh/authorized_keys
+        chown {{ username }}:{{ username }} /home/{{ username }}/.ssh/authorized_keys
+        chmod 600 /home/{{ username }}/.ssh/authorized_keys
