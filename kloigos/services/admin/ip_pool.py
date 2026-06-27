@@ -5,8 +5,8 @@ from ...models import (
     Event,
     IpAddressStatus,
     IpPoolAddressInDB,
+    IpPoolAllocateRequest,
     IpPoolInsertRequest,
-    IpPoolUpdateRequest,
 )
 from .base import AdminServiceBase
 
@@ -50,8 +50,7 @@ class IpPoolAdminService(AdminServiceBase):
         for ip_address in req.ip_addresses:
             self.repo.insert_ip_pool_address(
                 ip_address=ip_address,
-                status=req.status,
-                current_host=req.current_host,
+                status=IpAddressStatus.FREE,
             )
 
         log_event(
@@ -63,30 +62,29 @@ class IpPoolAdminService(AdminServiceBase):
 
         return self.repo.get_ip_pool_addresses()
 
-    def update_ip_pool_address(
+    def allocate_ip_pool_address(
         self,
         actor_id: str,
-        ip_address: str,
-        req: IpPoolUpdateRequest,
+        allocation_id: str,
+        req: IpPoolAllocateRequest,
     ) -> IpPoolAddressInDB | None:
         self.repo.update_ip_pool_address(
-            ip_address=ip_address,
-            status=req.status,
-            allocation_id=req.allocation_id,
-            current_host=req.current_host,
+            ip_address=req.ip_address,
+            status=IpAddressStatus.ALLOCATED,
+            allocation_id=allocation_id,
         )
 
         log_event(
             self.repo,
             actor_id,
-            Event.IP_POOL_UPDATE,
+            Event.IP_POOL_ALLOCATE,
             {
-                "ip_address": ip_address,
+                "allocation_id": allocation_id,
                 **req.model_dump(),
             },
         )
 
-        matches = self.repo.get_ip_pool_addresses(ip_address=ip_address)
+        matches = self.repo.get_ip_pool_addresses(ip_address=req.ip_address)
         return matches[0] if matches else None
 
     def delete_ip_pool_address(

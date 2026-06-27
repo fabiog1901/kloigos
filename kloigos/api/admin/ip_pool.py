@@ -5,8 +5,8 @@ from ...dep import get_admin_service
 from ...models import (
     ComputeUnitOperationError,
     IpPoolAddressInDB,
+    IpPoolAllocateRequest,
     IpPoolInsertRequest,
-    IpPoolUpdateRequest,
 )
 from ...services.admin import AdminService
 
@@ -47,20 +47,20 @@ async def insert_ip_pool_addresses(
         ) from exc
 
 
-@router.put("/{ip_address}", response_model=IpPoolAddressInDB)
-async def update_ip_pool_address(
-    ip_address: str,
-    req: IpPoolUpdateRequest,
+@router.put("/{allocation_id}", response_model=IpPoolAddressInDB)
+async def allocate_ip_pool_address(
+    allocation_id: str,
+    req: IpPoolAllocateRequest,
     actor_id: str = Depends(get_audit_actor),
     service: AdminService = Depends(get_admin_service),
 ) -> IpPoolAddressInDB:
-    updated = service.update_ip_pool_address(actor_id, ip_address, req)
-    if not updated:
+    allocated = service.allocate_ip_pool_address(actor_id, allocation_id, req)
+    if not allocated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"IP address {ip_address} was not found.",
+            detail=f"IP address {req.ip_address} was not found.",
         )
-    return updated
+    return allocated
 
 
 @router.delete("/{ip_address}")
@@ -84,7 +84,7 @@ async def delete_ip_pool_address(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.patch("/{allocation_id}/release")
+@router.patch("/{allocation_id}")
 async def release_ip_pool_address(
     allocation_id: str,
     actor_id: str = Depends(get_audit_actor),
