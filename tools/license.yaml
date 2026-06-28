@@ -1,7 +1,7 @@
 license_id: lic-example-001
 customer: Example Customer LLC
-issued_at: 1782604800
-expires_at: 1814140800
+issued_at: "2026-06-28"
+expires_at: "2027-06-28"
 features:
   - rbac
   - audit_log

@@ -66,6 +66,7 @@ def main() -> int:
         decode_token(Path(args.jwt_file))
         return 0
     if args.command == "validate":
+        decode_token(Path(args.jwt_file))
         return validate_token(Path(args.jwt_file), Path(args.public_key))
 
     return sign_token(args)
@@ -95,7 +96,7 @@ def decode_token(path: Path) -> None:
     header = jwt.get_unverified_header(token)
     payload = jwt.decode(token, options={"verify_signature": False})
     print(
-        json.dumps(
+        yaml.safe_dump(
             {
                 "header": header,
                 "payload": payload,
@@ -111,25 +112,16 @@ def validate_token(jwt_path: Path, public_key_path: Path) -> int:
     public_key = public_key_path.read_text()
 
     try:
-        license_data = validate_license(token, public_key)
+        validate_license(token, public_key)
     except LicenseValidationError as exc:
         print(f"invalid: {exc}", file=sys.stderr)
         return 1
 
-    print(
-        json.dumps(
-            {
-                "valid": True,
-                "license": license_data,
-            },
-            indent=2,
-            sort_keys=True,
-        )
-    )
+    print("License is valid")
     return 0
 
 
-def validate_license(token: str, public_key: str) -> dict[str, Any]:
+def validate_license(token: str, public_key: str) -> None:
     if not token:
         raise LicenseValidationError("Enterprise license is empty.")
 
@@ -169,14 +161,8 @@ def validate_license(token: str, public_key: str) -> dict[str, Any]:
             f"Enterprise license payload is missing required fields: {missing}"
         )
 
-    for field in ("issued_at", "expires_at"):
-        if not isinstance(payload[field], int):
-            raise LicenseValidationError(
-                f"Enterprise license payload field '{field}' must be a Unix timestamp integer."
-            )
-
-    issued_at = dt.datetime.fromtimestamp(payload["issued_at"], tz=dt.UTC)
-    expires_at = dt.datetime.fromtimestamp(payload["expires_at"], tz=dt.UTC)
+    parse_license_date(payload["issued_at"], "issued_at")
+    expires_at = parse_license_date(payload["expires_at"], "expires_at")
     if expires_at <= dt.datetime.now(dt.UTC):
         raise LicenseValidationError("Enterprise license has expired.")
 
@@ -190,16 +176,6 @@ def validate_license(token: str, public_key: str) -> dict[str, Any]:
             "Enterprise license payload field 'limits' must be a mapping/object."
         )
 
-    return {
-        "license_id": str(payload["license_id"]),
-        "customer": str(payload["customer"]),
-        "issued_at": issued_at.isoformat().replace("+00:00", "Z"),
-        "expires_at": expires_at.isoformat().replace("+00:00", "Z"),
-        "features": payload["features"],
-        "limits": payload["limits"],
-        "key_id": key_id,
-    }
-
 
 def load_payload(path: Path) -> dict[str, Any]:
     payload = yaml.safe_load(path.read_text())
@@ -210,13 +186,12 @@ def load_payload(path: Path) -> dict[str, Any]:
     if missing:
         raise SystemExit(f"License payload is missing required fields: {missing}")
 
-    for field in ("issued_at", "expires_at"):
-        if not isinstance(payload[field], int):
-            raise SystemExit(
-                f"License payload field '{field}' must be a Unix timestamp integer."
-            )
-
-    if payload["expires_at"] <= payload["issued_at"]:
+    try:
+        issued_at = parse_license_date(payload["issued_at"], "issued_at")
+        expires_at = parse_license_date(payload["expires_at"], "expires_at")
+    except LicenseValidationError as exc:
+        raise SystemExit(str(exc)) from exc
+    if expires_at <= issued_at:
         raise SystemExit(
             "License payload field 'expires_at' must be after 'issued_at'."
         )
@@ -228,6 +203,22 @@ def load_payload(path: Path) -> dict[str, Any]:
         raise SystemExit("License payload field 'limits' must be a mapping/object.")
 
     return payload
+
+
+def parse_license_date(value: Any, field: str) -> dt.datetime:
+    if not isinstance(value, str):
+        raise LicenseValidationError(
+            f"License payload field '{field}' must be a yyyy-mm-dd string."
+        )
+
+    try:
+        license_date = dt.date.fromisoformat(value)
+    except ValueError as exc:
+        raise LicenseValidationError(
+            f"License payload field '{field}' must be a yyyy-mm-dd string."
+        ) from exc
+
+    return dt.datetime.combine(license_date, dt.time.min, tzinfo=dt.UTC)
 
 
 if __name__ == "__main__":

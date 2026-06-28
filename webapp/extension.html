@@ -495,6 +495,25 @@
   </div>
 </div>
 
+<div class="modal-backdrop" x-show="modal.licenseStatus.open" @click.self="closeLicenseStatusModal()">
+  <div class="modal kloigos-wide-modal">
+    <div class="modal-head">
+      <h2>License</h2>
+      <button class="icon-btn" @click="closeLicenseStatusModal()">x</button>
+    </div>
+    <div class="notice danger" x-show="modalError.licenseStatus" x-text="modalError.licenseStatus"></div>
+    <pre
+      class="json-panel small"
+      x-show="!serversLoading.license && !modalError.licenseStatus"
+      x-text="modal.licenseStatus.yaml || '{}'"
+    ></pre>
+    <pre class="json-panel small" x-show="serversLoading.license">Loading...</pre>
+    <div class="modal-actions">
+      <button class="btn" @click="closeLicenseStatusModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" x-show="modal.serverActionConfirm.open" @click.self="closeServerActionConfirm()">
   <div class="modal">
     <div class="modal-head">

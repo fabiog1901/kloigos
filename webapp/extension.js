@@ -5,6 +5,15 @@ window.cpkitWebappExtension = {
     { view: "compute_units", label: "Compute" },
     { view: "kloigos_servers", label: "Servers" },
   ],
+  adminItems: [
+    {
+      view: "license_status",
+      label: "View License",
+      kicker: "Enterprise",
+      description: "Decoded enterprise license status and enabled feature data.",
+      icon: "license",
+    },
+  ],
   routes: {
     allocations: {
       path: "/allocations",
@@ -23,6 +32,13 @@ window.cpkitWebappExtension = {
       label: "Servers",
       subtitle: "Kloigos server inventory and lifecycle",
       ensure: "ensureKloigosServersView",
+    },
+    license_status: {
+      path: "/admin/license",
+      label: "View License",
+      subtitle: "Decoded enterprise license status",
+      ensure: "ensureLicenseStatusAdminCard",
+      adminOnly: true,
     },
   },
   state: {
@@ -70,7 +86,7 @@ window.cpkitWebappExtension = {
       9: "string",
       10: "string",
     },
-    serversLoading: { list: false, action: false, init: false },
+    serversLoading: { list: false, action: false, init: false, license: false },
     serversAutoRefreshEnabled: true,
     _serversAutoTimer: null,
     computeUnits: [],
@@ -135,6 +151,7 @@ window.cpkitWebappExtension = {
         tagsText: "{}",
         compute_units: [{ ordinal: 1, cpu_range: "0-3", private_ip: "", public_ip: "" }],
       },
+      licenseStatus: { open: false, yaml: "" },
     },
     modalError: {
       allocate: "",
@@ -142,6 +159,7 @@ window.cpkitWebappExtension = {
       deallocateConfirm: "",
       serverActionConfirm: "",
       serverInit: "",
+      licenseStatus: "",
     },
   },
   async init() {
@@ -276,6 +294,12 @@ window.cpkitWebappExtension = {
 
     canViewKloigosAdmin() {
       return this.authIsUnauthenticatedMode() || this.hasRole("CP_ADMIN");
+    },
+
+    async ensureLicenseStatusAdminCard() {
+      this.view = "admin";
+      window.location.hash = this.routeForView("admin");
+      await this.openLicenseStatusModal();
     },
 
     persistServersFilter() {
@@ -782,6 +806,62 @@ window.cpkitWebappExtension = {
     closeServerDetails() {
       this.modal.serverDetails.open = false;
       this.modal.serverDetails.row = null;
+    },
+
+    async openLicenseStatusModal() {
+      this.modal.licenseStatus.yaml = "";
+      this.modalError.licenseStatus = "";
+      this.modal.licenseStatus.open = true;
+      this.serversLoading.license = true;
+      try {
+        const data = await this.apiFetch("/license/status", { method: "GET" });
+        this.modal.licenseStatus.yaml = this.formatYaml(data || {});
+      } catch (error) {
+        this.modalError.licenseStatus = this.errorMessage(error, "Failed to load license status.");
+      } finally {
+        this.serversLoading.license = false;
+      }
+    },
+
+    closeLicenseStatusModal() {
+      this.modal.licenseStatus.open = false;
+      this.modalError.licenseStatus = "";
+      this.modal.licenseStatus.yaml = "";
+    },
+
+    formatYaml(value, indent = 0) {
+      const pad = " ".repeat(indent);
+      if (Array.isArray(value)) {
+        if (value.length === 0) return `${pad}[]`;
+        return value.map((item) => {
+          if (item && typeof item === "object") {
+            return `${pad}-\n${this.formatYaml(item, indent + 2)}`;
+          }
+          return `${pad}- ${this.formatYamlScalar(item)}`;
+        }).join("\n");
+      }
+      if (value && typeof value === "object") {
+        const entries = Object.entries(value);
+        if (entries.length === 0) return `${pad}{}`;
+        return entries.map(([key, item]) => {
+          if (item && typeof item === "object") {
+            return `${pad}${key}:\n${this.formatYaml(item, indent + 2)}`;
+          }
+          return `${pad}${key}: ${this.formatYamlScalar(item)}`;
+        }).join("\n");
+      }
+      return `${pad}${this.formatYamlScalar(value)}`;
+    },
+
+    formatYamlScalar(value) {
+      if (value === null || value === undefined) return "null";
+      if (typeof value === "boolean" || typeof value === "number") return String(value);
+      const text = String(value);
+      if (text === "") return "\"\"";
+      if (/^\s|\s$|[:#\n]|^(true|false|null|yes|no|on|off)$/i.test(text) || /^[-+]?\d/.test(text)) {
+        return JSON.stringify(text);
+      }
+      return text;
     },
 
     openServerActionConfirm(server, action) {

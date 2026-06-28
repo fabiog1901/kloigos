@@ -34,8 +34,8 @@ Create a payload file such as `tools/license.yaml`:
 ```yaml
 license_id: lic-example-001
 customer: Example Customer LLC
-issued_at: 1782604800
-expires_at: 1814140800
+issued_at: "2026-06-28"
+expires_at: "2027-06-28"
 features:
   - rbac
   - audit_log
@@ -48,12 +48,12 @@ limits:
   networks: 5
 ```
 
-`issued_at` and `expires_at` must be Unix timestamp integers.
+`issued_at` and `expires_at` must be `yyyy-mm-dd` strings.
 
 ## Sign A License
 
 ```bash
-poetry run python tools/license.py sign tools/license.yaml tools/license_secret_key.pem --kid kloigos-2026-01 -o tools/license.jwt
+python license.py sign license.yaml license_secret_key.pem --kid kloigos-2026-1 -o license.jwt
 ```
 
 The `kid` is the signing key id placed in the JWT header. Kloigos uses it to pick
@@ -64,10 +64,10 @@ the matching public key from `TRUSTED_LICENSE_KEYS`.
 Decode without verifying the signature:
 
 ```bash
-poetry run python tools/license.py decode tools/license.jwt
+python tools/license.py decode tools/license.jwt
 ```
 
-This prints the JWT header and payload as formatted JSON.
+This prints the JWT header and payload as formatted YAML.
 
 ## Validate A License
 

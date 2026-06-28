@@ -77,7 +77,16 @@ LICENSE_CACHE_SECONDS = 300
 
 # Ed25519 public keys trusted for offline enterprise license verification.
 # Add PEM-encoded public keys here as Clojos LLC rotates signing keys.
-TRUSTED_LICENSE_KEYS: dict[str, str] = {}
+TRUSTED_LICENSE_KEYS: dict[str, str] = {
+    "kloigos-2026-0": """-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAMbjmJxG0lRyuaExPNsHMsfxiRyE3FROFDwCQdrFQ/ZI=
+-----END PUBLIC KEY-----
+""",
+    "kloigos-2026-1": """-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAveX8xwBGd37M/Y4eSgsmTJ8S9DfPtKtbnGdsk5dsxJM=
+-----END PUBLIC KEY-----
+""",
+}
 
 
 class LicenseService:
@@ -199,8 +208,16 @@ class LicenseService:
             license_data = ValidatedLicense(
                 license_id=str(payload["license_id"]),
                 customer=str(payload["customer"]),
-                issued_at=dt.datetime.fromtimestamp(payload["issued_at"], tz=dt.UTC),
-                expires_at=dt.datetime.fromtimestamp(payload["expires_at"], tz=dt.UTC),
+                issued_at=dt.datetime.combine(
+                    dt.date.fromisoformat(payload["issued_at"]),
+                    dt.time.min,
+                    tzinfo=dt.UTC,
+                ),
+                expires_at=dt.datetime.combine(
+                    dt.date.fromisoformat(payload["expires_at"]),
+                    dt.time.min,
+                    tzinfo=dt.UTC,
+                ),
                 features=list(payload.get("features") or []),
                 limits=dict(payload.get("limits") or {}),
                 key_id=key_id,
