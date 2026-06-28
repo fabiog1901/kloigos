@@ -82,7 +82,7 @@ INSERT INTO cpkit.settings (
     is_secret,
     description
 ) VALUES
-    ('enterprise.license', '', 'text', 'enterprise', false, 'Signed offline enterprise license JWT.')
+    ('enterprise.license', '', 'text', 'enterprise', true, 'Signed offline enterprise license JWT.')
 ON CONFLICT (key) DO NOTHING;
 
 -- kloigos specific playbooks. the yaml content is done via the webapp.
