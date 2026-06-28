@@ -2,6 +2,7 @@ from cpkit import create_cpkit_app, create_cpkit_bundle, template_webapp_directo
 
 from . import DB_URL
 from .api import admin, allocation, compute_unit
+from .api.admin import license
 from .models import (
     AllocationCreateCommand,
     AllocationDeallocateCommand,
@@ -46,6 +47,7 @@ app = create_cpkit_app(
         admin.router,
         allocation.router,
         compute_unit.router,
+        license.router,
     ),
     static_directory=template_webapp_directory(),
     app_static_directory="webapp",

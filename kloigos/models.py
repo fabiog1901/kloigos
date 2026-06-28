@@ -38,6 +38,30 @@ class ServerStateError(Exception):
     pass
 
 
+class MissingLicenseError(Exception):
+    pass
+
+
+class InvalidTokenError(Exception):
+    pass
+
+
+class UnknownSigningKeyError(Exception):
+    pass
+
+
+class InvalidSignatureError(Exception):
+    pass
+
+
+class ExpiredLicenseError(Exception):
+    pass
+
+
+class FeatureNotLicensedError(Exception):
+    pass
+
+
 def _cpu_ids_for_range(cpu_range: str) -> set[int]:
     raw_range = cpu_range.strip()
     if not raw_range:
@@ -268,6 +292,23 @@ class IpPoolInsertRequest(BaseModel):
 
 class IpPoolAllocateRequest(BaseModel):
     ip_address: str
+
+
+class ValidatedLicense(BaseModel):
+    license_id: str
+    customer: str
+    issued_at: dt.datetime
+    expires_at: dt.datetime
+    features: list[str] = Field(default_factory=list)
+    limits: dict[str, Any] = Field(default_factory=dict)
+    key_id: str
+
+
+class LicenseStatusResponse(BaseModel):
+    edition: str
+    valid: bool
+    reason: str | None = None
+    license: ValidatedLicense | None = None
 
 
 class BaseServer(BaseModel):

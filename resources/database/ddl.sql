@@ -74,16 +74,16 @@ ALTER TABLE ip_pool
 ADD CONSTRAINT ip_pool_allocation FOREIGN KEY (allocation_id) REFERENCES allocations(allocation_id) ON UPDATE CASCADE ON DELETE SET NULL;
 
 -- kloigos specific settings
--- INSERT INTO cpkit.settings (
---     key,
---     default_value,
---     value_type,
---     category,
---     is_secret,
---     description
--- ) VALUES
---     ('storage.s3.url',                    '', 'url',     'storage',       false, 'Base S3 endpoint used for tenant external connections.')
--- ON CONFLICT (key) DO NOTHING;
+INSERT INTO cpkit.settings (
+    key,
+    default_value,
+    value_type,
+    category,
+    is_secret,
+    description
+) VALUES
+    ('enterprise.license', '', 'text', 'enterprise', true, 'Signed offline enterprise license JWT.')
+ON CONFLICT (key) DO NOTHING;
 
 -- kloigos specific playbooks. the yaml content is done via the webapp.
 INSERT INTO cpkit.playbooks (name, content, created_by, default_version, updated_by)
