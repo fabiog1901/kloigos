@@ -1,0 +1,14 @@
+license_id: lic-example-001
+customer: Example Customer LLC
+issued_at: 1782604800
+expires_at: 1814140800
+features:
+  - rbac
+  - audit_log
+  - networking
+  - ssh_ca
+  - ha
+limits:
+  hosts: 20
+  compute_units: 1000
+  networks: 5
