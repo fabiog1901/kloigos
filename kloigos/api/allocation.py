@@ -10,8 +10,8 @@ from fastapi import (
 
 from ..dep import get_allocation_service
 from ..models import (
-    AllocationInDB,
     AllocationCreateResponse,
+    AllocationInDB,
     AllocationScaleRequest,
     ComputeUnitNotFoundError,
     ComputeUnitOperationError,
