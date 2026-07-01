@@ -7,6 +7,7 @@
 #   ansible_host
 #   server_private_ip
 #   server_public_ip
+#   server_admin_user
 #   login_user
 #   compute_unit_storage_mount_path
 #
@@ -19,11 +20,12 @@
     - name: Build ansible inventory dynamically
       add_host:
         name: "{{ compute_id }}"
-        ansible_user: ubuntu
+        ansible_user: "{{ server_admin_user }}"
         public_hostname: "{{ hostname }}"
         ansible_host: "{{ ansible_host }}"
         server_private_ip: "{{ server_private_ip }}"
         server_public_ip: "{{ server_public_ip | default('', true) }}"
+        server_admin_user: "{{ server_admin_user }}"
         login_user: "{{ login_user }}"
         private_ip: "{{ private_ip }}"
         compute_unit_storage_mount_path: "{{ compute_unit_storage_mount_path }}"

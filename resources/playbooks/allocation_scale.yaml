@@ -20,6 +20,7 @@
 #   source_ansible_host
 #   source_server_private_ip
 #   source_server_public_ip
+#   source_server_admin_user
 #   source_storage_mount_path
 #   login_user
 #   source_cpu_range
@@ -29,6 +30,7 @@
 #   target_ansible_host
 #   target_server_private_ip
 #   target_server_public_ip
+#   target_server_admin_user
 #   target_storage_mount_path
 #   login_user
 #   target_cpu_range
@@ -44,11 +46,12 @@
     - name: Build source host inventory dynamically
       add_host:
         name: "{{ source_compute_id }}"
-        ansible_user: ubuntu
+        ansible_user: "{{ source_server_admin_user }}"
         public_hostname: "{{ source_hostname }}"
         ansible_host: "{{ source_ansible_host }}"
         server_private_ip: "{{ source_server_private_ip }}"
         server_public_ip: "{{ source_server_public_ip | default('', true) }}"
+        server_admin_user: "{{ source_server_admin_user }}"
         login_user: "{{ login_user }}"
         source_storage_mount_path: "{{ source_storage_mount_path }}"
         groups: scale_source
@@ -56,11 +59,12 @@
     - name: Build target host inventory dynamically
       add_host:
         name: "{{ target_compute_id }}"
-        ansible_user: ubuntu
+        ansible_user: "{{ target_server_admin_user }}"
         public_hostname: "{{ target_hostname }}"
         ansible_host: "{{ target_ansible_host }}"
         server_private_ip: "{{ target_server_private_ip }}"
         server_public_ip: "{{ target_server_public_ip | default('', true) }}"
+        server_admin_user: "{{ target_server_admin_user }}"
         login_user: "{{ login_user }}"
         target_storage_mount_path: "{{ target_storage_mount_path }}"
         target_cpu_set: "{{ target_cpu_set }}"
@@ -165,7 +169,7 @@
         rsync -a --delete \
           -e "ssh {{ ssh_opts }}" \
           --rsync-path="sudo rsync" \
-          ubuntu@{{ source_ansible_host }}:/home/{{ login_user }}/ {{ scratch_root }}/home/
+          {{ source_server_admin_user }}@{{ source_ansible_host }}:/home/{{ login_user }}/ {{ scratch_root }}/home/
       args:
         executable: /bin/bash
 
@@ -175,7 +179,7 @@
         rsync -a --delete \
           -e "ssh {{ ssh_opts }}" \
           --rsync-path="sudo rsync" \
-          ubuntu@{{ source_ansible_host }}:/opt/{{ login_user }}/ {{ scratch_root }}/opt/
+          {{ source_server_admin_user }}@{{ source_ansible_host }}:/opt/{{ login_user }}/ {{ scratch_root }}/opt/
       args:
         executable: /bin/bash
 
@@ -185,16 +189,16 @@
         rsync -a --delete \
           -e "ssh {{ ssh_opts }}" \
           --rsync-path="sudo rsync" \
-          ubuntu@{{ source_ansible_host }}:/mnt/{{ login_user }}/ {{ scratch_root }}/mnt/
+          {{ source_server_admin_user }}@{{ source_ansible_host }}:/mnt/{{ login_user }}/ {{ scratch_root }}/mnt/
       args:
         executable: /bin/bash
 
     - name: Initial rsync controller to target
       shell: |
         set -euo pipefail
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ ubuntu@{{ target_ansible_host }}:/home/{{ login_user }}/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ ubuntu@{{ target_ansible_host }}:/opt/{{ login_user }}/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ ubuntu@{{ target_ansible_host }}:{{ target_storage_mount_path }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ {{ target_server_admin_user }}@{{ target_ansible_host }}:/home/{{ login_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ {{ target_server_admin_user }}@{{ target_ansible_host }}:/opt/{{ login_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ {{ target_server_admin_user }}@{{ target_ansible_host }}:{{ target_storage_mount_path }}/
       args:
         executable: /bin/bash
 
@@ -224,18 +228,18 @@
     - name: Final rsync source to controller
       shell: |
         set -euo pipefail
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" ubuntu@{{ source_ansible_host }}:/home/{{ login_user }}/ {{ scratch_root }}/home/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" ubuntu@{{ source_ansible_host }}:/opt/{{ login_user }}/ {{ scratch_root }}/opt/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" ubuntu@{{ source_ansible_host }}:/mnt/{{ login_user }}/ {{ scratch_root }}/mnt/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ source_server_admin_user }}@{{ source_ansible_host }}:/home/{{ login_user }}/ {{ scratch_root }}/home/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ source_server_admin_user }}@{{ source_ansible_host }}:/opt/{{ login_user }}/ {{ scratch_root }}/opt/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ source_server_admin_user }}@{{ source_ansible_host }}:/mnt/{{ login_user }}/ {{ scratch_root }}/mnt/
       args:
         executable: /bin/bash
 
     - name: Final rsync controller to target
       shell: |
         set -euo pipefail
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ ubuntu@{{ target_ansible_host }}:/home/{{ login_user }}/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ ubuntu@{{ target_ansible_host }}:/opt/{{ login_user }}/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ ubuntu@{{ target_ansible_host }}:{{ target_storage_mount_path }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ {{ target_server_admin_user }}@{{ target_ansible_host }}:/home/{{ login_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ {{ target_server_admin_user }}@{{ target_ansible_host }}:/opt/{{ login_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ {{ target_server_admin_user }}@{{ target_ansible_host }}:{{ target_storage_mount_path }}/
       args:
         executable: /bin/bash
 

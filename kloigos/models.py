@@ -214,6 +214,7 @@ class InitComputeUnit(BaseModel):
 class ComputeUnitOverview(ComputeUnitInDB):
     server_private_ip: str
     server_public_ip: str | None = None
+    server_admin_user: str
     region: str
     zone: str
 
