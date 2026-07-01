@@ -71,7 +71,7 @@
 
 .kloigos-unit-row {
   display: grid;
-  grid-template-columns: 32px minmax(120px, 0.8fr) minmax(150px, 1fr) minmax(150px, 1fr) auto;
+  grid-template-columns: 32px minmax(120px, 1fr) auto;
   gap: 8px;
   align-items: center;
 }

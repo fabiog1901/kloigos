@@ -20,7 +20,6 @@
 #   source_ansible_host
 #   source_server_private_ip
 #   source_server_public_ip
-#   source_compute_unit_private_ip
 #   login_user
 #   source_cpu_range
 #   source_cpu_set
@@ -29,7 +28,6 @@
 #   target_ansible_host
 #   target_server_private_ip
 #   target_server_public_ip
-#   target_compute_unit_private_ip
 #   login_user
 #   target_cpu_range
 #   target_cpu_set
@@ -49,7 +47,6 @@
         ansible_host: "{{ source_ansible_host }}"
         server_private_ip: "{{ source_server_private_ip }}"
         server_public_ip: "{{ source_server_public_ip | default('', true) }}"
-        compute_unit_private_ip: "{{ source_compute_unit_private_ip }}"
         login_user: "{{ login_user }}"
         groups: scale_source
 
@@ -61,7 +58,6 @@
         ansible_host: "{{ target_ansible_host }}"
         server_private_ip: "{{ target_server_private_ip }}"
         server_public_ip: "{{ target_server_public_ip | default('', true) }}"
-        compute_unit_private_ip: "{{ target_compute_unit_private_ip }}"
         login_user: "{{ login_user }}"
         target_cpu_set: "{{ target_cpu_set }}"
         cpu_count: "{{ target_cpu_count }}"

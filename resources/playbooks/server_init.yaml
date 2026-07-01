@@ -8,6 +8,7 @@
 #   server_public_ip
 #   ansible_host
 #   server_admin_user
+#   disk_size_gb
 #   compute_units
 #
 - name: GATHER NEW SERVER TO INIT
@@ -31,68 +32,107 @@
   gather_facts: yes
   become: yes
   tasks:
-    - name: Find attached disks
+    - name: Install server bootstrap packages
+      when: ansible_facts["os_family"] | lower == "debian"
+      apt:
+        name:
+          - e2fsprogs
+          - lvm2
+          - nftables
+          - rsync
+        state: present
+        update_cache: yes
+
+    - name: Prepare Kloigos LVM volume group
       shell: |
-        # 1. Get the device path for the root partition
-        ROOTLOC=$(lsblk -plo NAME,MOUNTPOINTS | grep -w '/$' | awk '{print $1}')
+        set -euo pipefail
 
-        # 2. Identify the physical parent disk
-        ROOTDISK=$(lsblk -no PKNAME "$ROOTLOC")
+        DEFAULT_VG="kloigos-vg"
+        VG_NAME="{{ kloigos_vg_name | default('', true) }}"
+        mapfile -t RAW_DISKS < <(
+          while read -r disk type; do
+            [ "$type" = "disk" ] || continue
+            child_count="$(lsblk -nr "$disk" | tail -n +2 | wc -l | tr -d ' ')"
+            if [ "$child_count" = "0" ] && ! pvs "$disk" >/dev/null 2>&1; then
+              echo "$disk"
+            fi
+          done < <(lsblk -dnpo NAME,TYPE)
+        )
 
-        # 3. List disks excluding the OS parent disk
-        # Use single backslash for awk in a | block
-        lsblk -dpno NAME,TYPE | grep -w 'disk' | grep -vw "$ROOTDISK" | awk '{print $1}'
+        if [ -z "$VG_NAME" ]; then
+          if vgs "$DEFAULT_VG" >/dev/null 2>&1; then
+            VG_NAME="$DEFAULT_VG"
+          else
+            VG_NAME="$(
+              vgs --noheadings --units b --nosuffix -o vg_name,vg_free 2>/dev/null \
+                | awk '{printf "%.0f %s\n", $2, $1}' \
+                | sort -nr \
+                | awk 'NR == 1 && $1 > 0 {print $2}'
+            )"
+          fi
+        fi
+
+        if [ -z "$VG_NAME" ]; then
+          RAW_DISK_COUNT="$(printf '%s\n' "${RAW_DISKS[@]}" | sed '/^$/d' | wc -l | tr -d ' ')"
+          if [ "$RAW_DISK_COUNT" -eq 0 ]; then
+            echo "No existing volume group with free space and no unused whole disks were found." >&2
+            exit 1
+          fi
+          VG_NAME="$DEFAULT_VG"
+        fi
+
+        if vgs "$VG_NAME" >/dev/null 2>&1; then
+          for disk in "${RAW_DISKS[@]}"; do
+            pvcreate -ff -y "$disk"
+            vgextend "$VG_NAME" "$disk"
+          done
+        else
+          pvcreate -ff -y "${RAW_DISKS[@]}"
+          vgcreate "$VG_NAME" "${RAW_DISKS[@]}"
+        fi
+
+        echo "$VG_NAME"
       args:
         executable: /bin/bash
-      register: disks
+      register: kloigos_vg
 
-    - name: Detect primary network interface
+    - name: Create compute unit logical volumes
       shell: |
-        ip -o route show default | awk '{for (i=1; i<=NF; i++) if ($i == "dev") print $(i+1)}' | head -1
+        set -euo pipefail
+
+        VG_NAME="{{ kloigos_vg.stdout_lines[-1] }}"
+        CU_COUNT="{{ compute_units | length }}"
+        REQUESTED_GB="{{ disk_size_gb | default('', true) }}"
+
+        if [ -n "$REQUESTED_GB" ] && [ "$REQUESTED_GB" != "None" ] && [ "$REQUESTED_GB" -gt 0 ]; then
+          SIZE_ARG="-L ${REQUESTED_GB}G"
+        else
+          FREE_EXTENTS="$(vgs --noheadings -o vg_free_count "$VG_NAME" | awk '{print $1}')"
+          PER_CU_EXTENTS="$(( FREE_EXTENTS / CU_COUNT ))"
+          if [ "$PER_CU_EXTENTS" -le 0 ]; then
+            echo "Volume group $VG_NAME does not have enough free space for $CU_COUNT compute units." >&2
+            exit 1
+          fi
+          SIZE_ARG="-l ${PER_CU_EXTENTS}"
+        fi
+
+        {% for cu in compute_units %}
+        LV_NAME="cu{{ '%02d' | format(cu.ordinal) }}"
+        LV_PATH="/dev/${VG_NAME}/${LV_NAME}"
+        MOUNT_PATH="/mnt/kloigos/{{ hostname }}/${LV_NAME}"
+
+        if ! lvs "${VG_NAME}/${LV_NAME}" >/dev/null 2>&1; then
+          lvcreate -y $SIZE_ARG -n "$LV_NAME" "$VG_NAME"
+        fi
+        blkid "$LV_PATH" -t TYPE="ext4" || mkfs.ext4 -F "$LV_PATH"
+        mkdir -p "$MOUNT_PATH"
+        UUID="$(blkid -s UUID -o value "$LV_PATH")"
+        grep -Eq "^[^#].*[[:space:]]${MOUNT_PATH}[[:space:]]" /etc/fstab || \
+          echo "UUID=${UUID} ${MOUNT_PATH} ext4 defaults,nofail 0 2" >> /etc/fstab
+        mount "$MOUNT_PATH"
+        {% endfor %}
       args:
         executable: /bin/bash
-      register: primary_iface
-
-    - name: install kloigos IP alias boot script
-      copy:
-        content: |
-          #!/bin/bash
-          set -euo pipefail
-
-          IFACE="{{ primary_iface.stdout }}"
-          {% for cu in compute_units %}
-          ip addr show dev "$IFACE" | grep -q "{{ cu.private_ip }}/" || ip addr add {{ cu.private_ip }}/32 dev "$IFACE"
-          {% endfor %}
-        dest: /usr/local/sbin/kloigos-ip-aliases
-        mode: "0755"
-
-    - name: install kloigos IP alias systemd unit
-      copy:
-        content: |
-          [Unit]
-          Description=Kloigos compute unit IP aliases
-          After=network-online.target
-          Wants=network-online.target
-
-          [Service]
-          Type=oneshot
-          ExecStart=/usr/local/sbin/kloigos-ip-aliases
-          RemainAfterExit=yes
-
-          [Install]
-          WantedBy=multi-user.target
-        dest: /etc/systemd/system/kloigos-ip-aliases.service
-
-    - name: enable and apply kloigos IP aliases
-      shell: |
-        systemctl daemon-reload
-        systemctl enable kloigos-ip-aliases.service
-        systemctl restart kloigos-ip-aliases.service
-
-    - name: Create a ext4 filesystem
-      shell: |
-        blkid {{ item }} -t TYPE="ext4" || mkfs.ext4 {{ item }}
-      loop: "{{ disks.stdout_lines }}"
 
     - name: create directory for delegate.conf
       shell: |

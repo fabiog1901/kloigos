@@ -187,10 +187,9 @@
             <th @click="toggleComputeSort(1)" :class="computeSortClass(1)">Compute ID</th>
             <th @click="toggleComputeSort(2)" :class="computeSortClass(2)">Region</th>
             <th @click="toggleComputeSort(3)" :class="computeSortClass(3)">Hostname</th>
-            <th @click="toggleComputeSort(4)" :class="computeSortClass(4)">Private IP</th>
-            <th @click="toggleComputeSort(5)" :class="computeSortClass(5)">CPUs</th>
-            <th @click="toggleComputeSort(8)" :class="computeSortClass(8)">Started</th>
-            <th @click="toggleComputeSort(9)" :class="computeSortClass(9)">Status</th>
+            <th @click="toggleComputeSort(4)" :class="computeSortClass(4)">CPUs</th>
+            <th @click="toggleComputeSort(5)" :class="computeSortClass(5)">Started</th>
+            <th @click="toggleComputeSort(6)" :class="computeSortClass(6)">Status</th>
           </tr>
         </thead>
 
@@ -216,7 +215,6 @@
               </td>
               <td x-text="(row.region || '-') + '-' + (row.zone || '-')"></td>
               <td x-text="row.hostname || '-'"></td>
-              <td x-text="row.private_ip || '-'"></td>
               <td x-text="row.cpu_count ?? '-'"></td>
               <td x-text="toUtcStringMaybe(row.started_at)"></td>
               <td>
@@ -228,7 +226,7 @@
           </template>
 
           <tr x-show="!computeLoading.list && computeVisibleRows.length === 0">
-            <td colspan="8" class="empty-cell">No compute units found.</td>
+            <td colspan="7" class="empty-cell">No compute units found.</td>
           </tr>
         </tbody>
       </table>
@@ -596,7 +594,7 @@
     <div class="section-head kloigos-subhead">
       <div>
         <h2>Compute Units</h2>
-        <p>CPU ranges and IP aliases to create on this server.</p>
+        <p>CPU ranges and storage slots to create on this server.</p>
       </div>
       <button class="btn" @click="addServerInitComputeUnit()">Add Unit</button>
     </div>
@@ -606,8 +604,6 @@
         <div class="kloigos-unit-row">
           <div class="kloigos-unit-index" x-text="index + 1"></div>
           <input class="input" x-model="unit.cpu_range" placeholder="0-3" />
-          <input class="input" x-model="unit.private_ip" placeholder="10.0.0.101" />
-          <input class="input" x-model="unit.public_ip" placeholder="public IP optional" />
           <button class="btn danger" :disabled="modal.serverInit.compute_units.length <= 1" @click="removeServerInitComputeUnit(index)">Remove</button>
         </div>
       </template>

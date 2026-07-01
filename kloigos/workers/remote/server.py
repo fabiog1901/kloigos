@@ -35,8 +35,6 @@ def _init_compute_units(sir: ServerInitRequest) -> list[InitComputeUnit]:
                 cpu_range=cu.cpu_range,
                 cpu_set=cpu_set,
                 cpu_count=len(cpu_set.split(",")),
-                private_ip=cu.private_ip,
-                public_ip=cu.public_ip,
             )
         )
     return units
@@ -61,6 +59,7 @@ def run_server_init(
             "server_public_ip": payload.public_ip,
             "ansible_host": _ansible_host(payload.public_ip, payload.private_ip),
             "server_admin_user": payload.server_admin_user,
+            "disk_size_gb": payload.disk_size_gb,
             "compute_units": [cu.as_playbook_vars() for cu in compute_units],
         },
     )

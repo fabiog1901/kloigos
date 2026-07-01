@@ -59,9 +59,7 @@ async def init_server(
       "compute_units": [
         {
           "ordinal": 1,
-          "cpu_range": "0-1",
-          "private_ip": "10.0.0.101",
-          "public_ip": "3.0.0.1"
+          "cpu_range": "0-1"
         }
       ]
     }

@@ -423,13 +423,12 @@ class PostgresRepo(CPKitRepo):
                 """
                 INSERT INTO compute_units (
                     hostname, ordinal, cpu_range, cpu_count, 
-                    cpu_set, private_ip, public_ip,
+                    cpu_set,
                     status, started_at, tags
                 ) 
                 VALUES (
                     %s, %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s, %s
+                    %s, %s, %s, %s
                 )
                 ON CONFLICT DO NOTHING
                 """,
@@ -439,8 +438,6 @@ class PostgresRepo(CPKitRepo):
                     cudb.cpu_range,
                     cudb.cpu_count,
                     cudb.cpu_set,
-                    cudb.private_ip,
-                    cudb.public_ip,
                     cudb.status,
                     cudb.started_at,
                     cudb.tags,
@@ -531,8 +528,6 @@ class PostgresRepo(CPKitRepo):
                     s.region,
                     s.zone,
                     c.cpu_set,
-                    c.private_ip,
-                    c.public_ip,
                     c.cpu_count,
                     c.status,
                     c.started_at,
@@ -560,8 +555,6 @@ class PostgresRepo(CPKitRepo):
             available_cu.region,
             available_cu.zone,
             compute_units.cpu_set,
-            compute_units.private_ip,
-            compute_units.public_ip,
             compute_units.cpu_count,
             compute_units.status,
             compute_units.started_at,
@@ -632,8 +625,6 @@ class PostgresRepo(CPKitRepo):
                 s.region,
                 s.zone,
                 c.cpu_set,
-                c.private_ip,
-                c.public_ip,
                 c.cpu_count,
                 c.status,
                 c.started_at,

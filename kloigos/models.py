@@ -180,8 +180,6 @@ class ComputeUnitInDB(BaseModel):
     cpu_range: str
     cpu_count: int
     cpu_set: str
-    private_ip: str
-    public_ip: str | None = None
     status: str
     started_at: dt.datetime | None = None
     tags: dict[str, Any] | None = None
@@ -192,8 +190,6 @@ class InitComputeUnit(BaseModel):
     cpu_range: str
     cpu_set: str
     cpu_count: int
-    private_ip: str
-    public_ip: str | None = None
 
     def as_playbook_vars(self) -> dict:
         return {
@@ -201,8 +197,6 @@ class InitComputeUnit(BaseModel):
             "cpu_range": self.cpu_range,
             "cpu_set": self.cpu_set,
             "cpu_count": self.cpu_count,
-            "private_ip": self.private_ip,
-            "public_ip": self.public_ip,
         }
 
     def as_compute_unit(self, hostname: str) -> ComputeUnitInDB:
@@ -213,8 +207,6 @@ class InitComputeUnit(BaseModel):
             cpu_range=self.cpu_range,
             cpu_count=self.cpu_count,
             cpu_set=self.cpu_set,
-            private_ip=self.private_ip,
-            public_ip=self.public_ip,
             status=ComputeUnitStatus.FREE,
         )
 
@@ -332,8 +324,6 @@ class ServerInDB(BaseServer):
 class ServerComputeUnitInitSpec(BaseModel):
     ordinal: int = Field(gt=0)
     cpu_range: str
-    private_ip: str
-    public_ip: str | None = None
 
 
 class ServerInitRequest(BaseServer):
@@ -347,16 +337,6 @@ class ServerInitRequest(BaseServer):
         ordinals = [cu.ordinal for cu in self.compute_units]
         if len(set(ordinals)) != len(ordinals):
             raise ValueError("compute_units ordinals must be unique.")
-
-        private_ips = [cu.private_ip for cu in self.compute_units]
-        if len(set(private_ips)) != len(private_ips):
-            raise ValueError("compute_units private_ip values must be unique.")
-
-        public_ips = [
-            cu.public_ip for cu in self.compute_units if cu.public_ip is not None
-        ]
-        if len(set(public_ips)) != len(public_ips):
-            raise ValueError("compute_units public_ip values must be unique.")
 
         seen_cpus: set[int] = set()
         for cu in self.compute_units:

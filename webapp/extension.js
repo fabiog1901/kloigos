@@ -100,10 +100,9 @@ window.cpkitWebappExtension = {
       1: "string",
       2: "string",
       3: "string",
-      4: "ip",
-      5: "number",
-      8: "date",
-      9: "string",
+      4: "number",
+      5: "date",
+      6: "string",
     },
     computeLoading: {
       list: false,
@@ -149,7 +148,7 @@ window.cpkitWebappExtension = {
         disk_count: null,
         disk_size_gb: null,
         tagsText: "{}",
-        compute_units: [{ ordinal: 1, cpu_range: "0-3", private_ip: "", public_ip: "" }],
+        compute_units: [{ ordinal: 1, cpu_range: "0-3" }],
       },
       licenseStatus: { open: false, yaml: "" },
     },
@@ -536,8 +535,6 @@ window.cpkitWebappExtension = {
       return [
         row.compute_id,
         row.hostname,
-        row.private_ip,
-        row.public_ip,
         row.server_private_ip,
         row.server_public_ip,
         row.region,
@@ -559,12 +556,10 @@ window.cpkitWebappExtension = {
         case 3:
           return row.hostname || "";
         case 4:
-          return row.private_ip || "";
-        case 5:
           return row.cpu_count ?? "";
-        case 8:
+        case 5:
           return row.started_at || "";
-        case 9:
+        case 6:
           return row.status || "";
         default:
           return "";
@@ -916,8 +911,6 @@ window.cpkitWebappExtension = {
       this.modal.serverInit.compute_units.push({
         ordinal,
         cpu_range: `${start}-${start + 3}`,
-        private_ip: "",
-        public_ip: "",
       });
     },
 
@@ -955,8 +948,6 @@ window.cpkitWebappExtension = {
         compute_units: this.modal.serverInit.compute_units.map((unit, index) => ({
           ordinal: index + 1,
           cpu_range: String(unit.cpu_range || "").trim(),
-          private_ip: String(unit.private_ip || "").trim(),
-          public_ip: String(unit.public_ip || "").trim() || null,
         })),
       };
 
@@ -965,8 +956,8 @@ window.cpkitWebappExtension = {
       }
       if (payload.compute_units.length === 0) throw new Error("At least one compute unit is required.");
       for (const unit of payload.compute_units) {
-        if (!unit.cpu_range || !unit.private_ip) {
-          throw new Error("Each compute unit needs a CPU range and private IP.");
+        if (!unit.cpu_range) {
+          throw new Error("Each compute unit needs a CPU range.");
         }
       }
       return payload;

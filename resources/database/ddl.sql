@@ -22,20 +22,13 @@ CREATE TABLE compute_units (
     cpu_range TEXT NOT NULL,
     cpu_count INT2 NOT NULL,
     cpu_set TEXT NOT NULL,
-    private_ip TEXT NOT NULL,
-    public_ip TEXT NULL,
     STATUS TEXT NOT NULL,
     started_at TIMESTAMPTZ NULL,
     tags JSONB NULL,
     CONSTRAINT pk_compute_units PRIMARY KEY (compute_id),
     CONSTRAINT uq_compute_units_hostname_ordinal UNIQUE (hostname, ordinal),
-    CONSTRAINT uq_compute_units_hostname_private_ip UNIQUE (hostname, private_ip),
     CONSTRAINT hostname_in_servers FOREIGN KEY (hostname) REFERENCES servers(hostname) ON UPDATE CASCADE ON DELETE CASCADE
 );
-
-CREATE UNIQUE INDEX uq_compute_units_public_ip
-ON compute_units (public_ip)
-WHERE public_ip IS NOT NULL;
 
 CREATE TABLE ip_pool (
     ip_address TEXT NOT NULL,
