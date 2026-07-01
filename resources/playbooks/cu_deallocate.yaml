@@ -8,6 +8,7 @@
 #   server_private_ip
 #   server_public_ip
 #   login_user
+#   compute_unit_storage_mount_path
 #
 - name: GATHER COMPUTE UNITS TO DEALLOCATE
   hosts: localhost
@@ -25,6 +26,7 @@
         server_public_ip: "{{ server_public_ip | default('', true) }}"
         login_user: "{{ login_user }}"
         private_ip: "{{ private_ip }}"
+        compute_unit_storage_mount_path: "{{ compute_unit_storage_mount_path }}"
 
         groups: dealloc
 
@@ -66,9 +68,13 @@
 
     - name: remove all files from the compute_unit
       shell: |
+        set -euo pipefail
         rm -rf /home/{{ login_user }}/*
         rm -rf /opt/{{ login_user }}/*
         rm -rf /mnt/{{ login_user }}/*
+        sed -i '\#{{ compute_unit_storage_mount_path }} /mnt/{{ login_user }} none bind 0 0#d' /etc/fstab
+        umount /mnt/{{ login_user }} || true
+        rmdir /mnt/{{ login_user }} || true
 
     - name: recreate .ssh with safe perms (empty, no keys)
       shell: |

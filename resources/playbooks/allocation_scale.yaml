@@ -20,6 +20,7 @@
 #   source_ansible_host
 #   source_server_private_ip
 #   source_server_public_ip
+#   source_storage_mount_path
 #   login_user
 #   source_cpu_range
 #   source_cpu_set
@@ -28,6 +29,7 @@
 #   target_ansible_host
 #   target_server_private_ip
 #   target_server_public_ip
+#   target_storage_mount_path
 #   login_user
 #   target_cpu_range
 #   target_cpu_set
@@ -48,6 +50,7 @@
         server_private_ip: "{{ source_server_private_ip }}"
         server_public_ip: "{{ source_server_public_ip | default('', true) }}"
         login_user: "{{ login_user }}"
+        source_storage_mount_path: "{{ source_storage_mount_path }}"
         groups: scale_source
 
     - name: Build target host inventory dynamically
@@ -59,6 +62,7 @@
         server_private_ip: "{{ target_server_private_ip }}"
         server_public_ip: "{{ target_server_public_ip | default('', true) }}"
         login_user: "{{ login_user }}"
+        target_storage_mount_path: "{{ target_storage_mount_path }}"
         target_cpu_set: "{{ target_cpu_set }}"
         cpu_count: "{{ target_cpu_count }}"
         groups: scale_target
@@ -90,13 +94,12 @@
         set -euo pipefail
         mkdir -p /home/{{ login_user }}/.ssh
         mkdir -p /opt/{{ login_user }}
-        mkdir -p /mnt/{{ login_user }}
         chown -R {{ login_user }}:{{ login_user }} /home/{{ login_user }}
         chown -R {{ login_user }}:{{ login_user }} /opt/{{ login_user }}
-        chown -R {{ login_user }}:{{ login_user }} /mnt/{{ login_user }}
+        chown -R {{ login_user }}:{{ login_user }} {{ target_storage_mount_path }}
         chmod 0750 /home/{{ login_user }}
         chmod 0750 /opt/{{ login_user }}
-        chmod 0750 /mnt/{{ login_user }}
+        chmod 0750 {{ target_storage_mount_path }}
       args:
         executable: /bin/bash
 
@@ -191,7 +194,7 @@
         set -euo pipefail
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ ubuntu@{{ target_ansible_host }}:/home/{{ login_user }}/
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ ubuntu@{{ target_ansible_host }}:/opt/{{ login_user }}/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ ubuntu@{{ target_ansible_host }}:/mnt/{{ login_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ ubuntu@{{ target_ansible_host }}:{{ target_storage_mount_path }}/
       args:
         executable: /bin/bash
 
@@ -232,7 +235,7 @@
         set -euo pipefail
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ ubuntu@{{ target_ansible_host }}:/home/{{ login_user }}/
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ ubuntu@{{ target_ansible_host }}:/opt/{{ login_user }}/
-        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ ubuntu@{{ target_ansible_host }}:/mnt/{{ login_user }}/
+        rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ ubuntu@{{ target_ansible_host }}:{{ target_storage_mount_path }}/
       args:
         executable: /bin/bash
 
@@ -268,6 +271,9 @@
         rm -rf /home/{{ login_user }}/*
         rm -rf /opt/{{ login_user }}/*
         rm -rf /mnt/{{ login_user }}/*
+        sed -i '\#{{ source_storage_mount_path }} /mnt/{{ login_user }} none bind 0 0#d' /etc/fstab
+        umount /mnt/{{ login_user }} || true
+        rmdir /mnt/{{ login_user }} || true
         mkdir -p /home/{{ login_user }}/.ssh
         chown {{ login_user }}:{{ login_user }} /home/{{ login_user }}/.ssh
         chmod 700 /home/{{ login_user }}/.ssh
@@ -293,9 +299,23 @@
     - name: Make target file ownership match target compute-unit user
       shell: |
         set -euo pipefail
+        mkdir -p /mnt/{{ login_user }}
+        if findmnt -n /mnt/{{ login_user }} >/dev/null 2>&1; then
+          current_source="$(findmnt -n -o SOURCE --target /mnt/{{ login_user }})"
+          if [ "$current_source" != "{{ target_storage_mount_path }}" ]; then
+            echo "/mnt/{{ login_user }} is already mounted from $current_source, expected {{ target_storage_mount_path }}." >&2
+            exit 1
+          fi
+        else
+          mount --bind {{ target_storage_mount_path }} /mnt/{{ login_user }}
+        fi
+        sed -i '\#{{ source_storage_mount_path }} /mnt/{{ login_user }} none bind 0 0#d' /etc/fstab
+        grep -Eq "^[^#].*[[:space:]]/mnt/{{ login_user }}[[:space:]]+none[[:space:]]+bind" /etc/fstab || \
+          echo "{{ target_storage_mount_path }} /mnt/{{ login_user }} none bind 0 0" >> /etc/fstab
         chown -R {{ login_user }}:{{ login_user }} /home/{{ login_user }}
         chown -R {{ login_user }}:{{ login_user }} /opt/{{ login_user }}
         chown -R {{ login_user }}:{{ login_user }} /mnt/{{ login_user }}
+        chmod 0750 /mnt/{{ login_user }}
       args:
         executable: /bin/bash
 

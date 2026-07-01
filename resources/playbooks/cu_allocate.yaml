@@ -11,6 +11,7 @@
 #   private_ip
 #   public_ip
 #   login_user
+#   compute_unit_storage_mount_path
 #   cpu_range
 #   cpu_set
 #   cpu_count
@@ -34,6 +35,7 @@
         private_ip: "{{ private_ip }}"
         public_ip: "{{ public_ip | default('', true) }}"
         login_user: "{{ login_user }}"
+        compute_unit_storage_mount_path: "{{ compute_unit_storage_mount_path }}"
         cpu_set: "{{ cpu_set }}"
         cpu_count: "{{ cpu_count }}"
         groups: new_alloc
@@ -55,16 +57,45 @@
       shell: |
         set -euo pipefail
         mkdir -p /opt/{{ login_user }}
-        mkdir -p /mnt/{{ login_user }}
         mkdir -p /home/{{ login_user }}
         mkdir -p /home/{{ login_user }}/.ssh
         chown -R {{ login_user }}:{{ login_user }} /opt/{{ login_user }}
-        chown -R {{ login_user }}:{{ login_user }} /mnt/{{ login_user }}
         chown -R {{ login_user }}:{{ login_user }} /home/{{ login_user }}
         chmod 0750 /opt/{{ login_user }}
-        chmod 0750 /mnt/{{ login_user }}
         chmod 0750 /home/{{ login_user }}
         chmod 0700 /home/{{ login_user }}/.ssh
+      args:
+        executable: /bin/bash
+
+    - name: Mount compute unit storage for allocation
+      shell: |
+        set -euo pipefail
+        SRC="{{ compute_unit_storage_mount_path }}"
+        DST="/mnt/{{ login_user }}"
+
+        if [ ! -d "$SRC" ]; then
+          echo "Compute unit storage path $SRC does not exist or is not mounted." >&2
+          exit 1
+        fi
+        if ! findmnt -T "$SRC" >/dev/null 2>&1; then
+          echo "Compute unit storage path $SRC is not on a mounted filesystem." >&2
+          exit 1
+        fi
+
+        mkdir -p "$DST"
+        if findmnt -n "$DST" >/dev/null 2>&1; then
+          current_source="$(findmnt -n -o SOURCE --target "$DST")"
+          if [ "$current_source" != "$SRC" ]; then
+            echo "$DST is already mounted from $current_source, expected $SRC." >&2
+            exit 1
+          fi
+        else
+          mount --bind "$SRC" "$DST"
+        fi
+        grep -Eq "^[^#].*[[:space:]]${DST}[[:space:]]+none[[:space:]]+bind" /etc/fstab || \
+          echo "${SRC} ${DST} none bind 0 0" >> /etc/fstab
+        chown -R {{ login_user }}:{{ login_user }} "$DST"
+        chmod 0750 "$DST"
       args:
         executable: /bin/bash
 

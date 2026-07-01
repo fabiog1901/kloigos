@@ -41,6 +41,10 @@ def _get_allocation(repo, allocation_id: str) -> AllocationInDB:
     return matches[0]
 
 
+def _storage_mount_path(cu: ComputeUnitOverview) -> str:
+    return f"/mnt/kloigos/{cu.hostname}/cu{cu.ordinal:02d}"
+
+
 def run_compute_unit_allocate(
     job_id: int,
     payload: AllocationCreateCommand,
@@ -73,6 +77,7 @@ def run_compute_unit_allocate(
                 "allocation_id": allocation.allocation_id,
                 "login_user": allocation.login_user,
                 "allocation_ip_address": allocation.ip_address,
+                "compute_unit_storage_mount_path": _storage_mount_path(cu),
                 "cpu_range": cu.cpu_range,
                 "cpu_set": cu.cpu_set,
                 "cpu_count": cu.cpu_count,
@@ -163,6 +168,7 @@ def run_compute_unit_deallocate(
                 "allocation_id": allocation.allocation_id,
                 "login_user": allocation.login_user,
                 "allocation_ip_address": allocation.ip_address,
+                "compute_unit_storage_mount_path": _storage_mount_path(cu),
                 "cpu_set": cu.cpu_set,
             },
         )
@@ -282,6 +288,7 @@ def run_allocation_scale(
                 ),
                 "source_server_private_ip": source.server_private_ip,
                 "source_server_public_ip": source.server_public_ip,
+                "source_storage_mount_path": _storage_mount_path(source),
                 "source_cpu_range": source.cpu_range,
                 "source_cpu_set": source.cpu_set,
                 "target_compute_id": target.compute_id,
@@ -292,6 +299,7 @@ def run_allocation_scale(
                 ),
                 "target_server_private_ip": target.server_private_ip,
                 "target_server_public_ip": target.server_public_ip,
+                "target_storage_mount_path": _storage_mount_path(target),
                 "target_cpu_range": target.cpu_range,
                 "target_cpu_set": target.cpu_set,
                 "target_cpu_count": target.cpu_count,
