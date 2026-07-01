@@ -40,6 +40,13 @@ def _init_compute_units(sir: ServerInitRequest) -> list[InitComputeUnit]:
     return units
 
 
+def _playbook_audit_details(result) -> dict:
+    return {
+        "playbook_name": result.playbook_name,
+        "playbook_version": result.playbook_version,
+    }
+
+
 def run_server_init(
     job_id: int,
     payload: ServerInitRequest,
@@ -53,6 +60,7 @@ def run_server_init(
         repo=repo,
         job_id=job_id,
         playbook_name=Playbook.SERVER_INIT.value,
+        audit_actor=actor_id,
         extra_vars={
             "hostname": payload.hostname,
             "server_private_ip": payload.private_ip,
@@ -64,6 +72,10 @@ def run_server_init(
         },
     )
     job_ok = result.status == "successful"
+    details = {
+        **payload.model_dump(),
+        "playbook": _playbook_audit_details(result),
+    }
 
     if job_ok:
         for cu in compute_units:
@@ -76,7 +88,7 @@ def run_server_init(
         repo,
         actor_id,
         Event.SERVER_INIT_DONE if job_ok else Event.SERVER_INIT_FAILED,
-        payload.model_dump(),
+        details,
     )
     if not job_ok:
         raise ServerStateError(f"Server initialization job '{job_id}' failed.")
@@ -98,6 +110,7 @@ def run_server_decommission(
         repo=repo,
         job_id=job_id,
         playbook_name=Playbook.SERVER_DECOMM.value,
+        audit_actor=actor_id,
         extra_vars={
             "hostname": srv.hostname,
             "server_private_ip": srv.private_ip,
@@ -107,6 +120,10 @@ def run_server_decommission(
         },
     )
     job_ok = result.status == "successful"
+    details = {
+        **srv.model_dump(),
+        "playbook": _playbook_audit_details(result),
+    }
 
     repo.server_update_status(
         srv.hostname,
@@ -117,7 +134,7 @@ def run_server_decommission(
         repo,
         actor_id,
         Event.SERVER_DECOMM_DONE if job_ok else Event.SERVER_DECOMM_FAILED,
-        srv.model_dump(),
+        details,
     )
     if not job_ok:
         raise ServerStateError(f"Server decommission job '{job_id}' failed.")

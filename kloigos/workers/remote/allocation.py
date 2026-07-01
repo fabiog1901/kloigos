@@ -45,6 +45,13 @@ def _storage_mount_path(cu: ComputeUnitOverview) -> str:
     return f"/mnt/kloigos/{cu.hostname}/cu{cu.ordinal:02d}"
 
 
+def _playbook_audit_details(result) -> dict:
+    return {
+        "playbook_name": result.playbook_name,
+        "playbook_version": result.playbook_version,
+    }
+
+
 def run_compute_unit_allocate(
     job_id: int,
     payload: AllocationCreateCommand,
@@ -65,6 +72,7 @@ def run_compute_unit_allocate(
             repo=repo,
             job_id=job_id,
             playbook_name=Playbook.CU_ALLOCATE.value,
+            audit_actor=actor_id,
             extra_vars={
                 "compute_id": cu.compute_id,
                 "hostname": cu.hostname,
@@ -86,6 +94,7 @@ def run_compute_unit_allocate(
             },
         )
         job_ok = result.status == "successful"
+        details["playbook"] = _playbook_audit_details(result)
     except Exception as exc:
         details["error"] = f"Unhandled exception during allocation playbook: {exc}"
         logging.exception(
@@ -157,6 +166,7 @@ def run_compute_unit_deallocate(
             repo=repo,
             job_id=job_id,
             playbook_name=Playbook.CU_DEALLOCATE.value,
+            audit_actor=actor_id,
             extra_vars={
                 "compute_id": cu.compute_id,
                 "hostname": cu.hostname,
@@ -175,6 +185,7 @@ def run_compute_unit_deallocate(
             },
         )
         job_ok = result.status == "successful"
+        details["playbook"] = _playbook_audit_details(result)
     except Exception as exc:
         details["error"] = f"Unhandled exception during deallocation playbook: {exc}"
         logging.exception(
@@ -277,6 +288,7 @@ def run_allocation_scale(
             repo=repo,
             job_id=job_id,
             playbook_name=Playbook.CU_ALLOCATION_SCALE.value,
+            audit_actor=actor_id,
             extra_vars={
                 "allocation_id": allocation.allocation_id,
                 "login_user": allocation.login_user,
@@ -310,6 +322,7 @@ def run_allocation_scale(
             },
         )
         job_ok = result.status == "successful"
+        details["playbook"] = _playbook_audit_details(result)
     except Exception as exc:
         job_ok = False
         details["error"] = f"Unhandled exception during scale playbook: {exc}"
