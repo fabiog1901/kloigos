@@ -276,7 +276,7 @@ def run_allocation_scale(
         result = run_playbook(
             repo=repo,
             job_id=job_id,
-            playbook_name=Playbook.ALLOCATION_SCALE.value,
+            playbook_name=Playbook.CU_ALLOCATION_SCALE.value,
             extra_vars={
                 "allocation_id": allocation.allocation_id,
                 "login_user": allocation.login_user,

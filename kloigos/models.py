@@ -119,7 +119,7 @@ class Playbook(AutoNameStrEnum):
     # compute unit level statuses
     CU_ALLOCATE = auto()
     CU_DEALLOCATE = auto()
-    ALLOCATION_SCALE = auto()
+    CU_ALLOCATION_SCALE = auto()
     SERVER_INIT = auto()
     SERVER_DECOMM = auto()
 

@@ -83,7 +83,9 @@ INSERT INTO cpkit.playbooks (name, content, created_by, default_version, updated
 VALUES
     ('CU_ALLOCATE'     , NULL, 'system', now():::TIMESTAMPTZ, 'system'),
     ('CU_DEALLOCATE'   , NULL, 'system', now():::TIMESTAMPTZ, 'system'),
-    ('ALLOCATION_SCALE', NULL, 'system', now():::TIMESTAMPTZ, 'system'),
+    ('CU_ALLOCATION_SCALE', NULL, 'system', now():::TIMESTAMPTZ, 'system'),
     ('SERVER_DECOMM'   , NULL, 'system', now():::TIMESTAMPTZ, 'system'),
     ('SERVER_INIT'     , NULL, 'system', now():::TIMESTAMPTZ, 'system')
 ;
+
+
