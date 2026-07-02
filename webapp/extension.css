@@ -7,6 +7,10 @@
   min-height: 0;
 }
 
+.kloigos-ip-pool-table {
+  min-width: 980px;
+}
+
 .kloigos-metric-label {
   color: var(--muted);
   font-size: 12px;

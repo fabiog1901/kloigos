@@ -5,7 +5,6 @@ from ...models import (
     Event,
     IpAddressStatus,
     IpPoolAddressInDB,
-    IpPoolAllocateRequest,
     IpPoolInsertRequest,
 )
 from .base import AdminServiceBase
@@ -62,31 +61,6 @@ class IpPoolAdminService(AdminServiceBase):
 
         return self.repo.get_ip_pool_addresses()
 
-    def allocate_ip_pool_address(
-        self,
-        actor_id: str,
-        allocation_id: str,
-        req: IpPoolAllocateRequest,
-    ) -> IpPoolAddressInDB | None:
-        self.repo.update_ip_pool_address(
-            ip_address=req.ip_address,
-            status=IpAddressStatus.ALLOCATED,
-            allocation_id=allocation_id,
-        )
-
-        log_event(
-            self.repo,
-            actor_id,
-            Event.IP_POOL_ALLOCATE,
-            {
-                "allocation_id": allocation_id,
-                **req.model_dump(),
-            },
-        )
-
-        matches = self.repo.get_ip_pool_addresses(ip_address=req.ip_address)
-        return matches[0] if matches else None
-
     def delete_ip_pool_address(
         self,
         actor_id: str,
@@ -115,31 +89,3 @@ class IpPoolAdminService(AdminServiceBase):
                 existing.model_dump(),
             )
         return deleted
-
-    def release_ip_pool_address(
-        self,
-        actor_id: str,
-        allocation_id: str,
-    ) -> IpPoolAddressInDB | None:
-        matches = self.repo.get_ip_pool_addresses(allocation_id=allocation_id)
-        if not matches:
-            return None
-
-        ip_address = matches[0].ip_address
-        self.repo.release_ip_pool_address(
-            ip_address=ip_address,
-            status=IpAddressStatus.FREE,
-        )
-
-        log_event(
-            self.repo,
-            actor_id,
-            Event.IP_POOL_RELEASE,
-            {
-                "allocation_id": allocation_id,
-                "ip_address": ip_address,
-            },
-        )
-
-        matches = self.repo.get_ip_pool_addresses(ip_address=ip_address)
-        return matches[0] if matches else None

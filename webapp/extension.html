@@ -51,8 +51,9 @@
       <div class="timestamp">Updated <span x-text="allocationsLastUpdatedUtc || '-'"></span></div>
     </div>
 
-    <div class="table-wrap kloigos-table-wrap">
-      <table>
+    <div class="table-container events-table-container kloigos-table-wrap">
+      <div class="table-scroll events-table-scroll">
+        <table class="data-table events-table">
         <thead>
           <tr>
             <th @click="toggleAllocationsSort(0)" :class="allocationSortClass(0)">Allocation ID</th>
@@ -129,7 +130,8 @@
             <td colspan="9" class="empty-cell">No allocations found.</td>
           </tr>
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   </section>
 </main>
@@ -179,8 +181,9 @@
       <div class="timestamp">Updated <span x-text="computeLastUpdatedUtc || '-'"></span></div>
     </div>
 
-    <div class="table-wrap kloigos-table-wrap">
-      <table>
+    <div class="table-container events-table-container kloigos-table-wrap">
+      <div class="table-scroll events-table-scroll">
+        <table class="data-table events-table">
         <thead>
           <tr>
             <th @click="toggleComputeSort(0)" :class="computeSortClass(0)">Allocation ID</th>
@@ -229,7 +232,8 @@
             <td colspan="7" class="empty-cell">No compute units found.</td>
           </tr>
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   </section>
 </main>
@@ -280,8 +284,9 @@
       <div class="timestamp">Updated <span x-text="serversLastUpdatedUtc || '-'"></span></div>
     </div>
 
-    <div class="table-wrap kloigos-table-wrap">
-      <table>
+    <div class="table-container events-table-container kloigos-table-wrap">
+      <div class="table-scroll events-table-scroll">
+        <table class="data-table events-table">
         <thead>
           <tr>
             <th @click="toggleServersSort(0)" :class="serversSortClass(0)">Hostname</th>
@@ -342,7 +347,8 @@
             <td colspan="12" class="empty-cell">No servers found.</td>
           </tr>
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   </section>
 </main>
@@ -352,6 +358,110 @@
     <div class="metric kloigos-empty-state">
       <h2>Not authorized</h2>
       <p class="muted">Servers is available only to CP_ADMIN users.</p>
+    </div>
+  </section>
+</main>
+
+<main class="layout" x-show="view === 'ip_pool' && canViewKloigosAdmin()">
+  <aside class="sidebar">
+    <section>
+      <h2>Summary</h2>
+      <div class="metric">
+        <div class="metric-label">Total IPs</div>
+        <div class="metric-value" x-text="ipPool.length"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Actions</h2>
+      <div class="metric button-stack">
+        <button class="btn" @click="refreshIpPool()" :disabled="ipPoolLoading.list">
+          <span x-show="!ipPoolLoading.list">Refresh</span>
+          <span x-show="ipPoolLoading.list">Loading...</span>
+        </button>
+        <button class="btn primary" @click="openIpPoolAddModal()">Add New</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Filter</h2>
+      <input
+        type="search"
+        class="input"
+        placeholder="IP, status, allocation, host..."
+        x-model="ipPoolFilterQuery"
+        @input="persistIpPoolFilter(); applyIpPoolFilterSort();"
+      />
+    </section>
+  </aside>
+
+  <section class="main events-main">
+    <div class="main-header">
+      <div class="main-header-left">
+        <div class="main-title">IP Pool</div>
+        <div class="main-subtitle">Floating IP addresses available to allocations.</div>
+      </div>
+      <div class="main-actions">
+        <div class="pill">Updated (UTC): <span x-text="ipPoolLastUpdatedUtc || '-'"></span></div>
+      </div>
+    </div>
+
+    <div class="table-container events-table-container">
+      <div class="table-scroll events-table-scroll">
+        <table class="data-table events-table kloigos-ip-pool-table">
+          <thead>
+            <tr>
+              <th data-sort="ip" :class="ipPoolSortClass(0)" @click="toggleIpPoolSort(0)">IP Address</th>
+              <th data-sort="string" :class="ipPoolSortClass(1)" @click="toggleIpPoolSort(1)">Status</th>
+              <th data-sort="string" :class="ipPoolSortClass(2)" @click="toggleIpPoolSort(2)">Allocation</th>
+              <th data-sort="string" :class="ipPoolSortClass(3)" @click="toggleIpPoolSort(3)">Host</th>
+              <th data-sort="date" :class="ipPoolSortClass(4)" @click="toggleIpPoolSort(4)">Created</th>
+              <th data-sort="date" :class="ipPoolSortClass(5)" @click="toggleIpPoolSort(5)">Updated</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <template x-for="row in ipPoolVisibleRows" :key="String(row.ip_address)">
+              <tr>
+                <td><span class="ip-pill" x-text="row.ip_address"></span></td>
+                <td>
+                  <span class="status-pill" :class="ipPoolStatusClass(row.status)">
+                    <span x-text="String(row.status || 'unknown').toUpperCase()"></span>
+                  </span>
+                </td>
+                <td x-text="row.allocation_id || '-'"></td>
+                <td x-text="row.current_host || '-'"></td>
+                <td x-text="toUtcStringMaybe(row.created_at)"></td>
+                <td x-text="toUtcStringMaybe(row.updated_at)"></td>
+                <td>
+                  <div class="row-actions compact">
+                    <button
+                      class="icon-btn"
+                      title="Delete IP address"
+                      :disabled="!ipPoolCanDelete(row) || ipPoolBusyKey === row.ip_address"
+                      @click="openIpPoolDeleteConfirm(row)"
+                    >x</button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+
+            <tr x-show="!ipPoolLoading.list && ipPoolVisibleRows.length === 0">
+              <td colspan="7" class="empty-cell">No IP addresses found.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<main class="layout" x-show="view === 'ip_pool' && !canViewKloigosAdmin()">
+  <section class="main">
+    <div class="metric kloigos-empty-state">
+      <h2>Not authorized</h2>
+      <p class="muted">IP Pool is available only to CP_ADMIN users.</p>
     </div>
   </section>
 </main>
@@ -489,6 +599,52 @@
     <pre class="json-panel small" x-text="formatJson(modal.serverDetails.row || {})"></pre>
     <div class="modal-actions">
       <button class="btn" @click="closeServerDetails()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" x-show="modal.ipPoolAdd.open" @click.self="closeIpPoolAddModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Add IP Addresses</h2>
+      <button class="icon-btn" @click="closeIpPoolAddModal()">x</button>
+    </div>
+    <div class="notice danger" x-show="modalError.ipPoolAdd" x-text="modalError.ipPoolAdd"></div>
+    <label class="field-label">IP Addresses</label>
+    <textarea
+      class="input kloigos-textarea"
+      x-model="modal.ipPoolAdd.ipAddressesText"
+      spellcheck="false"
+      placeholder="192.168.1.201&#10;192.168.1.202"
+    ></textarea>
+    <div class="modal-actions">
+      <button class="btn" @click="closeIpPoolAddModal()">Cancel</button>
+      <button class="btn primary" :disabled="ipPoolLoading.insert" @click="insertIpPoolAddresses()">
+        <span x-show="!ipPoolLoading.insert">Add</span>
+        <span x-show="ipPoolLoading.insert">Working...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" x-show="modal.ipPoolDeleteConfirm.open" @click.self="closeIpPoolDeleteConfirm()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Confirm Delete IP</h2>
+      <button class="icon-btn" @click="closeIpPoolDeleteConfirm()">x</button>
+    </div>
+    <div class="notice danger" x-show="modalError.ipPoolDeleteConfirm" x-text="modalError.ipPoolDeleteConfirm"></div>
+    <p class="muted">
+      <span>This will permanently remove </span>
+      <span class="kloigos-chip" x-text="modal.ipPoolDeleteConfirm.ip_address"></span>
+      <span> from the pool.</span>
+    </p>
+    <div class="modal-actions">
+      <button class="btn" @click="closeIpPoolDeleteConfirm()">Cancel</button>
+      <button class="btn danger" :disabled="ipPoolLoading.delete" @click="deleteIpPoolAddress()">
+        <span x-show="!ipPoolLoading.delete">Delete</span>
+        <span x-show="ipPoolLoading.delete">Working...</span>
+      </button>
     </div>
   </div>
 </div>

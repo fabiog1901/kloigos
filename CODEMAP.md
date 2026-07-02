@@ -22,7 +22,7 @@ python tools/codemap.py --write
 
 | Package | Modules | Classes | Functions | Routes |
 | --- | ---: | ---: | ---: | ---: |
-| `kloigos` | 26 | 50 | 27 | 16 |
+| `kloigos` | 26 | 49 | 25 | 14 |
 
 ## API Routes
 
@@ -36,8 +36,6 @@ python tools/codemap.py --write
 | `GET` | `/compute_units` | `kloigos.api.compute_unit.list_compute_units` | `list[ComputeUnitOverview]` |
 | `GET` | `/ip_pool` | `kloigos.api.admin.ip_pool.list_ip_pool_addresses` | `list[IpPoolAddressInDB]` |
 | `POST` | `/ip_pool` | `kloigos.api.admin.ip_pool.insert_ip_pool_addresses` | `list[IpPoolAddressInDB]` |
-| `PATCH` | `/ip_pool/{allocation_id}` | `kloigos.api.admin.ip_pool.release_ip_pool_address` | `-` |
-| `PUT` | `/ip_pool/{allocation_id}` | `kloigos.api.admin.ip_pool.allocate_ip_pool_address` | `IpPoolAddressInDB` |
 | `DELETE` | `/ip_pool/{ip_address}` | `kloigos.api.admin.ip_pool.delete_ip_pool_address` | `-` |
 | `GET` | `/license/status` | `kloigos.api.admin.license.get_license_status` | `LicenseStatusResponse` |
 | `GET` | `/servers` | `kloigos.api.admin.servers.list_servers` | `list[ServerInDB]` |
@@ -56,14 +54,14 @@ python tools/codemap.py --write
 | `kloigos/__init__.py` | no public surface |
 | `kloigos/api/__init__.py` | no public surface |
 | `kloigos/api/admin/__init__.py` | no public surface |
-| `kloigos/api/admin/ip_pool.py` | functions: list_ip_pool_addresses, insert_ip_pool_addresses, allocate_ip_pool_address, delete_ip_pool_address, release_ip_pool_address; routes: 5 |
+| `kloigos/api/admin/ip_pool.py` | functions: list_ip_pool_addresses, insert_ip_pool_addresses, delete_ip_pool_address; routes: 3 |
 | `kloigos/api/admin/license.py` | functions: get_license_status; routes: 1 |
 | `kloigos/api/admin/servers.py` | functions: list_servers, init_server, decommission_server, delete_server; routes: 4 |
 | `kloigos/api/allocation.py` | functions: list_allocations, allocate, get_allocation, deallocate_allocation, scale_allocation; routes: 5 |
 | `kloigos/api/compute_unit.py` | functions: list_compute_units; routes: 1 |
 | `kloigos/dep.py` | functions: get_allocation_service, get_compute_unit_service, get_admin_service, get_license_service |
 | `kloigos/main.py` | no public surface |
-| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, ServerNotFoundError, ServerStateError, MissingLicenseError, InvalidTokenError, UnknownSigningKeyError, InvalidSignatureError, ExpiredLicenseError, FeatureNotLicensedError, Event, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, ComputeUnitRequest, AllocationCreateCommand, AllocationCreateResponse, AllocationDeallocateCommand, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolInsertRequest, IpPoolAllocateRequest, ValidatedLicense, LicenseStatusResponse, BaseServer, ServerInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
+| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, ServerNotFoundError, ServerStateError, MissingLicenseError, InvalidTokenError, UnknownSigningKeyError, InvalidSignatureError, ExpiredLicenseError, FeatureNotLicensedError, Event, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, ComputeUnitRequest, AllocationCreateCommand, AllocationCreateResponse, AllocationDeallocateCommand, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolInsertRequest, ValidatedLicense, LicenseStatusResponse, BaseServer, ServerInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
 | `kloigos/repos/__init__.py` | classes: Repo |
 | `kloigos/repos/postgres.py` | classes: PostgresRepo |
 | `kloigos/services/__init__.py` | no public surface |

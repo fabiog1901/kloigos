@@ -110,8 +110,6 @@ class Event(AutoNameStrEnum):
     ALLOCATION_SCALE_DONE = auto()
     ALLOCATION_SCALE_FAILED = auto()
     IP_POOL_INSERT = auto()
-    IP_POOL_ALLOCATE = auto()
-    IP_POOL_RELEASE = auto()
     IP_POOL_DELETE = auto()
 
 
@@ -281,10 +279,6 @@ class IpPoolAddressInDB(BaseModel):
 
 class IpPoolInsertRequest(BaseModel):
     ip_addresses: list[str] = Field(min_length=1)
-
-
-class IpPoolAllocateRequest(BaseModel):
-    ip_address: str
 
 
 class ValidatedLicense(BaseModel):

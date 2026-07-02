@@ -7,6 +7,14 @@ window.cpkitWebappExtension = {
   ],
   adminItems: [
     {
+      view: "ip_pool",
+      label: "IP Pool",
+      kicker: "Networking",
+      description: "Manage floating IP addresses available to allocations.",
+      icon: "network",
+      countKey: "ipPool",
+    },
+    {
       view: "license_status",
       label: "View License",
       kicker: "Enterprise",
@@ -32,6 +40,13 @@ window.cpkitWebappExtension = {
       label: "Servers",
       subtitle: "Kloigos server inventory and lifecycle",
       ensure: "ensureKloigosServersView",
+    },
+    ip_pool: {
+      path: "/admin/ip-pool",
+      label: "IP Pool",
+      subtitle: "Floating IP address pool",
+      ensure: "ensureIpPoolView",
+      adminOnly: true,
     },
     license_status: {
       path: "/admin/license",
@@ -109,6 +124,26 @@ window.cpkitWebappExtension = {
     },
     computeAutoRefreshEnabled: true,
     _computeAutoTimer: null,
+    ipPool: [],
+    ipPoolVisibleRows: [],
+    ipPoolFilterQuery: "",
+    ipPoolLastUpdatedUtc: null,
+    ipPoolSortIndex: 0,
+    ipPoolSortDir: "asc",
+    ipPoolSortTypeByIndex: {
+      0: "ip",
+      1: "string",
+      2: "string",
+      3: "string",
+      4: "date",
+      5: "date",
+    },
+    ipPoolLoading: {
+      list: false,
+      insert: false,
+      delete: false,
+    },
+    ipPoolBusyKey: null,
     modal: {
       allocate: {
         open: false,
@@ -151,6 +186,8 @@ window.cpkitWebappExtension = {
         compute_units: [{ ordinal: 1, cpu_range: "0-3" }],
       },
       licenseStatus: { open: false, yaml: "" },
+      ipPoolAdd: { open: false, ipAddressesText: "" },
+      ipPoolDeleteConfirm: { open: false, ip_address: "" },
     },
     modalError: {
       allocate: "",
@@ -159,15 +196,19 @@ window.cpkitWebappExtension = {
       serverActionConfirm: "",
       serverInit: "",
       licenseStatus: "",
+      ipPoolAdd: "",
+      ipPoolDeleteConfirm: "",
     },
   },
   async init() {
     this.restoreAllocationsLocalState();
     this.restoreComputeLocalState();
     this.restoreServersLocalState();
+    this.restoreIpPoolLocalState();
     if (this.view === "allocations") await this.ensureAllocationsView();
     if (this.view === "compute_units") await this.ensureComputeUnitsView();
     if (this.view === "kloigos_servers") await this.ensureKloigosServersView();
+    if (this.view === "ip_pool") await this.ensureIpPoolView();
     this.setManagedInterval("_allocationsAutoTimer", () => {
       if (this.allocationsAutoRefreshEnabled && this.view === "allocations") {
         this.refreshAllocations();
@@ -221,6 +262,18 @@ window.cpkitWebappExtension = {
       if (filter !== null) this.computeFilterQuery = filter;
     },
 
+    restoreIpPoolLocalState() {
+      const sortIndex = localStorage.getItem("kloigos_ip_pool_sort_index");
+      const sortDir = localStorage.getItem("kloigos_ip_pool_sort_dir");
+      const filter = localStorage.getItem("kloigos_ip_pool_filter");
+
+      if (sortIndex !== null && !Number.isNaN(Number(sortIndex))) {
+        this.ipPoolSortIndex = Number(sortIndex);
+      }
+      if (sortDir === "asc" || sortDir === "desc") this.ipPoolSortDir = sortDir;
+      if (filter !== null) this.ipPoolFilterQuery = filter;
+    },
+
     async ensureAllocationsView() {
       if (this.allocations.length === 0 && !this.allocationsLoading.list) {
         await this.refreshAllocations();
@@ -234,6 +287,18 @@ window.cpkitWebappExtension = {
         await this.refreshComputeUnits();
       } else {
         this.applyComputeFilterSort();
+      }
+    },
+
+    async ensureIpPoolView() {
+      if (!this.canViewKloigosAdmin()) {
+        this.viewNotice = "IP Pool requires CP_ADMIN.";
+        return;
+      }
+      if (this.ipPool.length === 0 && !this.ipPoolLoading.list) {
+        await this.refreshIpPool();
+      } else {
+        this.applyIpPoolFilterSort();
       }
     },
 
@@ -253,6 +318,25 @@ window.cpkitWebappExtension = {
         this.viewNotice = this.errorMessage(error, "Failed to load allocations.");
       } finally {
         this.allocationsLoading.list = false;
+      }
+    },
+
+    async refreshIpPool() {
+      this.ipPoolLoading.list = true;
+      try {
+        const data = await this.apiFetch("/admin/ip_pool/", { method: "GET" });
+        this.ipPool = Array.isArray(data)
+          ? data.map((row) => ({
+              ...row,
+              ip_address: row.ip_address === undefined || row.ip_address === null ? "" : String(row.ip_address),
+            }))
+          : [];
+        this.ipPoolLastUpdatedUtc = this.utcNowString();
+        this.applyIpPoolFilterSort();
+      } catch (error) {
+        this.viewNotice = this.errorMessage(error, "Failed to load IP pool.");
+      } finally {
+        this.ipPoolLoading.list = false;
       }
     },
 
@@ -526,6 +610,157 @@ window.cpkitWebappExtension = {
 
     persistComputeFilter() {
       localStorage.setItem("kloigos_compute_filter", this.computeFilterQuery || "");
+    },
+
+    persistIpPoolFilter() {
+      localStorage.setItem("kloigos_ip_pool_filter", this.ipPoolFilterQuery || "");
+    },
+
+    ipPoolRowText(row) {
+      return [
+        row.ip_address,
+        row.status,
+        row.allocation_id,
+        row.current_host,
+        row.created_at,
+        row.updated_at,
+      ].filter(Boolean).join(" ").toLowerCase();
+    },
+
+    ipPoolCellText(row, colIndex) {
+      switch (colIndex) {
+        case 0:
+          return row.ip_address || "";
+        case 1:
+          return row.status || "";
+        case 2:
+          return row.allocation_id || "";
+        case 3:
+          return row.current_host || "";
+        case 4:
+          return row.created_at || "";
+        case 5:
+          return row.updated_at || "";
+        default:
+          return "";
+      }
+    },
+
+    ipPoolSortClass(index) {
+      if (this.ipPoolSortIndex !== index) return "";
+      return this.ipPoolSortDir === "asc" ? "sort-asc" : "sort-desc";
+    },
+
+    toggleIpPoolSort(index) {
+      if (this.ipPoolSortIndex === index) {
+        this.ipPoolSortDir = this.ipPoolSortDir === "asc" ? "desc" : "asc";
+      } else {
+        this.ipPoolSortIndex = index;
+        this.ipPoolSortDir = "asc";
+      }
+      localStorage.setItem("kloigos_ip_pool_sort_index", String(this.ipPoolSortIndex));
+      localStorage.setItem("kloigos_ip_pool_sort_dir", this.ipPoolSortDir);
+      this.applyIpPoolFilterSort();
+    },
+
+    applyIpPoolFilterSort() {
+      const query = (this.ipPoolFilterQuery || "").toLowerCase().trim();
+      let rows = this.ipPool.slice();
+      if (query) rows = rows.filter((row) => this.ipPoolRowText(row).includes(query));
+
+      if (this.ipPoolSortIndex !== null) {
+        const index = this.ipPoolSortIndex;
+        const dir = this.ipPoolSortDir;
+        const type = this.ipPoolSortTypeByIndex[index] || "string";
+        rows.sort((left, right) => {
+          const leftValue = this.parseComputeSortValue(type, this.ipPoolCellText(left, index));
+          const rightValue = this.parseComputeSortValue(type, this.ipPoolCellText(right, index));
+          if (leftValue < rightValue) return dir === "asc" ? -1 : 1;
+          if (leftValue > rightValue) return dir === "asc" ? 1 : -1;
+          return 0;
+        });
+      }
+
+      this.ipPoolVisibleRows = rows;
+    },
+
+    ipPoolStatusClass(status) {
+      const normalized = String(status || "").toLowerCase();
+      if (normalized === "free") return "success";
+      if (normalized === "reserved" || normalized === "allocated") return "pending";
+      if (normalized === "unavailable") return "neutral";
+      if (!normalized || normalized === "unknown") return "neutral";
+      return "danger";
+    },
+
+    ipPoolCanDelete(row) {
+      return String(row?.status || "").toLowerCase() === "free";
+    },
+
+    openIpPoolAddModal() {
+      this.modal.ipPoolAdd.ipAddressesText = "";
+      this.modalError.ipPoolAdd = "";
+      this.modal.ipPoolAdd.open = true;
+    },
+
+    closeIpPoolAddModal() {
+      this.modal.ipPoolAdd.open = false;
+      this.modalError.ipPoolAdd = "";
+    },
+
+    parseIpPoolAddressesInput(text) {
+      return String(text || "")
+        .split(/[\s,]+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    },
+
+    async insertIpPoolAddresses() {
+      this.ipPoolLoading.insert = true;
+      this.modalError.ipPoolAdd = "";
+      try {
+        const ipAddresses = this.parseIpPoolAddressesInput(this.modal.ipPoolAdd.ipAddressesText);
+        if (ipAddresses.length === 0) throw new Error("Enter at least one IP address.");
+        await this.apiFetch("/admin/ip_pool/", {
+          method: "POST",
+          body: { ip_addresses: ipAddresses },
+        });
+        this.closeIpPoolAddModal();
+        await this.refreshIpPool();
+      } catch (error) {
+        this.modalError.ipPoolAdd = this.errorMessage(error, "Failed to add IP addresses.");
+      } finally {
+        this.ipPoolLoading.insert = false;
+      }
+    },
+
+    openIpPoolDeleteConfirm(row) {
+      this.modal.ipPoolDeleteConfirm.ip_address = String(row?.ip_address || "");
+      this.modalError.ipPoolDeleteConfirm = "";
+      this.modal.ipPoolDeleteConfirm.open = true;
+    },
+
+    closeIpPoolDeleteConfirm() {
+      this.modal.ipPoolDeleteConfirm.open = false;
+      this.modalError.ipPoolDeleteConfirm = "";
+    },
+
+    async deleteIpPoolAddress() {
+      const ipAddress = String(this.modal.ipPoolDeleteConfirm.ip_address || "").trim();
+      this.ipPoolLoading.delete = true;
+      this.ipPoolBusyKey = ipAddress;
+      this.modalError.ipPoolDeleteConfirm = "";
+      try {
+        if (!ipAddress) throw new Error("IP address is required.");
+        await this.apiFetch(`/admin/ip_pool/${encodeURIComponent(ipAddress)}`, { method: "DELETE" });
+        this.closeIpPoolDeleteConfirm();
+        await this.refreshIpPool();
+      } catch (error) {
+        this.modalError.ipPoolDeleteConfirm = this.errorMessage(error, "Failed to delete IP address.");
+      } finally {
+        this.ipPoolLoading.delete = false;
+        this.ipPoolBusyKey = null;
+      }
     },
 
     computeRowText(row) {
