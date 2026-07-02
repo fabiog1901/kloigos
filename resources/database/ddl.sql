@@ -79,13 +79,15 @@ INSERT INTO cpkit.settings (
 ON CONFLICT (key) DO NOTHING;
 
 -- kloigos specific playbooks. the yaml content is done via the webapp.
+-- the content bytes result in the "---" string.
 INSERT INTO cpkit.playbooks (name, content, created_by, default_version, updated_by)
 VALUES
-    ('CU_ALLOCATE'     , NULL, 'system', now():::TIMESTAMPTZ, 'system'),
-    ('CU_DEALLOCATE'   , NULL, 'system', now():::TIMESTAMPTZ, 'system'),
-    ('CU_ALLOCATION_SCALE', NULL, 'system', now():::TIMESTAMPTZ, 'system'),
-    ('SERVER_DECOMM'   , NULL, 'system', now():::TIMESTAMPTZ, 'system'),
-    ('SERVER_INIT'     , NULL, 'system', now():::TIMESTAMPTZ, 'system')
+    ('CU_ALLOCATE',         '\x1f8b08000000000002ffd3d5d505003b0a21aa03000000', 'system', now():::TIMESTAMPTZ, 'system'),
+    ('CU_DEALLOCATE',       '\x1f8b08000000000002ffd3d5d505003b0a21aa03000000', 'system', now():::TIMESTAMPTZ, 'system'),
+    ('CU_ALLOCATION_SCALE', '\x1f8b08000000000002ffd3d5d505003b0a21aa03000000', 'system', now():::TIMESTAMPTZ, 'system'),
+    ('SERVER_DECOMM',       '\x1f8b08000000000002ffd3d5d505003b0a21aa03000000', 'system', now():::TIMESTAMPTZ, 'system'),
+    ('SERVER_INIT',         '\x1f8b08000000000002ffd3d5d505003b0a21aa03000000', 'system', now():::TIMESTAMPTZ, 'system')
 ;
+
 
 
