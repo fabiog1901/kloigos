@@ -22,21 +22,6 @@ class PostgresRepo(CPKitRepo):
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool: ConnectionPool = pool
 
-    def update_job_details(self, job_id: int, details: dict) -> None:
-        """Merge Kloigos-owned detail fields into a cpkit job description."""
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                UPDATE cpkit.jobs
-                SET description = coalesce(description, '{}'::jsonb) || %s::jsonb
-                WHERE job_id = %s
-                """,
-                (
-                    json.dumps(details, default=str),
-                    job_id,
-                ),
-            )
-
     def server_init_new(
         self,
         sir: ServerInitRequest,

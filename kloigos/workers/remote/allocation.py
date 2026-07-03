@@ -56,12 +56,6 @@ def _model_details(model) -> dict:
     return model.model_dump(mode="json")
 
 
-def _record_playbook_job_details(repo, job_id: int, result) -> dict:
-    playbook = _playbook_audit_details(result)
-    repo.update_job_details(job_id, {"playbook": playbook})
-    return playbook
-
-
 def run_compute_unit_allocate(
     job_id: int,
     payload: AllocationCreateCommand,
@@ -103,7 +97,7 @@ def run_compute_unit_allocate(
             },
         )
         job_ok = result.status == "successful"
-        details["playbook"] = _record_playbook_job_details(repo, job_id, result)
+        details["playbook"] = _playbook_audit_details(result)
     except Exception as exc:
         details["error"] = f"Unhandled exception during allocation playbook: {exc}"
         logging.exception(
@@ -193,7 +187,7 @@ def run_compute_unit_deallocate(
             },
         )
         job_ok = result.status == "successful"
-        details["playbook"] = _record_playbook_job_details(repo, job_id, result)
+        details["playbook"] = _playbook_audit_details(result)
     except Exception as exc:
         details["error"] = f"Unhandled exception during deallocation playbook: {exc}"
         logging.exception(
@@ -329,7 +323,7 @@ def run_allocation_scale(
             },
         )
         job_ok = result.status == "successful"
-        details["playbook"] = _record_playbook_job_details(repo, job_id, result)
+        details["playbook"] = _playbook_audit_details(result)
     except Exception as exc:
         job_ok = False
         details["error"] = f"Unhandled exception during scale playbook: {exc}"
