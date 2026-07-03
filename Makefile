@@ -10,7 +10,7 @@ help: ## Show this help message.
 run: serve ## Run in development mode.
 
 serve: ## Serve the app through the application CLI.
-	exec poetry run kloigos serve --reload
+	poetry run kloigos serve --reload
 
 migrate: ## Apply cpkit and Kloigos database migrations.
 	poetry run kloigos migrate

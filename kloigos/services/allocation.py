@@ -113,13 +113,6 @@ class AllocationService:
         req: ComputeUnitRequest,
     ) -> AllocationCreateResponse:
         """Reserve capacity, create allocation metadata, and queue preparation."""
-        log_event(
-            self.repo,
-            actor_id,
-            Event.CU_ALLOCATION_REQUEST,
-            _model_details(req),
-        )
-
         cu: ComputeUnitOverview = self.repo.lock_compute_unit(
             compute_id=req.compute_id,
             region=req.region,
@@ -269,7 +262,7 @@ class AllocationService:
         log_event(
             self.repo,
             actor_id,
-            Event.CU_DEALLOCATION_REQUEST,
+            Event.DEALLOCATION_REQUEST,
             {"compute_id": cu.compute_id, "allocation_id": allocation_id},
         )
 

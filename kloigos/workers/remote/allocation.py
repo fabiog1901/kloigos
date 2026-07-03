@@ -108,7 +108,7 @@ def run_compute_unit_allocate(
     final_status = (
         ComputeUnitStatus.ALLOCATED if job_ok else ComputeUnitStatus.ALLOCATION_FAIL
     )
-    final_event = Event.CU_ALLOCATION_DONE if job_ok else Event.CU_ALLOCATION_FAILED
+    final_event = Event.ALLOCATION_CREATE_DONE if job_ok else Event.ALLOCATION_CREATE_FAILED
     final_allocation_status = (
         AllocationStatus.ALLOCATED if job_ok else AllocationStatus.ALLOCATION_FAIL
     )
@@ -137,12 +137,6 @@ def run_compute_unit_allocate(
         )
 
     log_event(repo, actor_id, final_event, details)
-    log_event(
-        repo,
-        actor_id,
-        Event.ALLOCATION_CREATE_DONE if job_ok else Event.ALLOCATION_CREATE_FAILED,
-        details,
-    )
     if not job_ok:
         raise ComputeUnitOperationError(
             f"Compute unit allocation job '{job_id}' failed."
@@ -198,7 +192,9 @@ def run_compute_unit_deallocate(
     final_status = (
         ComputeUnitStatus.FREE if job_ok else ComputeUnitStatus.DEALLOCATION_FAIL
     )
-    final_event = Event.CU_DEALLOCATION_DONE if job_ok else Event.CU_DEALLOCATION_FAILED
+    final_event = (
+        Event.DEALLOCATION_DONE if job_ok else Event.DEALLOCATION_FAILED
+    )
 
     try:
         repo.update_compute_unit(cu.compute_id, status=final_status)
