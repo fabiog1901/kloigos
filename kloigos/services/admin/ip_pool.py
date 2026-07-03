@@ -10,6 +10,10 @@ from ...models import (
 from .base import AdminServiceBase
 
 
+def _model_details(model) -> dict:
+    return model.model_dump(mode="json")
+
+
 class IpPoolAdminService(AdminServiceBase):
     def list_ip_pool_addresses(
         self,
@@ -56,7 +60,7 @@ class IpPoolAdminService(AdminServiceBase):
             self.repo,
             actor_id,
             Event.IP_POOL_INSERT,
-            req.model_dump(),
+            _model_details(req),
         )
 
         return self.repo.get_ip_pool_addresses()
@@ -86,6 +90,6 @@ class IpPoolAdminService(AdminServiceBase):
                 self.repo,
                 actor_id,
                 Event.IP_POOL_DELETE,
-                existing.model_dump(),
+                _model_details(existing),
             )
         return deleted

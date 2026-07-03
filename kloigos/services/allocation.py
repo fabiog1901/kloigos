@@ -28,6 +28,11 @@ from kloigos.models import (
 
 from ..repos import Repo
 
+
+def _model_details(model) -> dict:
+    return model.model_dump(mode="json")
+
+
 LOGIN_USER_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 RESERVED_LOGIN_USERS = {
     "root",
@@ -112,7 +117,7 @@ class AllocationService:
             self.repo,
             actor_id,
             Event.CU_ALLOCATION_REQUEST,
-            req.model_dump(),
+            _model_details(req),
         )
 
         cu: ComputeUnitOverview = self.repo.lock_compute_unit(
@@ -161,7 +166,7 @@ class AllocationService:
                 self.repo,
                 actor_id,
                 Event.ALLOCATION_CREATE_REQUEST,
-                allocation.model_dump(),
+                _model_details(allocation),
             )
             self.repo.insert_allocation(allocation)
             self.repo.update_ip_pool_address(
@@ -233,9 +238,9 @@ class AllocationService:
                 actor_id,
                 Event.ALLOCATION_CREATE_FAILED,
                 {
-                    **cu.model_dump(),
-                    "request": req.model_dump(),
-                    "ip_address": ip_address.model_dump() if ip_address else None,
+                    **_model_details(cu),
+                    "request": _model_details(req),
+                    "ip_address": _model_details(ip_address) if ip_address else None,
                     "error": "Failed to persist allocation metadata before scheduling the allocation job.",
                 },
             )
@@ -329,7 +334,7 @@ class AllocationService:
 
         command = AllocationScaleCommand(
             allocation_id=allocation_id,
-            **req.model_dump(),
+            **_model_details(req),
         )
         self.repo.update_allocation(
             allocation_id,
@@ -339,7 +344,7 @@ class AllocationService:
             self.repo,
             actor_id,
             Event.ALLOCATION_SCALE_REQUEST,
-            command.model_dump(),
+            _model_details(command),
         )
         try:
             return self.repo.enqueue_command(

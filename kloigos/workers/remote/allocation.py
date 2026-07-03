@@ -52,6 +52,16 @@ def _playbook_audit_details(result) -> dict:
     }
 
 
+def _model_details(model) -> dict:
+    return model.model_dump(mode="json")
+
+
+def _record_playbook_job_details(repo, job_id: int, result) -> dict:
+    playbook = _playbook_audit_details(result)
+    repo.update_job_details(job_id, {"playbook": playbook})
+    return playbook
+
+
 def run_compute_unit_allocate(
     job_id: int,
     payload: AllocationCreateCommand,
@@ -62,8 +72,8 @@ def run_compute_unit_allocate(
     cu = _get_compute_unit(repo, payload.compute_id)
     allocation = _get_allocation(repo, payload.allocation_id)
     details = {
-        **cu.model_dump(),
-        "allocation": allocation.model_dump(),
+        **_model_details(cu),
+        "allocation": _model_details(allocation),
     }
     job_ok = False
 
@@ -72,7 +82,6 @@ def run_compute_unit_allocate(
             repo=repo,
             job_id=job_id,
             playbook_name=Playbook.CU_ALLOCATE.value,
-            audit_actor=actor_id,
             extra_vars={
                 "compute_id": cu.compute_id,
                 "hostname": cu.hostname,
@@ -94,7 +103,7 @@ def run_compute_unit_allocate(
             },
         )
         job_ok = result.status == "successful"
-        details["playbook"] = _playbook_audit_details(result)
+        details["playbook"] = _record_playbook_job_details(repo, job_id, result)
     except Exception as exc:
         details["error"] = f"Unhandled exception during allocation playbook: {exc}"
         logging.exception(
@@ -156,8 +165,8 @@ def run_compute_unit_deallocate(
     cu = _get_compute_unit(repo, payload.compute_id)
     allocation = _get_allocation(repo, payload.allocation_id)
     details = {
-        **cu.model_dump(),
-        "allocation": allocation.model_dump(),
+        **_model_details(cu),
+        "allocation": _model_details(allocation),
     }
     job_ok = False
 
@@ -166,7 +175,6 @@ def run_compute_unit_deallocate(
             repo=repo,
             job_id=job_id,
             playbook_name=Playbook.CU_DEALLOCATE.value,
-            audit_actor=actor_id,
             extra_vars={
                 "compute_id": cu.compute_id,
                 "hostname": cu.hostname,
@@ -185,7 +193,7 @@ def run_compute_unit_deallocate(
             },
         )
         job_ok = result.status == "successful"
-        details["playbook"] = _playbook_audit_details(result)
+        details["playbook"] = _record_playbook_job_details(repo, job_id, result)
     except Exception as exc:
         details["error"] = f"Unhandled exception during deallocation playbook: {exc}"
         logging.exception(
@@ -226,8 +234,8 @@ def run_compute_unit_deallocate(
             cu.compute_id,
             final_status,
         )
-
     log_event(repo, actor_id, final_event, details)
+
     if not job_ok:
         raise ComputeUnitOperationError(
             f"Compute unit deallocation job '{job_id}' failed."
@@ -267,9 +275,9 @@ def run_allocation_scale(
     except Exception as exc:
         details = {
             "job_id": job_id,
-            "allocation": allocation.model_dump(),
-            "source_compute_unit": source.model_dump(),
-            "request": payload.model_dump(),
+            "allocation": _model_details(allocation),
+            "source_compute_unit": _model_details(source),
+            "request": _model_details(payload),
             "error": str(exc),
         }
         log_event(repo, actor_id, Event.ALLOCATION_SCALE_FAILED, details)
@@ -277,10 +285,10 @@ def run_allocation_scale(
 
     details = {
         "job_id": job_id,
-        "allocation": allocation.model_dump(),
-        "source_compute_unit": source.model_dump(),
-        "target_compute_unit": target.model_dump(),
-        "request": payload.model_dump(),
+        "allocation": _model_details(allocation),
+        "source_compute_unit": _model_details(source),
+        "target_compute_unit": _model_details(target),
+        "request": _model_details(payload),
     }
 
     try:
@@ -288,7 +296,6 @@ def run_allocation_scale(
             repo=repo,
             job_id=job_id,
             playbook_name=Playbook.CU_ALLOCATION_SCALE.value,
-            audit_actor=actor_id,
             extra_vars={
                 "allocation_id": allocation.allocation_id,
                 "login_user": allocation.login_user,
@@ -322,7 +329,7 @@ def run_allocation_scale(
             },
         )
         job_ok = result.status == "successful"
-        details["playbook"] = _playbook_audit_details(result)
+        details["playbook"] = _record_playbook_job_details(repo, job_id, result)
     except Exception as exc:
         job_ok = False
         details["error"] = f"Unhandled exception during scale playbook: {exc}"

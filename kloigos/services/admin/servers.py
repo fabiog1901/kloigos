@@ -13,6 +13,11 @@ from ...models import (
 )
 from .base import AdminServiceBase
 
+
+def _model_details(model) -> dict:
+    return model.model_dump(mode="json")
+
+
 DELETABLE_SERVER_STATUSES = {
     ServerStatus.DECOMMISSIONED.value,
     ServerStatus.INIT_FAIL.value,
@@ -26,7 +31,7 @@ class ServersAdminService(AdminServiceBase):
             self.repo,
             actor_id,
             Event.SERVER_INIT_REQUEST,
-            sir.model_dump(),
+            _model_details(sir),
         )
 
         self.repo.server_init_new(sir, ServerStatus.INITIALIZING)
@@ -47,7 +52,7 @@ class ServersAdminService(AdminServiceBase):
             self.repo,
             actor_id,
             Event.SERVER_DECOMM_REQUEST,
-            sdr.model_dump(),
+            _model_details(sdr),
         )
 
         self.repo.server_update_status(sdr.hostname, ServerStatus.DECOMMISSIONING)

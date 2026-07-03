@@ -47,6 +47,16 @@ def _playbook_audit_details(result) -> dict:
     }
 
 
+def _model_details(model) -> dict:
+    return model.model_dump(mode="json")
+
+
+def _record_playbook_job_details(repo, job_id: int, result) -> dict:
+    playbook = _playbook_audit_details(result)
+    repo.update_job_details(job_id, {"playbook": playbook})
+    return playbook
+
+
 def run_server_init(
     job_id: int,
     payload: ServerInitRequest,
@@ -60,7 +70,6 @@ def run_server_init(
         repo=repo,
         job_id=job_id,
         playbook_name=Playbook.SERVER_INIT.value,
-        audit_actor=actor_id,
         extra_vars={
             "hostname": payload.hostname,
             "server_private_ip": payload.private_ip,
@@ -73,8 +82,8 @@ def run_server_init(
     )
     job_ok = result.status == "successful"
     details = {
-        **payload.model_dump(),
-        "playbook": _playbook_audit_details(result),
+        **_model_details(payload),
+        "playbook": _record_playbook_job_details(repo, job_id, result),
     }
 
     if job_ok:
@@ -110,7 +119,6 @@ def run_server_decommission(
         repo=repo,
         job_id=job_id,
         playbook_name=Playbook.SERVER_DECOMM.value,
-        audit_actor=actor_id,
         extra_vars={
             "hostname": srv.hostname,
             "server_private_ip": srv.private_ip,
@@ -121,8 +129,8 @@ def run_server_decommission(
     )
     job_ok = result.status == "successful"
     details = {
-        **srv.model_dump(),
-        "playbook": _playbook_audit_details(result),
+        **_model_details(srv),
+        "playbook": _record_playbook_job_details(repo, job_id, result),
     }
 
     repo.server_update_status(
