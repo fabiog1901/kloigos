@@ -209,10 +209,7 @@ class AllocationService:
                         allocation.allocation_id,
                         status=AllocationStatus.ALLOCATION_FAIL,
                     )
-                    self.repo.clear_ip_pool_host(
-                        allocation.ip_address,
-                        status=IpAddressStatus.RESERVED,
-                    )
+                    self.repo.release_ip_pool_address(allocation.ip_address)
                 elif ip_address:
                     self.repo.release_ip_pool_address(ip_address.ip_address)
                 self.repo.update_compute_unit(

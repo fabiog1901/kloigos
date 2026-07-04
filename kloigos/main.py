@@ -30,11 +30,13 @@ def build_kloigos_audit_log_record(
     event_type: str,
     metadata: dict[str, Any] | None,
     request_id: str | None,
+    job_id: int | None,
     default_metadata: dict[str, Any] | None = None,
 ) -> AuditLogRecord:
     return AuditLogRecord(
         user_id=actor_id,
         action=event_type,
+        job_id=job_id,
         details=metadata if metadata is not None else default_metadata,
         request_id=(str(request_id).strip() or None) if request_id else None,
     )

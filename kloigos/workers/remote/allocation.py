@@ -203,10 +203,7 @@ def run_compute_unit_deallocate(
                 allocation.allocation_id,
                 status=AllocationStatus.DEALLOCATED,
             )
-            repo.clear_ip_pool_host(
-                allocation.ip_address,
-                status=IpAddressStatus.ALLOCATED,
-            )
+            repo.release_ip_pool_address(allocation.ip_address)
         else:
             repo.update_allocation(
                 allocation.allocation_id,
