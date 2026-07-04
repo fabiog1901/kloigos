@@ -143,6 +143,8 @@ window.cpkitWebappExtension = {
       insert: false,
       delete: false,
     },
+    ipPoolAutoRefreshEnabled: true,
+    _ipPoolAutoTimer: null,
     ipPoolBusyKey: null,
     _kloigosNoticeTimer: null,
     modal: {
@@ -226,6 +228,11 @@ window.cpkitWebappExtension = {
         this.refreshServers();
       }
     }, 15000);
+    this.setManagedInterval("_ipPoolAutoTimer", () => {
+      if (this.ipPoolAutoRefreshEnabled && this.view === "ip_pool") {
+        this.refreshIpPool();
+      }
+    }, 5000);
   },
   methods: {
     kloigosInstallNoticeHooks() {
@@ -342,7 +349,7 @@ window.cpkitWebappExtension = {
         this.kloigosShowNotice("IP Pool requires CP_ADMIN.");
         return;
       }
-      if (this.ipPool.length === 0 && !this.ipPoolLoading.list) {
+      if (!this.ipPoolLoading.list) {
         await this.refreshIpPool();
       } else {
         this.applyIpPoolFilterSort();

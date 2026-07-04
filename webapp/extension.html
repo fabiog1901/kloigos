@@ -97,7 +97,7 @@
                   <span x-text="String(row.status || 'unknown').toUpperCase()"></span>
                 </span>
               </td>
-              <td x-text="toUtcStringMaybe(row.updated_at)"></td>
+              <td x-text="formatDateTime(row.updated_at)"></td>
               <td>
                 <div class="row-actions compact">
                   <template x-if="canManageAllocations() && allocationCanScale(row)">
@@ -219,7 +219,7 @@
               <td x-text="(row.region || '-') + '-' + (row.zone || '-')"></td>
               <td x-text="row.hostname || '-'"></td>
               <td x-text="row.cpu_count ?? '-'"></td>
-              <td x-text="toUtcStringMaybe(row.started_at)"></td>
+              <td x-text="formatDateTime(row.started_at)"></td>
               <td>
                 <span class="status-pill" :class="computeStatusClass(row.status)">
                   <span x-text="String(row.status || 'unknown').toUpperCase()"></span>
@@ -380,6 +380,10 @@
           <span x-show="ipPoolLoading.list">Loading...</span>
         </button>
         <button class="btn primary" @click="openIpPoolAddModal()">Add New</button>
+        <label class="check-row">
+          <input type="checkbox" x-model="ipPoolAutoRefreshEnabled" />
+          Auto-refresh
+        </label>
       </div>
     </section>
 
@@ -432,8 +436,8 @@
                 </td>
                 <td x-text="row.allocation_id || '-'"></td>
                 <td x-text="row.current_host || '-'"></td>
-                <td x-text="toUtcStringMaybe(row.created_at)"></td>
-                <td x-text="toUtcStringMaybe(row.updated_at)"></td>
+                <td x-text="formatDateTime(row.created_at)"></td>
+                <td x-text="formatDateTime(row.updated_at)"></td>
                 <td>
                   <div class="row-actions compact">
                     <button

@@ -196,7 +196,7 @@ class AllocationService:
                 tags=req.tags or {},
             )
             job: JobID = self.repo.enqueue_command(
-                QueueCommand.CU_ALLOCATE,
+                QueueCommand.ALLOCATION_CREATE,
                 AllocationCreateCommand(
                     allocation_id=allocation.allocation_id,
                     compute_id=cu.compute_id,
@@ -247,9 +247,15 @@ class AllocationService:
                 actor_id,
                 Event.ALLOCATION_CREATE_FAILED,
                 {
-                    "allocation_id": allocation.allocation_id if allocation else req.allocation_id,
-                    "login_user": allocation.login_user if allocation else req.login_user,
-                    "ip_address": ip_address.ip_address if ip_address else req.ip_address,
+                    "allocation_id": (
+                        allocation.allocation_id if allocation else req.allocation_id
+                    ),
+                    "login_user": (
+                        allocation.login_user if allocation else req.login_user
+                    ),
+                    "ip_address": (
+                        ip_address.ip_address if ip_address else req.ip_address
+                    ),
                     "compute_id": cu.compute_id,
                     "hostname": cu.hostname,
                     "cpu_count": cu.cpu_count,
@@ -320,7 +326,7 @@ class AllocationService:
             ) from exc
 
         return self.repo.enqueue_command(
-            QueueCommand.CU_DEALLOCATE,
+            QueueCommand.ALLOCATION_DELETE,
             AllocationDeallocateCommand(
                 allocation_id=allocation.allocation_id,
                 compute_id=cu.compute_id,

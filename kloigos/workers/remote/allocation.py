@@ -101,7 +101,7 @@ def run_compute_unit_allocate(
         result = run_playbook(
             repo=repo,
             job_id=job_id,
-            playbook_name=Playbook.CU_ALLOCATE.value,
+            playbook_name=Playbook.ALLOCATION_CREATE.value,
             extra_vars={
                 "compute_id": cu.compute_id,
                 "hostname": cu.hostname,
@@ -134,7 +134,9 @@ def run_compute_unit_allocate(
     final_status = (
         ComputeUnitStatus.ALLOCATED if job_ok else ComputeUnitStatus.ALLOCATION_FAIL
     )
-    final_event = Event.ALLOCATION_CREATE_DONE if job_ok else Event.ALLOCATION_CREATE_FAILED
+    final_event = (
+        Event.ALLOCATION_CREATE_DONE if job_ok else Event.ALLOCATION_CREATE_FAILED
+    )
     final_allocation_status = (
         AllocationStatus.ALLOCATED if job_ok else AllocationStatus.ALLOCATION_FAIL
     )
@@ -185,7 +187,7 @@ def run_compute_unit_deallocate(
         result = run_playbook(
             repo=repo,
             job_id=job_id,
-            playbook_name=Playbook.CU_DEALLOCATE.value,
+            playbook_name=Playbook.ALLOCATION_DELETE.value,
             extra_vars={
                 "compute_id": cu.compute_id,
                 "hostname": cu.hostname,
@@ -215,9 +217,7 @@ def run_compute_unit_deallocate(
     final_status = (
         ComputeUnitStatus.FREE if job_ok else ComputeUnitStatus.DEALLOCATION_FAIL
     )
-    final_event = (
-        Event.DEALLOCATION_DONE if job_ok else Event.DEALLOCATION_FAILED
-    )
+    final_event = Event.DEALLOCATION_DONE if job_ok else Event.DEALLOCATION_FAILED
 
     try:
         repo.update_compute_unit(cu.compute_id, status=final_status)
@@ -305,7 +305,7 @@ def run_allocation_scale(
         result = run_playbook(
             repo=repo,
             job_id=job_id,
-            playbook_name=Playbook.CU_ALLOCATION_SCALE.value,
+            playbook_name=Playbook.ALLOCATION_SCALE.value,
             extra_vars={
                 "allocation_id": allocation.allocation_id,
                 "login_user": allocation.login_user,

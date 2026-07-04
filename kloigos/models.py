@@ -112,16 +112,16 @@ class Event(AutoNameStrEnum):
 
 class Playbook(AutoNameStrEnum):
     # compute unit level statuses
-    CU_ALLOCATE = auto()
-    CU_DEALLOCATE = auto()
-    CU_ALLOCATION_SCALE = auto()
+    ALLOCATION_CREATE = auto()
+    ALLOCATION_DELETE = auto()
+    ALLOCATION_SCALE = auto()
     SERVER_INIT = auto()
     SERVER_DECOMM = auto()
 
 
 class QueueCommand(AutoNameStrEnum):
-    CU_ALLOCATE = auto()
-    CU_DEALLOCATE = auto()
+    ALLOCATION_CREATE = auto()
+    ALLOCATION_DELETE = auto()
     ALLOCATION_SCALE = auto()
     SERVER_INIT = auto()
     SERVER_DECOMM = auto()
