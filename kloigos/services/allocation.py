@@ -33,6 +33,29 @@ def _model_details(model) -> dict:
     return model.model_dump(mode="json")
 
 
+def _allocation_audit_details(allocation: AllocationInDB) -> dict:
+    return {
+        "allocation_id": allocation.allocation_id,
+        "login_user": allocation.login_user,
+        "ip_address": allocation.ip_address,
+        "compute_id": allocation.compute_id,
+        "hostname": allocation.current_host,
+        "tags": allocation.tags or {},
+    }
+
+
+def _allocation_request_audit_details(
+    allocation: AllocationInDB,
+    cu: ComputeUnitOverview,
+) -> dict:
+    return {
+        **_allocation_audit_details(allocation),
+        "cpu_count": cu.cpu_count,
+        "region": cu.region,
+        "zone": cu.zone,
+    }
+
+
 LOGIN_USER_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 RESERVED_LOGIN_USERS = {
     "root",
@@ -159,7 +182,7 @@ class AllocationService:
                 self.repo,
                 actor_id,
                 Event.ALLOCATION_CREATE_REQUEST,
-                _model_details(allocation),
+                _allocation_request_audit_details(allocation, cu),
             )
             self.repo.insert_allocation(allocation)
             self.repo.update_ip_pool_address(
@@ -170,11 +193,7 @@ class AllocationService:
             )
             self.repo.update_compute_unit(
                 cu.compute_id,
-                tags={
-                    **(req.tags or {}),
-                    "allocation_id": allocation.allocation_id,
-                    "ip_address": allocation.ip_address,
-                },
+                tags=req.tags or {},
             )
             job: JobID = self.repo.enqueue_command(
                 QueueCommand.CU_ALLOCATE,
@@ -228,9 +247,15 @@ class AllocationService:
                 actor_id,
                 Event.ALLOCATION_CREATE_FAILED,
                 {
-                    **_model_details(cu),
-                    "request": _model_details(req),
-                    "ip_address": _model_details(ip_address) if ip_address else None,
+                    "allocation_id": allocation.allocation_id if allocation else req.allocation_id,
+                    "login_user": allocation.login_user if allocation else req.login_user,
+                    "ip_address": ip_address.ip_address if ip_address else req.ip_address,
+                    "compute_id": cu.compute_id,
+                    "hostname": cu.hostname,
+                    "cpu_count": cu.cpu_count,
+                    "region": cu.region,
+                    "zone": cu.zone,
+                    "tags": req.tags or {},
                     "error": "Failed to persist allocation metadata before scheduling the allocation job.",
                 },
             )
