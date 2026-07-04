@@ -144,6 +144,7 @@ window.cpkitWebappExtension = {
       delete: false,
     },
     ipPoolBusyKey: null,
+    _kloigosNoticeTimer: null,
     modal: {
       allocate: {
         open: false,
@@ -154,7 +155,7 @@ window.cpkitWebappExtension = {
         region: "",
         zone: "",
         compute_id: "",
-        tagsText: "{}",
+        tagPairs: [{ key: "", value: "" }],
         ssh_public_key: "",
       },
       allocationDetails: { open: false, row: null },
@@ -201,6 +202,7 @@ window.cpkitWebappExtension = {
     },
   },
   async init() {
+    this.kloigosInstallNoticeHooks();
     this.restoreAllocationsLocalState();
     this.restoreComputeLocalState();
     this.restoreServersLocalState();
@@ -226,6 +228,51 @@ window.cpkitWebappExtension = {
     }, 15000);
   },
   methods: {
+    kloigosInstallNoticeHooks() {
+      if (this._kloigosNoticeHooksInstalled) return;
+
+      const originalSetView = this.setView.bind(this);
+      this.setView = async (...args) => {
+        this.kloigosClearNotice();
+        return originalSetView(...args);
+      };
+
+      const originalApplyRouteFromHash = this.applyRouteFromHash.bind(this);
+      this.applyRouteFromHash = async (...args) => {
+        const previousView = this.view;
+        const previousJobId = this.selectedJobId;
+        const result = await originalApplyRouteFromHash(...args);
+        if (this.view !== previousView || this.selectedJobId !== previousJobId) {
+          this.kloigosClearNotice();
+        }
+        return result;
+      };
+
+      const originalOpenJob = this.openJob.bind(this);
+      this.openJob = (...args) => {
+        this.kloigosClearNotice();
+        return originalOpenJob(...args);
+      };
+
+      this._kloigosNoticeHooksInstalled = true;
+    },
+
+    kloigosShowNotice(message, jobId = "") {
+      if (this._kloigosNoticeTimer) clearTimeout(this._kloigosNoticeTimer);
+      this.viewNotice = message;
+      this.viewNoticeJobId = jobId ? String(jobId) : "";
+      this._kloigosNoticeTimer = setTimeout(() => {
+        this.kloigosClearNotice();
+      }, 7000);
+    },
+
+    kloigosClearNotice() {
+      if (this._kloigosNoticeTimer) clearTimeout(this._kloigosNoticeTimer);
+      this._kloigosNoticeTimer = null;
+      this.viewNotice = "";
+      this.viewNoticeJobId = "";
+    },
+
     restoreAllocationsLocalState() {
       const sortIndex = localStorage.getItem("kloigos_allocations_sort_index");
       const sortDir = localStorage.getItem("kloigos_allocations_sort_dir");
@@ -292,7 +339,7 @@ window.cpkitWebappExtension = {
 
     async ensureIpPoolView() {
       if (!this.canViewKloigosAdmin()) {
-        this.viewNotice = "IP Pool requires CP_ADMIN.";
+        this.kloigosShowNotice("IP Pool requires CP_ADMIN.");
         return;
       }
       if (this.ipPool.length === 0 && !this.ipPoolLoading.list) {
@@ -315,7 +362,7 @@ window.cpkitWebappExtension = {
         this.allocationsLastUpdatedUtc = this.utcNowString();
         this.applyAllocationsFilterSort();
       } catch (error) {
-        this.viewNotice = this.errorMessage(error, "Failed to load allocations.");
+        this.kloigosShowNotice(this.errorMessage(error, "Failed to load allocations."));
       } finally {
         this.allocationsLoading.list = false;
       }
@@ -334,7 +381,7 @@ window.cpkitWebappExtension = {
         this.ipPoolLastUpdatedUtc = this.utcNowString();
         this.applyIpPoolFilterSort();
       } catch (error) {
-        this.viewNotice = this.errorMessage(error, "Failed to load IP pool.");
+        this.kloigosShowNotice(this.errorMessage(error, "Failed to load IP pool."));
       } finally {
         this.ipPoolLoading.list = false;
       }
@@ -342,7 +389,7 @@ window.cpkitWebappExtension = {
 
     async ensureKloigosServersView() {
       if (!this.canViewKloigosAdmin()) {
-        this.viewNotice = "Servers requires CP_ADMIN.";
+        this.kloigosShowNotice("Servers requires CP_ADMIN.");
         return;
       }
       if (this.servers.length === 0 && !this.serversLoading.list) {
@@ -365,7 +412,7 @@ window.cpkitWebappExtension = {
         this.computeLastUpdatedUtc = this.utcNowString();
         this.applyComputeFilterSort();
       } catch (error) {
-        this.viewNotice = this.errorMessage(error, "Failed to load compute units.");
+        this.kloigosShowNotice(this.errorMessage(error, "Failed to load compute units."));
       } finally {
         this.computeLoading.list = false;
       }
@@ -602,7 +649,7 @@ window.cpkitWebappExtension = {
         this.serversLastUpdatedUtc = this.utcNowString();
         this.applyServersFilterSort();
       } catch (error) {
-        this.viewNotice = this.errorMessage(error, "Failed to load servers.");
+        this.kloigosShowNotice(this.errorMessage(error, "Failed to load servers."));
       } finally {
         this.serversLoading.list = false;
       }
@@ -884,7 +931,7 @@ window.cpkitWebappExtension = {
       this.modal.allocate.region = "";
       this.modal.allocate.zone = "";
       this.modal.allocate.compute_id = computeId ? String(computeId) : "";
-      this.modal.allocate.tagsText = "{}";
+      this.modal.allocate.tagPairs = [{ key: "", value: "" }];
       this.modal.allocate.ssh_public_key = "";
       this.modalError.allocate = "";
       this.modal.allocate.open = true;
@@ -895,15 +942,37 @@ window.cpkitWebappExtension = {
       this.modalError.allocate = "";
     },
 
+    addAllocationTagPair() {
+      this.modal.allocate.tagPairs.push({ key: "", value: "" });
+    },
+
+    removeAllocationTagPair(index) {
+      this.modal.allocate.tagPairs.splice(index, 1);
+      if (this.modal.allocate.tagPairs.length === 0) {
+        this.addAllocationTagPair();
+      }
+    },
+
+    buildAllocationTags() {
+      const tags = {};
+      for (const [index, pair] of this.modal.allocate.tagPairs.entries()) {
+        const key = String(pair?.key || "").trim();
+        const value = String(pair?.value || "").trim();
+        if (!key && !value) continue;
+        if (!key) throw new Error(`Tag row ${index + 1} is missing a key.`);
+        if (Object.prototype.hasOwnProperty.call(tags, key)) {
+          throw new Error(`Duplicate tag key: ${key}`);
+        }
+        tags[key] = value;
+      }
+      return tags;
+    },
+
     async createAllocation() {
       this.allocationsLoading.allocate = true;
       this.modalError.allocate = "";
       try {
-        const tags = JSON.parse((this.modal.allocate.tagsText || "{}").trim() || "{}");
-        if (tags === null || typeof tags !== "object" || Array.isArray(tags)) {
-          throw new Error("Tags must be a JSON object.");
-        }
-
+        const tags = this.buildAllocationTags();
         const allocationId = (this.modal.allocate.allocation_id || "").trim();
         const payload = {
           allocation_id: allocationId || null,
@@ -913,7 +982,7 @@ window.cpkitWebappExtension = {
           region: (this.modal.allocate.region || "").trim() || null,
           zone: (this.modal.allocate.zone || "").trim() || null,
           compute_id: (this.modal.allocate.compute_id || "").trim() || null,
-          tags: allocationId ? { ...tags, allocation_id: allocationId } : tags,
+          tags,
           ssh_public_key: (this.modal.allocate.ssh_public_key || "").trim(),
         };
 
@@ -921,7 +990,7 @@ window.cpkitWebappExtension = {
 
         const result = await this.apiFetch("/allocations/", { method: "POST", body: payload });
         this.closeAllocateModal();
-        this.viewNotice = result?.job_id ? `Allocation queued as job ${result.job_id}.` : "Allocation queued.";
+        this.kloigosShowNotice("Allocation queued.", result?.job_id);
         await this.refreshAllocations();
         await this.refreshComputeUnits();
       } catch (error) {
@@ -951,7 +1020,7 @@ window.cpkitWebappExtension = {
       try {
         const result = await this.apiFetch(`/allocations/${encodeURIComponent(allocationId)}`, { method: "DELETE" });
         this.closeDeallocateConfirm();
-        this.viewNotice = result?.job_id ? `Deallocation queued as job ${result.job_id}.` : "Deallocation queued.";
+        this.kloigosShowNotice("Deallocation queued.", result?.job_id);
         await this.refreshAllocations();
         await this.refreshComputeUnits();
       } catch (error) {
@@ -997,7 +1066,7 @@ window.cpkitWebappExtension = {
           body: payload,
         });
         this.closeAllocationScaleModal();
-        this.viewNotice = result?.job_id ? `Scale queued as job ${result.job_id}.` : "Scale queued.";
+        this.kloigosShowNotice("Scale queued.", result?.job_id);
         await this.refreshAllocations();
         await this.refreshComputeUnits();
       } catch (error) {

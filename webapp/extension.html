@@ -467,7 +467,7 @@
 </main>
 
 <div class="modal-backdrop" x-show="modal.allocate.open" @click.self="closeAllocateModal()">
-  <div class="modal">
+  <div class="modal kloigos-wide-modal">
     <div class="modal-head">
       <h2>Create Allocation</h2>
       <button class="icon-btn" @click="closeAllocateModal()">x</button>
@@ -475,32 +475,52 @@
 
     <div class="notice danger" x-show="modalError.allocate" x-text="modalError.allocate"></div>
 
-    <label class="field-label">Allocation ID</label>
-    <input class="input" x-model="modal.allocate.allocation_id" placeholder="app-prod-1" />
-
-    <label class="field-label">Login User</label>
-    <input class="input" x-model="modal.allocate.login_user" placeholder="app-prod-1" />
-
-    <label class="field-label">Floating IP</label>
-    <input class="input" x-model="modal.allocate.ip_address" placeholder="optional" />
-
-    <label class="field-label">CPU Count</label>
-    <input class="input" type="number" min="1" x-model.number="modal.allocate.cpu_count" placeholder="optional" />
-
-    <label class="field-label">Region</label>
-    <input class="input" x-model="modal.allocate.region" placeholder="optional" />
-
-    <label class="field-label">Zone</label>
-    <input class="input" x-model="modal.allocate.zone" placeholder="optional" />
+    <div class="kloigos-form-grid">
+      <div>
+        <label class="field-label">Allocation ID</label>
+        <input class="input" x-model="modal.allocate.allocation_id" placeholder="app-prod-1" />
+      </div>
+      <div>
+        <label class="field-label">Login User</label>
+        <input class="input" x-model="modal.allocate.login_user" placeholder="app-prod-1" />
+      </div>
+      <div>
+        <label class="field-label">Floating IP</label>
+        <input class="input" x-model="modal.allocate.ip_address" placeholder="optional" />
+      </div>
+      <div>
+        <label class="field-label">CPU Count</label>
+        <input class="input" type="number" min="1" x-model.number="modal.allocate.cpu_count" placeholder="optional" />
+      </div>
+      <div>
+        <label class="field-label">Region</label>
+        <input class="input" x-model="modal.allocate.region" placeholder="optional" />
+      </div>
+      <div>
+        <label class="field-label">Zone</label>
+        <input class="input" x-model="modal.allocate.zone" placeholder="optional" />
+      </div>
+    </div>
 
     <label class="field-label">Compute ID</label>
     <input class="input" x-model="modal.allocate.compute_id" placeholder="leave blank for any available unit" />
 
     <label class="field-label">SSH Public Key</label>
-    <textarea class="input kloigos-textarea" x-model="modal.allocate.ssh_public_key" placeholder="ssh-ed25519 AAAA... user@host"></textarea>
+    <textarea class="input kloigos-textarea kloigos-ssh-key-input" x-model="modal.allocate.ssh_public_key" placeholder="ssh-ed25519 AAAA... user@host"></textarea>
 
-    <label class="field-label">Tags JSON</label>
-    <textarea class="input kloigos-textarea" x-model="modal.allocate.tagsText" spellcheck="false" placeholder='{"owner":"fabio"}'></textarea>
+    <div class="kloigos-tags-head">
+      <label class="field-label">Tags</label>
+      <button type="button" class="btn" @click="addAllocationTagPair()">Add</button>
+    </div>
+    <div class="kloigos-tag-list">
+      <template x-for="(tag, index) in modal.allocate.tagPairs" :key="index">
+        <div class="kloigos-tag-row">
+          <input class="input" x-model="tag.key" placeholder="key" />
+          <input class="input" x-model="tag.value" placeholder="value" />
+          <button type="button" class="icon-btn" title="Remove tag" @click="removeAllocationTagPair(index)">x</button>
+        </div>
+      </template>
+    </div>
 
     <div class="modal-actions">
       <button class="btn" @click="closeAllocateModal()">Cancel</button>
@@ -582,7 +602,7 @@
       <button class="icon-btn" @click="closeAllocationDetails()">x</button>
     </div>
     <p class="muted">Full record for <span x-text="modal.allocationDetails.row?.allocation_id || '-'"></span></p>
-    <pre class="json-panel small" x-text="formatJson(modal.allocationDetails.row || {})"></pre>
+    <pre class="json-panel small" x-text="formatYaml(modal.allocationDetails.row || {})"></pre>
     <div class="modal-actions">
       <button class="btn" @click="closeAllocationDetails()">Close</button>
     </div>
