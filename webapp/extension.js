@@ -59,6 +59,7 @@ window.cpkitWebappExtension = {
   state: {
     allocations: [],
     allocationsVisibleRows: [],
+    allocationsDeallocatedVisibleRows: [],
     allocationsFilterQuery: "",
     allocationsLastUpdatedUtc: null,
     allocationsSortIndex: null,
@@ -537,7 +538,8 @@ window.cpkitWebappExtension = {
         });
       }
 
-      this.allocationsVisibleRows = rows;
+      this.allocationsVisibleRows = rows.filter((row) => String(row?.status || "").toLowerCase() !== "deallocated");
+      this.allocationsDeallocatedVisibleRows = rows.filter((row) => String(row?.status || "").toLowerCase() === "deallocated");
     },
 
     serversRowText(server) {

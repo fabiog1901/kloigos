@@ -71,6 +71,10 @@
   margin-top: 16px;
 }
 
+.kloigos-subsection-head {
+  margin-top: 18px;
+}
+
 .kloigos-tags-head {
   display: flex;
   align-items: end;
