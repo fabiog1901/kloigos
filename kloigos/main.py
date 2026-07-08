@@ -1,7 +1,4 @@
-from typing import Any
-
 from cpkit import create_cpkit_app, create_cpkit_bundle, template_webapp_directory
-from cpkit.audit import AuditLogRecord
 
 from . import DB_URL
 from .api import admin, allocation, compute_unit
@@ -24,24 +21,6 @@ from .workers.remote import (
 )
 
 
-def build_kloigos_audit_log_record(
-    *,
-    actor_id: str,
-    event_type: str,
-    metadata: dict[str, Any] | None,
-    request_id: str | None,
-    job_id: int | None,
-    default_metadata: dict[str, Any] | None = None,
-) -> AuditLogRecord:
-    return AuditLogRecord(
-        user_id=actor_id,
-        action=event_type,
-        job_id=job_id,
-        details=metadata if metadata is not None else default_metadata,
-        request_id=(str(request_id).strip() or None) if request_id else None,
-    )
-
-
 cpkit_capabilities = create_cpkit_bundle(
     command_models={
         QueueCommand.ALLOCATION_CREATE: AllocationCreateCommand,
@@ -57,7 +36,6 @@ cpkit_capabilities = create_cpkit_bundle(
         QueueCommand.SERVER_INIT: run_server_init,
         QueueCommand.SERVER_DECOMM: run_server_decommission,
     },
-    audit_record_factory=build_kloigos_audit_log_record,
 )
 
 app = create_cpkit_app(
