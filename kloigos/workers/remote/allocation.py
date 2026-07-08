@@ -165,10 +165,6 @@ def run_compute_unit_allocate(
         )
 
     log_event(repo, actor_id, final_event, details)
-    if not job_ok:
-        raise ComputeUnitOperationError(
-            f"Compute unit allocation job '{job_id}' failed."
-        )
 
 
 def run_compute_unit_deallocate(
@@ -245,11 +241,6 @@ def run_compute_unit_deallocate(
             final_status,
         )
     log_event(repo, actor_id, final_event, details)
-
-    if not job_ok:
-        raise ComputeUnitOperationError(
-            f"Compute unit deallocation job '{job_id}' failed."
-        )
 
 
 def run_allocation_scale(
@@ -391,5 +382,3 @@ def run_allocation_scale(
         event = Event.ALLOCATION_SCALE_FAILED
 
     log_event(repo, actor_id, event, details)
-    if not job_ok:
-        raise ComputeUnitOperationError(f"Allocation scale job '{job_id}' failed.")

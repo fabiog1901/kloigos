@@ -11,7 +11,6 @@ from ...models import (
     ServerDecommRequest,
     ServerInitRequest,
     ServerNotFoundError,
-    ServerStateError,
     ServerStatus,
 )
 from ...util import parse_cpu_range, to_cpu_set
@@ -93,8 +92,6 @@ def run_server_init(
         Event.SERVER_INIT_DONE if job_ok else Event.SERVER_INIT_FAILED,
         details,
     )
-    if not job_ok:
-        raise ServerStateError(f"Server initialization job '{job_id}' failed.")
 
 
 def run_server_decommission(
@@ -138,5 +135,3 @@ def run_server_decommission(
         Event.SERVER_DECOMM_DONE if job_ok else Event.SERVER_DECOMM_FAILED,
         details,
     )
-    if not job_ok:
-        raise ServerStateError(f"Server decommission job '{job_id}' failed.")
