@@ -22,7 +22,7 @@ python tools/codemap.py --write
 
 | Package | Modules | Classes | Functions | Routes |
 | --- | ---: | ---: | ---: | ---: |
-| `kloigos` | 27 | 49 | 26 | 14 |
+| `kloigos` | 27 | 50 | 26 | 14 |
 
 ## API Routes
 
@@ -59,7 +59,7 @@ python tools/codemap.py --write
 | `kloigos/api/admin/servers.py` | functions: list_servers, init_server, decommission_server, delete_server; routes: 4 |
 | `kloigos/api/allocation.py` | functions: list_allocations, allocate, get_allocation, deallocate_allocation, scale_allocation; routes: 5 |
 | `kloigos/api/compute_unit.py` | functions: list_compute_units; routes: 1 |
-| `kloigos/cli.py` | Kloigos command-line entrypoint.; functions: main |
+| `kloigos/cli.py` | Kloigos command-line entrypoint.; classes: KloigosCLI; functions: main |
 | `kloigos/dep.py` | functions: get_allocation_service, get_compute_unit_service, get_admin_service, get_license_service |
 | `kloigos/main.py` | no public surface |
 | `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, ServerNotFoundError, ServerStateError, MissingLicenseError, InvalidTokenError, UnknownSigningKeyError, InvalidSignatureError, ExpiredLicenseError, FeatureNotLicensedError, Event, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, ComputeUnitRequest, AllocationCreateCommand, AllocationCreateResponse, AllocationDeallocateCommand, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolInsertRequest, ValidatedLicense, LicenseStatusResponse, BaseServer, ServerInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
