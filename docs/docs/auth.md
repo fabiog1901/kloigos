@@ -29,7 +29,7 @@ request body bytes.
 Requests are rejected when `X-Timestamp` falls outside the
 `auth.api_key_signature_ttl_seconds` setting.
 
-API key secrets are stored encrypted at rest with `API_KEY_MASTER_KEY`, which must
+API key secrets are stored encrypted at rest with `KLOIGOS_MASTER_KEY`, which must
 be a base64-encoded 32-byte key such as the output of `openssl rand -base64 32`.
 cpkit decrypts the stored secret before verifying the request HMAC.
 
@@ -74,7 +74,7 @@ curl -X "$METHOD" "$API_URL" \
 
 ## Required Configuration
 
-Set `API_KEY_MASTER_KEY` in `.env`; it is still used to encrypt API key and OIDC
+Set `KLOIGOS_MASTER_KEY` in `.env`; it is used to encrypt API key and OIDC
 session secrets at rest. OIDC and authorization values are framework settings in
 `cpkit.settings`:
 
@@ -118,7 +118,7 @@ If `OIDC_REDIRECT_URI` is empty, Kloigos derives the callback URL from the incom
 Kloigos currently encrypts API key secrets at rest with `AES-256-GCM`.
 
 - `AES`: the underlying symmetric cipher
-- `256`: the key size, using a 32-byte master key from `API_KEY_MASTER_KEY`
+- `256`: the key size, using a 32-byte master key from `KLOIGOS_MASTER_KEY`
 - `GCM`: Galois/Counter Mode, which provides both encryption and integrity protection
 
 This means the database value is not only unreadable without the master key, but

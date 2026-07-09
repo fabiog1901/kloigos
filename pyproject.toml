@@ -29,13 +29,20 @@ mkdocs = "^1.6.1"
 mkdocs-material = "^9.7.1"
 mkdocs-click = "^0.9.0"
 
+[tool.poetry]
+include = [
+    { path = "kloigos/resources/database/ddl.sql", format = ["sdist", "wheel"] },
+    { path = "kloigos/webapp/**/*", format = ["sdist", "wheel"] },
+]
+
 [project.scripts]
-kloigos = "cpkit.cli:main"
+kloigos = "kloigos.cli:main"
 
 [tool.cpkit]
 app_import = "kloigos.main:app"
+db_url_env = "KLOIGOS_DB_URL"
 ddl = [
-    "resources/database/ddl.sql",
+    "kloigos/resources/database/ddl.sql",
 ]
 schema_checks = [
     "public.servers",

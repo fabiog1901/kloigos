@@ -1,6 +1,9 @@
+from importlib.resources import files
+from pathlib import Path
+
 from cpkit import create_cpkit_app, create_cpkit_bundle, template_webapp_directory
 
-from . import DB_URL
+from . import KLOIGOS_DB_URL
 from .api import admin, allocation, compute_unit
 from .api.admin import license
 from .models import (
@@ -19,6 +22,10 @@ from .workers.remote import (
     run_server_decommission,
     run_server_init,
 )
+
+
+def _package_path(relative_path: str) -> Path:
+    return Path(str(files("kloigos").joinpath(relative_path)))
 
 
 cpkit_capabilities = create_cpkit_bundle(
@@ -42,7 +49,7 @@ app = create_cpkit_app(
     title="Κλοηγός / Kloigos",
     version="0.4.0",
     repo_class=Repo,
-    db_url=DB_URL,
+    db_url=KLOIGOS_DB_URL,
     capabilities=(cpkit_capabilities,),
     routers=(
         admin.router,
@@ -51,6 +58,6 @@ app = create_cpkit_app(
         license.router,
     ),
     static_directory=template_webapp_directory(),
-    app_static_directory="webapp",
+    app_static_directory=_package_path("webapp"),
     default_journald_identifier="kloigos",
 )
