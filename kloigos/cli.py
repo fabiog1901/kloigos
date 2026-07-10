@@ -136,8 +136,8 @@ def _print_demo_env(data_dir: Path, pgdata: Path, key_path: Path, db_url: str) -
     print(f"Postgres data: {pgdata}")
     print(f"Master key file: {key_path}")
     print()
-    print(f"export KLOIGOS_DB_URL='{db_url}'")
-    print(f"export KLOIGOS_MASTER_KEY='{os.environ['KLOIGOS_MASTER_KEY']}'")
+    print(f"KLOIGOS_DB_URL='{db_url}'")
+    print(f"KLOIGOS_MASTER_KEY='{os.environ['KLOIGOS_MASTER_KEY']}'")
     print()
 
 
