@@ -10,6 +10,9 @@ from importlib.resources import files
 from pathlib import Path
 
 from cpkit.cli import ApplicationCLI
+from pgembed import PostgresServer, get_server
+from psycopg import connect
+from psycopg.errors import DuplicateDatabase
 
 
 def _package_path(relative_path: str) -> Path:
@@ -52,18 +55,6 @@ class KloigosCLI(ApplicationCLI):
 
     def demo(self, args: argparse.Namespace) -> int:
         """Run Kloigos against a local embedded Postgres instance."""
-        try:
-            from pgembed import PostgresServer, get_server
-            from psycopg import connect
-            from psycopg.errors import DuplicateDatabase
-        except ModuleNotFoundError:
-            print(
-                "The demo command requires the optional demo dependencies. "
-                "Install them with: pip install 'kloigos[demo]'",
-                file=sys.stderr,
-            )
-            return 1
-
         data_dir = args.data_dir.expanduser().resolve()
         pgdata = data_dir / "pgdata"
         key_path = data_dir / "kloigos-master.key"

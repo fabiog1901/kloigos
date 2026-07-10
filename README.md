@@ -31,6 +31,29 @@ or too opinionated for this use case.
 Kloigos fills the gap by providing
 **fine-grained, host-level isolation without introducing a hypervisor or container runtime**.
 
+## Install
+
+Kloigos is published on PyPI, but while the project is moving quickly the recommended
+install path is the latest committed GitHub `main` branch:
+
+```bash
+pip install "kloigos @ git+https://github.com/fabiog1901/kloigos.git@main"
+```
+
+The built-in demo mode starts an embedded Postgres database:
+
+```bash
+kloigos demo
+```
+
+For a production-style setup, export `KLOIGOS_DB_URL` and `KLOIGOS_MASTER_KEY`, for example, via a `.env` file,
+then run:
+
+```bash
+kloigos init
+kloigos serve
+```
+
 ## Documentation
 
 This repository contains the source code for Kloigos.
