@@ -358,15 +358,13 @@ markers = {main = "platform_system == \"Windows\" or sys_platform == \"win32\""}
 
 [[package]]
 name = "cpkit"
-version = "0.1.0"
+version = "0.1.1"
 description = "Reusable control-plane framework extracted from cp."
 optional = false
 python-versions = ">=3.14"
 groups = ["main"]
-files = [
-    {file = "cpkit-0.1.0-py3-none-any.whl", hash = "sha256:18a4533ba6c8a7ec26e4c8b493b52ce2547bbfdcd4bb746df7b557fe1b2ee18d"},
-    {file = "cpkit-0.1.0.tar.gz", hash = "sha256:79019214690845de28a4f6ac43330b8cccb667dd006d139751280601b5928d19"},
-]
+files = []
+develop = false
 
 [package.dependencies]
 ansible-runner = ">=2.4.3,<3.0.0"
@@ -378,6 +376,12 @@ psycopg-pool = ">=3.3.0,<4.0.0"
 pydantic = ">=2.12.0,<3.0.0"
 PyJWT = ">=2.10.1,<3.0.0"
 systemd-python = {version = ">=235,<236", markers = "sys_platform == \"linux\""}
+
+[package.source]
+type = "git"
+url = "https://github.com/fabiog1901/cpkit.git"
+reference = "main"
+resolved_reference = "227b8f3b437d944f60000403c42f9a9b41b09604"
 
 [[package]]
 name = "cryptography"
@@ -2643,4 +2647,4 @@ demo = ["pgembed"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14"
-content-hash = "95a2f46302696b300487981b10369eb0f36e0dd2bcd5fef4e0029e6b65690d67"
+content-hash = "548b0f1373722bf9e369fb3bc52fef8b68669dd9648c962e5cbb86f2f981c727"

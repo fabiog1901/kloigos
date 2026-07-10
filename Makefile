@@ -19,9 +19,6 @@ format: ## Format Python code with isort and black.
 	poetry run isort .
 	poetry run black .
 
-update-cpkit: ## Update cpkit from the latest committed main branch.
-	pip3 install --force-reinstall --no-deps git+https://github.com/fabiog1901/cpkit.git@main
-
 codemap-write: ## Refresh deterministic CODEMAP.md and .build/project-index.json.
 	poetry run python tools/codemap.py --write
 
