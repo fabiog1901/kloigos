@@ -139,6 +139,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         app_import="kloigos.main:app",
         db_url_env="KLOIGOS_DB_URL",
         app_ddl_paths=(_package_path("resources/database/ddl.sql"),),
+        app_playbook_dirs=(_package_path("resources/playbooks"),),
         app_schema_checks=(
             "public.servers",
             "public.compute_units",

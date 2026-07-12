@@ -33,6 +33,7 @@ mkdocs-click = "^0.9.0"
 [tool.poetry]
 include = [
     { path = "kloigos/resources/database/ddl.sql", format = ["sdist", "wheel"] },
+    { path = "kloigos/resources/playbooks/**/*", format = ["sdist", "wheel"] },
     { path = "kloigos/webapp/**/*", format = ["sdist", "wheel"] },
 ]
 
@@ -44,6 +45,9 @@ app_import = "kloigos.main:app"
 db_url_env = "KLOIGOS_DB_URL"
 ddl = [
     "kloigos/resources/database/ddl.sql",
+]
+playbooks = [
+    "kloigos/resources/playbooks",
 ]
 schema_checks = [
     "public.servers",

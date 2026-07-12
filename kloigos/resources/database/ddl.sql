@@ -80,14 +80,3 @@ INSERT INTO cpkit.settings (
 ) VALUES
     ('enterprise.license', '', 'text', 'enterprise', true, 'Signed offline enterprise license JWT.')
 ON CONFLICT (key) DO NOTHING;
-
--- kloigos specific playbooks. the yaml content is done via the webapp.
--- the content bytes result in the "---" string.
-INSERT INTO cpkit.playbooks (name, content, created_by, default_version, updated_by)
-VALUES
-    ('ALLOCATION_CREATE',   '\x1f8b08000000000002ffd3d5d505003b0a21aa03000000', 'system', now():::TIMESTAMPTZ, 'system'),
-    ('ALLOCATION_DELETE',   '\x1f8b08000000000002ffd3d5d505003b0a21aa03000000', 'system', now():::TIMESTAMPTZ, 'system'),
-    ('ALLOCATION_SCALE',    '\x1f8b08000000000002ffd3d5d505003b0a21aa03000000', 'system', now():::TIMESTAMPTZ, 'system'),
-    ('SERVER_DECOMM',       '\x1f8b08000000000002ffd3d5d505003b0a21aa03000000', 'system', now():::TIMESTAMPTZ, 'system'),
-    ('SERVER_INIT',         '\x1f8b08000000000002ffd3d5d505003b0a21aa03000000', 'system', now():::TIMESTAMPTZ, 'system')
-;
