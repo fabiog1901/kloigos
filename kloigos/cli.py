@@ -76,7 +76,7 @@ class KloigosCLI(ApplicationCLI):
             master_key=_read_or_create_master_key(key_path),
         )
 
-        _init_schema_if_needed(self, db_url)
+        _init_demo_database(self)
         _print_demo_env(data_dir, pgdata, key_path, db_url)
         return self.serve(args)
 
@@ -111,13 +111,9 @@ def _set_kloigos_env(*, db_url: str, master_key: str) -> None:
         package.KLOIGOS_MASTER_KEY = master_key
 
 
-def _init_schema_if_needed(cli: ApplicationCLI, db_url: str) -> None:
-    try:
-        cli._check_schemas(db_url)
-    except Exception:
-        print("Initializing demo database schema.")
-        cli.init(argparse.Namespace())
-        cli._check_schemas(db_url)
+def _init_demo_database(cli: ApplicationCLI) -> None:
+    print("Initializing demo database.")
+    cli.init(argparse.Namespace())
 
 
 def _print_demo_env(data_dir: Path, pgdata: Path, key_path: Path, db_url: str) -> None:
