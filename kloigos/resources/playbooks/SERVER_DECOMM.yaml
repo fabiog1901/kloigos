@@ -28,10 +28,225 @@
 
 - name: DECOMMISSION SERVER
   hosts: decomm
-  gather_facts: no
+  gather_facts: yes
   become: yes
+  vars:
+    kloigos_root: /mnt/kloigos
+    kloigos_nft_file: /etc/nftables.d/kloigos-compute-units.nft
+    kloigos_default_vg: kloigos-vg
   tasks:
-    - name: decommissioning the node
-      debug:
-        msg: "This is just a placeholder!"
-        
+    - name: Discover Kloigos-managed allocation users
+      shell: |
+        set -euo pipefail
+
+        KLOIGOS_ROOT="{{ kloigos_root }}"
+        NFT_FILE="{{ kloigos_nft_file }}"
+
+        declare -A USERS=()
+
+        add_user() {
+          local user="$1"
+          [ -n "$user" ] || return 0
+          getent passwd "$user" >/dev/null 2>&1 || return 0
+          USERS["$user"]=1
+        }
+
+        add_uid() {
+          local uid="$1"
+          [ -n "$uid" ] || return 0
+          local user
+          user="$(getent passwd "$uid" | cut -d: -f1 || true)"
+          add_user "$user"
+        }
+
+        while IFS= read -r slice_dir; do
+          uid="$(basename "$slice_dir" | sed -E 's/^user-([0-9]+)\.slice\.d$/\1/')"
+          add_uid "$uid"
+        done < <(find /etc/systemd/system -maxdepth 1 -type d -name 'user-*.slice.d' 2>/dev/null | sort)
+
+        if [ -f "$NFT_FILE" ]; then
+          while IFS= read -r uid; do
+            add_uid "$uid"
+          done < <(grep -Eo 'meta skuid [0-9]+' "$NFT_FILE" | awk '{print $3}' | sort -u)
+        fi
+
+        while read -r source target fstype options rest; do
+          case "$source $target $fstype $options" in
+            "$KLOIGOS_ROOT"/*" /mnt/"*" none "*bind*)
+              add_user "${target#/mnt/}"
+              ;;
+          esac
+        done < /etc/fstab
+
+        while read -r source target; do
+          case "$source $target" in
+            "$KLOIGOS_ROOT"/*" /mnt/"*)
+              add_user "${target#/mnt/}"
+              ;;
+          esac
+        done < <(findmnt -rn -o SOURCE,TARGET 2>/dev/null || true)
+
+        for user in "${!USERS[@]}"; do
+          printf '%s\n' "$user"
+        done | sort
+      args:
+        executable: /bin/bash
+      register: kloigos_allocation_users
+      changed_when: false
+
+    - name: Stop Kloigos allocation user services and sessions
+      shell: |
+        set -euo pipefail
+
+        user="{{ item }}"
+        uid="$(id -u "$user" 2>/dev/null || true)"
+        if [ -n "$uid" ]; then
+          systemctl stop "user@${uid}.service" || true
+          systemctl stop "user-${uid}.slice" || true
+          loginctl kill-user "$user" || true
+          loginctl disable-linger "$user" || true
+          rm -rf "/etc/systemd/system/user-${uid}.slice.d"
+          rm -f "/var/lib/systemd/linger/${user}"
+        fi
+      args:
+        executable: /bin/bash
+      loop: "{{ kloigos_allocation_users.stdout_lines }}"
+
+    - name: Remove allocation user bind mounts, fstab entries, and directories
+      shell: |
+        set -euo pipefail
+
+        user="{{ item }}"
+        if findmnt -rn --target "/mnt/${user}" >/dev/null 2>&1; then
+          umount -R "/mnt/${user}" || true
+        fi
+
+        sed -i -E "\#^[^[:space:]]+[[:space:]]+/mnt/${user}[[:space:]]+#d" /etc/fstab
+        rm -rf "/mnt/${user}" "/opt/${user}"
+        userdel -r "$user" || true
+        rm -rf "/home/${user}"
+      args:
+        executable: /bin/bash
+      loop: "{{ kloigos_allocation_users.stdout_lines }}"
+
+    - name: Discover Kloigos compute-unit logical volumes
+      shell: |
+        set -euo pipefail
+
+        KLOIGOS_ROOT="{{ kloigos_root }}"
+        declare -A CU_DEVICES=()
+
+        while IFS= read -r mountpoint; do
+          source="$(findmnt -rn -o SOURCE --target "$mountpoint" 2>/dev/null || true)"
+          [ -n "$source" ] && CU_DEVICES["$source"]=1
+        done < <(findmnt -rn -o TARGET | awk -v root="$KLOIGOS_ROOT" '$0 == root || index($0, root "/") == 1 {print}')
+
+        while read -r source target fstype options rest; do
+          case "$target" in
+            "$KLOIGOS_ROOT"/*)
+              if [[ "$source" == UUID=* ]]; then
+                uuid="${source#UUID=}"
+                device="$(blkid -U "$uuid" 2>/dev/null || true)"
+                [ -n "$device" ] && CU_DEVICES["$device"]=1
+              elif [[ "$source" == /dev/* ]]; then
+                CU_DEVICES["$source"]=1
+              fi
+              ;;
+          esac
+        done < /etc/fstab
+
+        for device in "${!CU_DEVICES[@]}"; do
+          printf '%s\n' "$device"
+        done | sort
+      args:
+        executable: /bin/bash
+      register: kloigos_compute_unit_devices
+      changed_when: false
+
+    - name: Remove Kloigos fstab entries
+      shell: |
+        set -euo pipefail
+
+        KLOIGOS_ROOT="{{ kloigos_root }}"
+        sed -i -E "\#^[^[:space:]]+[[:space:]]+${KLOIGOS_ROOT}/[^[:space:]]+[[:space:]]+#d" /etc/fstab
+        sed -i -E "\#^${KLOIGOS_ROOT}/[^[:space:]]+[[:space:]]+/mnt/[^[:space:]]+[[:space:]]+none[[:space:]]+#d" /etc/fstab
+      args:
+        executable: /bin/bash
+
+    - name: Unmount Kloigos compute-unit filesystems
+      shell: |
+        set -euo pipefail
+
+        KLOIGOS_ROOT="{{ kloigos_root }}"
+        if [ -d "$KLOIGOS_ROOT" ]; then
+          while IFS= read -r mountpoint; do
+            umount -R "$mountpoint" || true
+          done < <(findmnt -rn -o TARGET | awk -v root="$KLOIGOS_ROOT" '$0 == root || index($0, root "/") == 1 {print}' | sort -r)
+        fi
+      args:
+        executable: /bin/bash
+
+    - name: Remove Kloigos compute-unit logical volumes
+      shell: |
+        set -euo pipefail
+
+        device="{{ item }}"
+        if [ -e "$device" ]; then
+          lvremove -y "$device" || true
+        fi
+      args:
+        executable: /bin/bash
+      loop: "{{ kloigos_compute_unit_devices.stdout_lines }}"
+
+    - name: Remove empty Kloigos-created volume group
+      shell: |
+        set -euo pipefail
+
+        VG_NAME="{{ kloigos_default_vg }}"
+        if vgs "$VG_NAME" >/dev/null 2>&1; then
+          if [ "$(lvs --noheadings -o lv_name "$VG_NAME" 2>/dev/null | wc -l | tr -d ' ')" = "0" ]; then
+            mapfile -t pvs_to_wipe < <(pvs --noheadings -o pv_name,vg_name 2>/dev/null | awk -v vg="$VG_NAME" '$2 == vg {print $1}')
+            vgremove -y "$VG_NAME" || true
+            for pv in "${pvs_to_wipe[@]}"; do
+              pvremove -ff -y "$pv" || true
+            done
+          fi
+        fi
+      args:
+        executable: /bin/bash
+
+    - name: Remove Kloigos mount roots and transient migration data
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ kloigos_root }}"
+        - /tmp/kloigos-scale
+
+    - name: Remove Kloigos nftables table and rule file
+      shell: |
+        set -euo pipefail
+
+        NFT_FILE="{{ kloigos_nft_file }}"
+        nft delete table inet kloigos_compute_units || true
+        rm -f "$NFT_FILE"
+        sed -i '\#include "/etc/nftables.d/\*.nft"#d' /etc/nftables.conf 2>/dev/null || true
+        rmdir /etc/nftables.d 2>/dev/null || true
+      args:
+        executable: /bin/bash
+
+    - name: Remove Kloigos systemd delegation override
+      shell: |
+        set -euo pipefail
+
+        rm -f /etc/systemd/system/user@.service.d/delegate.conf
+        rmdir /etc/systemd/system/user@.service.d 2>/dev/null || true
+      args:
+        executable: /bin/bash
+
+    - name: Reload systemd after Kloigos decommissioning
+      shell: |
+        systemctl daemon-reload
+        systemctl restart systemd-logind || true
+      args:
+        executable: /bin/bash
