@@ -186,7 +186,7 @@ window.cpkitWebappExtension = {
         compute_units: [{ ordinal: 1, cpu_range: "0-3" }],
       },
       licenseStatus: { open: false, yaml: "" },
-      ipPoolAdd: { open: false, ipAddressesText: "" },
+      ipPoolAdd: { open: false, ipAddresses: [{ value: "" }] },
       ipPoolDeleteConfirm: { open: false, ip_address: "" },
     },
     modalError: {
@@ -743,7 +743,7 @@ window.cpkitWebappExtension = {
     },
 
     openIpPoolAddModal() {
-      this.modal.ipPoolAdd.ipAddressesText = "";
+      this.modal.ipPoolAdd.ipAddresses = [{ value: "" }];
       this.modalError.ipPoolAdd = "";
       this.modal.ipPoolAdd.open = true;
     },
@@ -753,18 +753,35 @@ window.cpkitWebappExtension = {
       this.modalError.ipPoolAdd = "";
     },
 
-    parseIpPoolAddressesInput(text) {
-      return String(text || "")
-        .split(/[\s,]+/)
-        .map((item) => item.trim())
-        .filter(Boolean);
+    addIpPoolAddressRow() {
+      this.modal.ipPoolAdd.ipAddresses.push({ value: "" });
+    },
+
+    removeIpPoolAddressRow(index) {
+      this.modal.ipPoolAdd.ipAddresses.splice(index, 1);
+      if (this.modal.ipPoolAdd.ipAddresses.length === 0) {
+        this.addIpPoolAddressRow();
+      }
+    },
+
+    buildIpPoolAddressList() {
+      const addresses = [];
+      const seen = new Set();
+      for (const [index, row] of this.modal.ipPoolAdd.ipAddresses.entries()) {
+        const value = String(row?.value || "").trim();
+        if (!value) continue;
+        if (seen.has(value)) throw new Error(`Duplicate IP address in row ${index + 1}: ${value}`);
+        seen.add(value);
+        addresses.push(value);
+      }
+      return addresses;
     },
 
     async insertIpPoolAddresses() {
       this.ipPoolLoading.insert = true;
       this.modalError.ipPoolAdd = "";
       try {
-        const ipAddresses = this.parseIpPoolAddressesInput(this.modal.ipPoolAdd.ipAddressesText);
+        const ipAddresses = this.buildIpPoolAddressList();
         if (ipAddresses.length === 0) throw new Error("Enter at least one IP address.");
         await this.apiFetch("/admin/ip_pool/", {
           method: "POST",

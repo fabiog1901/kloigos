@@ -699,13 +699,18 @@
       <button class="icon-btn" @click="closeIpPoolAddModal()">x</button>
     </div>
     <div class="notice danger" x-show="modalError.ipPoolAdd" x-text="modalError.ipPoolAdd"></div>
-    <label class="field-label">IP Addresses</label>
-    <textarea
-      class="input kloigos-textarea"
-      x-model="modal.ipPoolAdd.ipAddressesText"
-      spellcheck="false"
-      placeholder="192.168.1.201&#10;192.168.1.202"
-    ></textarea>
+    <div class="kloigos-tags-head">
+      <label class="field-label">IP Addresses</label>
+      <button type="button" class="btn" @click="addIpPoolAddressRow()">Add</button>
+    </div>
+    <div class="kloigos-tag-list">
+      <template x-for="(row, index) in modal.ipPoolAdd.ipAddresses" :key="index">
+        <div class="kloigos-tag-row kloigos-ip-row">
+          <input class="input" x-model="row.value" placeholder="192.168.1.201" />
+          <button type="button" class="icon-btn" title="Remove IP address" @click="removeIpPoolAddressRow(index)">x</button>
+        </div>
+      </template>
+    </div>
     <div class="modal-actions">
       <button class="btn" @click="closeIpPoolAddModal()">Cancel</button>
       <button class="btn primary" :disabled="ipPoolLoading.insert" @click="insertIpPoolAddresses()">
