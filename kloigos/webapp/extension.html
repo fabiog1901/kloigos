@@ -25,7 +25,7 @@
         <button class="btn primary" x-show="canManageAllocations()" @click="openAllocationCreateModal()">Create Allocation</button>
         <label class="check-row">
           <input type="checkbox" x-model="allocationsAutoRefreshEnabled" />
-          Auto-refresh
+          Auto-refresh (5s)
         </label>
       </div>
     </section>
@@ -221,7 +221,7 @@
         </button>
         <label class="check-row">
           <input type="checkbox" x-model="computeAutoRefreshEnabled" />
-          Auto-refresh
+          Auto-refresh (5s)
         </label>
       </div>
     </section>
@@ -324,7 +324,7 @@
         <button class="btn primary" @click="openServerInitModal()">Init Server</button>
         <label class="check-row">
           <input type="checkbox" x-model="serversAutoRefreshEnabled" />
-          Auto-refresh
+          Auto-refresh (5s)
         </label>
       </div>
     </section>
@@ -448,7 +448,7 @@
         <button class="btn primary" @click="openIpPoolAddModal()">Add New</button>
         <label class="check-row">
           <input type="checkbox" x-model="ipPoolAutoRefreshEnabled" />
-          Auto-refresh
+          Auto-refresh (5s)
         </label>
       </div>
     </section>
@@ -793,75 +793,117 @@
 
     <div class="notice danger" x-show="modalError.serverInit" x-text="modalError.serverInit"></div>
 
-    <div class="kloigos-form-grid">
-      <label>
-        <span class="field-label">Hostname</span>
-        <input class="input" x-model="modal.serverInit.hostname" placeholder="server-123" />
-      </label>
-      <label>
-        <span class="field-label">Server Private IP</span>
-        <input class="input" x-model="modal.serverInit.private_ip" placeholder="10.0.0.12" />
-      </label>
-      <label>
-        <span class="field-label">Server Public IP</span>
-        <input class="input" x-model="modal.serverInit.public_ip" placeholder="optional" />
-      </label>
-      <label>
-        <span class="field-label">Server Admin User</span>
-        <input class="input" x-model="modal.serverInit.server_admin_user" placeholder="ubuntu" />
-      </label>
-      <label>
-        <span class="field-label">Region</span>
-        <input class="input" x-model="modal.serverInit.region" placeholder="us-east-1" />
-      </label>
-      <label>
-        <span class="field-label">Zone</span>
-        <input class="input" x-model="modal.serverInit.zone" placeholder="us-east-1a" />
-      </label>
-      <label>
-        <span class="field-label">CPU Count</span>
-        <input class="input" type="number" min="0" x-model.number="modal.serverInit.cpu_count" />
-      </label>
-      <label>
-        <span class="field-label">Mem GB</span>
-        <input class="input" type="number" min="0" x-model.number="modal.serverInit.mem_gb" />
-      </label>
-      <label>
-        <span class="field-label">Disk Count</span>
-        <input class="input" type="number" min="0" x-model.number="modal.serverInit.disk_count" />
-      </label>
-      <label>
-        <span class="field-label">Disk GB</span>
-        <input class="input" type="number" min="0" x-model.number="modal.serverInit.disk_size_gb" />
-      </label>
-    </div>
-
-    <label>
-      <span class="field-label">Tags JSON</span>
-      <textarea class="input kloigos-textarea" x-model="modal.serverInit.tagsText" spellcheck="false" placeholder='{"pool":"default"}'></textarea>
-    </label>
-
-    <div class="section-head kloigos-subhead">
-      <div>
-        <h2>Compute Units</h2>
-        <p>CPU ranges and storage slots to create on this server.</p>
-      </div>
-      <button class="btn" @click="addServerInitComputeUnit()">Add Unit</button>
-    </div>
-
-    <div class="kloigos-unit-list">
-      <template x-for="(unit, index) in modal.serverInit.compute_units" :key="index">
-        <div class="kloigos-unit-row">
-          <div class="kloigos-unit-index" x-text="index + 1"></div>
-          <input class="input" x-model="unit.cpu_range" placeholder="0-3" />
-          <button class="btn danger" :disabled="modal.serverInit.compute_units.length <= 1" @click="removeServerInitComputeUnit(index)">Remove</button>
+    <div class="kloigos-modal-scroll">
+      <div x-show="modal.serverInit.step === 1">
+        <div class="kloigos-form-grid">
+          <label>
+            <span class="field-label">Hostname</span>
+            <input class="input" x-model="modal.serverInit.hostname" placeholder="server-123" />
+          </label>
+          <label>
+            <span class="field-label">Server Private IP</span>
+            <input class="input" x-model="modal.serverInit.private_ip" placeholder="10.0.0.12" />
+          </label>
+          <label>
+            <span class="field-label">Server Public IP</span>
+            <input class="input" x-model="modal.serverInit.public_ip" placeholder="optional" />
+          </label>
+          <label>
+            <span class="field-label">Server Admin User</span>
+            <input class="input" x-model="modal.serverInit.server_admin_user" placeholder="ubuntu" />
+          </label>
+          <label>
+            <span class="field-label">Region</span>
+            <input class="input" x-model="modal.serverInit.region" placeholder="us-east-1" />
+          </label>
+          <label>
+            <span class="field-label">Zone</span>
+            <input class="input" x-model="modal.serverInit.zone" placeholder="us-east-1a" />
+          </label>
         </div>
-      </template>
+      </div>
+
+      <div x-show="modal.serverInit.step === 2">
+        <div class="kloigos-form-grid">
+          <label>
+            <span class="field-label">CPU Count</span>
+            <input class="input" type="number" min="1" required x-model.number="modal.serverInit.cpu_count" />
+          </label>
+          <label>
+            <span class="field-label">Mem GB</span>
+            <input class="input" type="number" min="0" x-model.number="modal.serverInit.mem_gb" />
+          </label>
+          <label>
+            <span class="field-label">Disk Count</span>
+            <input class="input" type="number" min="0" x-model.number="modal.serverInit.disk_count" />
+          </label>
+          <label>
+            <span class="field-label">Disk GB</span>
+            <input class="input" type="number" min="0" x-model.number="modal.serverInit.disk_size_gb" />
+          </label>
+        </div>
+
+        <div class="kloigos-tags-head">
+          <label class="field-label">Tags</label>
+          <button type="button" class="btn" @click="addServerInitTagPair()">Add</button>
+        </div>
+        <div class="kloigos-tag-list">
+          <template x-for="(tag, index) in modal.serverInit.tagPairs" :key="index">
+            <div class="kloigos-tag-row">
+              <input class="input" x-model="tag.key" placeholder="key" />
+              <input class="input" x-model="tag.value" placeholder="value" />
+              <button type="button" class="icon-btn" title="Remove tag" @click="removeServerInitTagPair(index)">x</button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div x-show="modal.serverInit.step === 3">
+        <div class="section-head kloigos-subhead">
+          <div>
+            <h2>Compute Units</h2>
+            <p>CPU ranges and storage slots to create on this server.</p>
+          </div>
+          <button class="btn" @click="addServerInitComputeUnit()">Add Unit</button>
+        </div>
+
+        <div class="kloigos-unit-list">
+          <template x-for="(unit, index) in modal.serverInit.compute_units" :key="index">
+            <div class="kloigos-unit-card">
+              <div class="kloigos-unit-card-head">
+                <div>
+                  <div class="kloigos-unit-title">Compute Unit <span x-text="index + 1"></span></div>
+                  <div class="muted">CPU range: <span x-text="unit.cpu_range || '-'"></span></div>
+                </div>
+                <button class="btn danger" :disabled="modal.serverInit.compute_units.length <= 1" @click="removeServerInitComputeUnit(index)">Remove</button>
+              </div>
+              <div class="kloigos-cpu-grid">
+                <template x-for="cpu in serverInitCpuOptions()" :key="cpu">
+                  <button
+                    type="button"
+                    class="kloigos-cpu-btn"
+                    :class="serverInitCpuButtonClass(index, unit, cpu)"
+                    :disabled="serverInitCpuAssignedToOther(index, cpu)"
+                    @click="toggleServerInitUnitCpu(index, cpu)"
+                    x-text="cpu"
+                  ></button>
+                </template>
+              </div>
+              <div class="muted" x-show="serverInitCpuOptions().length === 0">Set CPU Count in the Metadata step to select CPUs.</div>
+            </div>
+          </template>
+          <div class="muted" x-show="serverInitCpuOptions().length > 0">
+            Each CPU can belong to only one Compute Unit.
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="modal-actions">
       <button class="btn" @click="closeServerInitModal()">Cancel</button>
-      <button class="btn primary" :disabled="serversLoading.init" @click="initServer()">
+      <button class="btn" x-show="modal.serverInit.step > 1" @click="previousServerInitStep()">Back</button>
+      <button class="btn primary" x-show="modal.serverInit.step < 3" @click="nextServerInitStep()">Next</button>
+      <button class="btn primary" x-show="modal.serverInit.step === 3" :disabled="serversLoading.init" @click="initServer()">
         <span x-show="!serversLoading.init">Run Init</span>
         <span x-show="serversLoading.init">Working...</span>
       </button>

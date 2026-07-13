@@ -161,6 +161,12 @@
           esac
         done < /etc/fstab
 
+        while read -r lv_path lv_name; do
+          if [[ "$lv_name" =~ ^cu[0-9]+$ ]]; then
+            CU_DEVICES["$lv_path"]=1
+          fi
+        done < <(lvs --noheadings -o lv_path,lv_name 2>/dev/null || true)
+
         for device in "${!CU_DEVICES[@]}"; do
           printf '%s\n' "$device"
         done | sort

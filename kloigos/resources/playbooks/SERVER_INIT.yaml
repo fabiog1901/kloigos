@@ -105,20 +105,13 @@
         set -euo pipefail
 
         VG_NAME="{{ kloigos_vg.stdout_lines[-1] }}"
-        CU_COUNT="{{ compute_units | length }}"
-        REQUESTED_GB="{{ disk_size_gb | default('', true) }}"
+        REMAINING_TO_CREATE=0
 
-        if [ -n "$REQUESTED_GB" ] && [ "$REQUESTED_GB" != "None" ] && [ "$REQUESTED_GB" -gt 0 ]; then
-          SIZE_ARG="-L ${REQUESTED_GB}G"
-        else
-          FREE_EXTENTS="$(vgs --noheadings -o vg_free_count "$VG_NAME" | awk '{print $1}')"
-          PER_CU_EXTENTS="$(( FREE_EXTENTS / CU_COUNT ))"
-          if [ "$PER_CU_EXTENTS" -le 0 ]; then
-            echo "Volume group $VG_NAME does not have enough free space for $CU_COUNT compute units." >&2
-            exit 1
-          fi
-          SIZE_ARG="-l ${PER_CU_EXTENTS}"
+        {% for cu in compute_units %}
+        if ! lvs "${VG_NAME}/cu{{ '%02d' | format(cu.ordinal) }}" >/dev/null 2>&1; then
+          REMAINING_TO_CREATE="$(( REMAINING_TO_CREATE + 1 ))"
         fi
+        {% endfor %}
 
         {% for cu in compute_units %}
         LV_NAME="cu{{ '%02d' | format(cu.ordinal) }}"
@@ -126,7 +119,14 @@
         MOUNT_PATH="/mnt/kloigos/{{ hostname }}/${LV_NAME}"
 
         if ! lvs "${VG_NAME}/${LV_NAME}" >/dev/null 2>&1; then
-          lvcreate -y $SIZE_ARG -n "$LV_NAME" "$VG_NAME"
+          FREE_EXTENTS="$(vgs --noheadings -o vg_free_count "$VG_NAME" | awk '{print $1}')"
+          PER_CU_EXTENTS="$(( FREE_EXTENTS / REMAINING_TO_CREATE ))"
+          if [ "$PER_CU_EXTENTS" -le 0 ]; then
+            echo "Volume group $VG_NAME does not have enough free space for $REMAINING_TO_CREATE remaining compute units." >&2
+            exit 1
+          fi
+          lvcreate -y -l "$PER_CU_EXTENTS" -n "$LV_NAME" "$VG_NAME"
+          REMAINING_TO_CREATE="$(( REMAINING_TO_CREATE - 1 ))"
         fi
         blkid "$LV_PATH" -t TYPE="ext4" || mkfs.ext4 -F "$LV_PATH"
         mkdir -p "$MOUNT_PATH"

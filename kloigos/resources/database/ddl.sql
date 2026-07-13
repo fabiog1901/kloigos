@@ -53,7 +53,6 @@ CREATE TABLE IF NOT EXISTS allocations (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT pk_allocations PRIMARY KEY (allocation_id),
     CONSTRAINT uq_allocations_login_user UNIQUE (login_user),
-    CONSTRAINT allocation_ip_in_pool FOREIGN KEY (ip_address) REFERENCES ip_pool(ip_address) ON UPDATE CASCADE,
     CONSTRAINT allocation_compute_unit FOREIGN KEY (compute_id) REFERENCES compute_units(compute_id) ON UPDATE CASCADE ON DELETE SET NULL,
     CONSTRAINT allocation_current_host FOREIGN KEY (current_host) REFERENCES servers(hostname) ON UPDATE CASCADE ON DELETE SET NULL
 );

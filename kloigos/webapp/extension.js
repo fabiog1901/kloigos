@@ -172,6 +172,7 @@ window.cpkitWebappExtension = {
       serverActionConfirm: { open: false, hostname: "", action: "decommission" },
       serverInit: {
         open: false,
+        step: 1,
         private_ip: "",
         public_ip: "",
         hostname: "",
@@ -182,8 +183,8 @@ window.cpkitWebappExtension = {
         mem_gb: null,
         disk_count: null,
         disk_size_gb: null,
-        tagsText: "{}",
-        compute_units: [{ ordinal: 1, cpu_range: "0-3" }],
+        tagPairs: [{ key: "", value: "" }],
+        compute_units: [{ ordinal: 1, cpu_range: "0-3", cpus: [0, 1, 2, 3] }],
       },
       licenseStatus: { open: false, yaml: "" },
       ipPoolAdd: { open: false, ipAddresses: [{ value: "" }] },
@@ -213,17 +214,17 @@ window.cpkitWebappExtension = {
       if (this.allocationsAutoRefreshEnabled && this.view === "allocations") {
         this.refreshAllocations();
       }
-    }, 10000);
+    }, 5000);
     this.setManagedInterval("_computeAutoTimer", () => {
       if (this.computeAutoRefreshEnabled && this.view === "compute_units") {
         this.refreshComputeUnits();
       }
-    }, 10000);
+    }, 5000);
     this.setManagedInterval("_serversAutoTimer", () => {
       if (this.serversAutoRefreshEnabled && this.view === "kloigos_servers") {
         this.refreshServers();
       }
-    }, 15000);
+    }, 5000);
     this.setManagedInterval("_ipPoolAutoTimer", () => {
       if (this.ipPoolAutoRefreshEnabled && this.view === "ip_pool") {
         this.refreshIpPool();
@@ -280,21 +281,21 @@ window.cpkitWebappExtension = {
     },
 
     async ensureAllocationsView() {
-      if (this.allocations.length === 0 && !this.allocationsLoading.list) {
+      if (!this.allocationsLoading.list) {
         await this.refreshAllocations();
       } else {
         this.applyAllocationsFilterSort();
       }
-      if (this.computeUnits.length === 0 && !this.computeLoading.list) {
+      if (!this.computeLoading.list) {
         await this.refreshComputeUnits();
       }
-      if (this.canViewKloigosAdmin() && this.servers.length === 0 && !this.serversLoading.list) {
+      if (this.canViewKloigosAdmin() && !this.serversLoading.list) {
         await this.refreshServers();
       }
     },
 
     async ensureComputeUnitsView() {
-      if (this.computeUnits.length === 0 && !this.computeLoading.list) {
+      if (!this.computeLoading.list) {
         await this.refreshComputeUnits();
       } else {
         this.applyComputeFilterSort();
@@ -356,7 +357,7 @@ window.cpkitWebappExtension = {
         this.showNotice("Servers requires CP_ADMIN.");
         return;
       }
-      if (this.servers.length === 0 && !this.serversLoading.list) {
+      if (!this.serversLoading.list) {
         await this.refreshServers();
       } else {
         this.applyServersFilterSort();
@@ -1215,6 +1216,7 @@ window.cpkitWebappExtension = {
     },
 
     openServerInitModal() {
+      this.modal.serverInit.step = 1;
       this.modalError.serverInit = "";
       this.modal.serverInit.open = true;
     },
@@ -1224,12 +1226,155 @@ window.cpkitWebappExtension = {
       this.modalError.serverInit = "";
     },
 
+    validateServerInitStep(step) {
+      if (step === 1) {
+        for (const key of ["hostname", "private_ip", "server_admin_user", "region", "zone"]) {
+          if (!String(this.modal.serverInit[key] || "").trim()) {
+            throw new Error(`${key} is required.`);
+          }
+        }
+      }
+      if (step === 2) {
+        const cpuCount = Number(this.modal.serverInit.cpu_count);
+        if (!Number.isInteger(cpuCount) || cpuCount <= 0) {
+          throw new Error("CPU Count is required.");
+        }
+      }
+      if (step === 3) {
+        if (this.serverInitCpuOptions().length === 0) {
+          throw new Error("CPU Count is required before selecting Compute Unit CPUs.");
+        }
+        if (this.modal.serverInit.compute_units.length === 0) {
+          throw new Error("At least one compute unit is required.");
+        }
+        for (const [index, unit] of this.modal.serverInit.compute_units.entries()) {
+          this.serverInitCpuRange(unit, index);
+        }
+      }
+    },
+
+    nextServerInitStep() {
+      try {
+        this.validateServerInitStep(this.modal.serverInit.step);
+        this.modalError.serverInit = "";
+        this.modal.serverInit.step = Math.min(3, this.modal.serverInit.step + 1);
+      } catch (error) {
+        this.modalError.serverInit = this.errorMessage(error, "Unable to continue.");
+      }
+    },
+
+    previousServerInitStep() {
+      this.modalError.serverInit = "";
+      this.modal.serverInit.step = Math.max(1, this.modal.serverInit.step - 1);
+    },
+
+    serverInitCpuOptions() {
+      const count = Number(this.modal.serverInit.cpu_count);
+      if (!Number.isInteger(count) || count <= 0) return [];
+      return Array.from({ length: count }, (_, index) => index);
+    },
+
+    parseServerInitCpuRange(cpuRange) {
+      const text = String(cpuRange || "").trim();
+      if (!text) return [];
+      const match = text.match(/^(\d+)(?:-(\d+))?$/);
+      if (!match) return [];
+      const start = Number(match[1]);
+      const end = match[2] === undefined ? start : Number(match[2]);
+      if (!Number.isInteger(start) || !Number.isInteger(end) || end < start) return [];
+      return Array.from({ length: end - start + 1 }, (_, offset) => start + offset);
+    },
+
+    serverInitUnitCpus(unit) {
+      if (Array.isArray(unit?.cpus)) {
+        return unit.cpus.map((cpu) => Number(cpu)).filter((cpu) => Number.isInteger(cpu));
+      }
+      return this.parseServerInitCpuRange(unit?.cpu_range);
+    },
+
+    serverInitUnitHasCpu(unit, cpu) {
+      return this.serverInitUnitCpus(unit).includes(cpu);
+    },
+
+    serverInitCpuAssignedToOther(unitIndex, cpu) {
+      return this.modal.serverInit.compute_units.some((unit, index) => (
+        index !== unitIndex && this.serverInitUnitHasCpu(unit, cpu)
+      ));
+    },
+
+    serverInitCpuButtonClass(unitIndex, unit, cpu) {
+      if (this.serverInitUnitHasCpu(unit, cpu)) return "selected";
+      if (this.serverInitCpuAssignedToOther(unitIndex, cpu)) return "disabled";
+      return "";
+    },
+
+    toggleServerInitUnitCpu(unitIndex, cpu) {
+      if (this.serverInitCpuAssignedToOther(unitIndex, cpu)) return;
+      const unit = this.modal.serverInit.compute_units[unitIndex];
+      const cpus = new Set(this.serverInitUnitCpus(unit));
+      if (cpus.has(cpu)) cpus.delete(cpu);
+      else cpus.add(cpu);
+      unit.cpus = Array.from(cpus).sort((left, right) => left - right);
+      try {
+        unit.cpu_range = unit.cpus.length ? this.serverInitCpuRange(unit, unitIndex) : "";
+      } catch {
+        unit.cpu_range = unit.cpus.join(",");
+      }
+    },
+
+    serverInitCpuRange(unit, index) {
+      const cpus = this.serverInitUnitCpus(unit).sort((left, right) => left - right);
+      if (cpus.length === 0) {
+        throw new Error(`Compute unit ${index + 1} needs at least one CPU.`);
+      }
+      const available = new Set(this.serverInitCpuOptions());
+      for (const cpu of cpus) {
+        if (available.size > 0 && !available.has(cpu)) {
+          throw new Error(`Compute unit ${index + 1} includes CPU ${cpu}, which is outside the server CPU count.`);
+        }
+      }
+      for (let idx = 1; idx < cpus.length; idx += 1) {
+        if (cpus[idx] !== cpus[idx - 1] + 1) {
+          throw new Error(`Compute unit ${index + 1} CPUs must be contiguous.`);
+        }
+      }
+      const start = cpus[0];
+      const end = cpus[cpus.length - 1];
+      return start === end ? String(start) : `${start}-${end}`;
+    },
+
+    addServerInitTagPair() {
+      this.modal.serverInit.tagPairs.push({ key: "", value: "" });
+    },
+
+    removeServerInitTagPair(index) {
+      this.modal.serverInit.tagPairs.splice(index, 1);
+      if (this.modal.serverInit.tagPairs.length === 0) {
+        this.addServerInitTagPair();
+      }
+    },
+
+    buildServerInitTags() {
+      const tags = {};
+      for (const [index, pair] of this.modal.serverInit.tagPairs.entries()) {
+        const key = String(pair?.key || "").trim();
+        const value = String(pair?.value || "").trim();
+        if (!key && !value) continue;
+        if (!key) throw new Error(`Tag row ${index + 1} is missing a key.`);
+        if (Object.prototype.hasOwnProperty.call(tags, key)) {
+          throw new Error(`Duplicate tag key: ${key}`);
+        }
+        tags[key] = value;
+      }
+      return tags;
+    },
+
     addServerInitComputeUnit() {
       const ordinal = this.modal.serverInit.compute_units.length + 1;
-      const start = (ordinal - 1) * 4;
       this.modal.serverInit.compute_units.push({
         ordinal,
-        cpu_range: `${start}-${start + 3}`,
+        cpu_range: "",
+        cpus: [],
       });
     },
 
@@ -1242,10 +1387,7 @@ window.cpkitWebappExtension = {
     },
 
     buildServerInitPayload() {
-      const tags = JSON.parse((this.modal.serverInit.tagsText || "{}").trim() || "{}");
-      if (tags === null || typeof tags !== "object" || Array.isArray(tags)) {
-        throw new Error("Tags must be a JSON object.");
-      }
+      const tags = this.buildServerInitTags();
       const numberOrNull = (value) => {
         if (value === "" || value === null || value === undefined) return null;
         const parsed = Number(value);
@@ -1266,13 +1408,12 @@ window.cpkitWebappExtension = {
         tags,
         compute_units: this.modal.serverInit.compute_units.map((unit, index) => ({
           ordinal: index + 1,
-          cpu_range: String(unit.cpu_range || "").trim(),
+          cpu_range: this.serverInitCpuRange(unit, index),
         })),
       };
 
-      for (const key of ["hostname", "private_ip", "server_admin_user", "region", "zone"]) {
-        if (!payload[key]) throw new Error(`${key} is required.`);
-      }
+      this.validateServerInitStep(1);
+      this.validateServerInitStep(2);
       if (payload.compute_units.length === 0) throw new Error("At least one compute unit is required.");
       for (const unit of payload.compute_units) {
         if (!unit.cpu_range) {
