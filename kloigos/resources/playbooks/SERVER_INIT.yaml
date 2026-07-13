@@ -174,6 +174,7 @@
         mode: "0755"
         dest: /usr/local/sbin/kloigos-capability-audit
         content: |
+          {% raw -%}
           #!/bin/bash
           set -euo pipefail
 
@@ -236,6 +237,7 @@
           if [ "$found_any" -eq 0 ]; then
             logger -t "$TAG" "kloigos_capability_audit=true severity=info message=no_file_capabilities_found"
           fi
+          {% endraw %}
 
     - name: write Kloigos capability audit service
       copy:

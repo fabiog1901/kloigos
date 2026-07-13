@@ -686,7 +686,7 @@
       <button class="icon-btn" @click="closeServerDetails()">x</button>
     </div>
     <p class="muted">Full record for <span x-text="modal.serverDetails.row?.hostname || '-'"></span></p>
-    <pre class="json-panel small" x-text="formatJson(modal.serverDetails.row || {})"></pre>
+    <pre class="json-panel small" x-text="formatYaml(modal.serverDetails.row || {})"></pre>
     <div class="modal-actions">
       <button class="btn" @click="closeServerDetails()">Close</button>
     </div>

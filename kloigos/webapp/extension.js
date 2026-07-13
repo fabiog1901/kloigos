@@ -562,7 +562,8 @@ window.cpkitWebappExtension = {
     },
 
     serverCanDecommission(server) {
-      return String(server?.status || "").toLowerCase() === "ready";
+      const status = String(server?.status || "").toLowerCase();
+      return !["decommissioning", "decommissioned"].includes(status);
     },
 
     serversSortClass(index) {
