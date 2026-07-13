@@ -2,7 +2,7 @@ import datetime as dt
 from enum import StrEnum, auto
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class AutoNameStrEnum(StrEnum):
@@ -168,6 +168,9 @@ class ServerStatus(AutoNameStrEnum):
     DECOMMISSION_FAIL = auto()
 
 
+RUNTIME_PROFILES = {"minimal", "standard", "build"}
+
+
 class ComputeUnitInDB(BaseModel):
     compute_id: str
     hostname: str
@@ -303,11 +306,21 @@ class BaseServer(BaseModel):
     server_admin_user: str
     region: str
     zone: str | None = None
+    runtime_profile: str = "standard"
     cpu_count: int | None = None
     mem_gb: int | None = None
     disk_count: int | None = None
     disk_size_gb: int | None = None
     tags: dict[str, Any] | None = None
+
+    @field_validator("runtime_profile")
+    @classmethod
+    def validate_runtime_profile(cls, value: str) -> str:
+        profile = (value or "standard").strip().lower()
+        if profile not in RUNTIME_PROFILES:
+            allowed = ", ".join(sorted(RUNTIME_PROFILES))
+            raise ValueError(f"runtime_profile must be one of: {allowed}.")
+        return profile
 
 
 class ServerInDB(BaseServer):

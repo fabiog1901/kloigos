@@ -69,6 +69,7 @@ def run_server_init(
             "server_public_ip": payload.public_ip,
             "ansible_host": _ansible_host(payload.public_ip, payload.private_ip),
             "server_admin_user": payload.server_admin_user,
+            "runtime_profile": payload.runtime_profile,
             "disk_size_gb": payload.disk_size_gb,
             "compute_units": [cu.as_playbook_vars() for cu in compute_units],
         },

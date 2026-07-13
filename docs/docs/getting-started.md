@@ -95,6 +95,7 @@ For a first server, expect to provide:
 - hostname, such as `k01`
 - server admin user, such as `ubuntu`
 - region and zone labels
+- runtime profile, such as `standard`
 - private IP address
 - Compute Unit definitions, including CPU count and memory limits
 - storage sizing for each Compute Unit

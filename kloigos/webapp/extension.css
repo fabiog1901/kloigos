@@ -47,6 +47,38 @@
   color: #e0f2fe;
 }
 
+.kloigos-runtime-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 999px;
+  background: rgba(14, 116, 144, 0.18);
+  color: #bae6fd;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 4px 9px;
+}
+
+.kloigos-runtime-pill.minimal {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(51, 65, 85, 0.22);
+  color: #cbd5e1;
+}
+
+.kloigos-runtime-pill.build {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(22, 163, 74, 0.18);
+  color: #bbf7d0;
+}
+
+.icon-btn svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+}
+
 .kloigos-textarea {
   min-height: 96px;
   resize: vertical;

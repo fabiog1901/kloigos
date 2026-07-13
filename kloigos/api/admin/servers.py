@@ -56,6 +56,7 @@ async def init_server(
       "server_admin_user": "ubuntu",
       "region": "us-east-1",
       "zone": "us-east-1a",
+      "runtime_profile": "standard",
       "compute_units": [
         {
           "ordinal": 1,

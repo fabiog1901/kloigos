@@ -95,12 +95,13 @@ window.cpkitWebappExtension = {
       2: "string",
       3: "string",
       4: "string",
-      5: "number",
+      5: "string",
       6: "number",
       7: "number",
       8: "number",
-      9: "string",
+      9: "number",
       10: "string",
+      11: "string",
     },
     serversLoading: { list: false, action: false, init: false, license: false },
     serversAutoRefreshEnabled: true,
@@ -179,6 +180,7 @@ window.cpkitWebappExtension = {
         server_admin_user: "ubuntu",
         region: "",
         zone: "",
+        runtime_profile: "standard",
         cpu_count: null,
         mem_gb: null,
         disk_count: null,
@@ -542,6 +544,7 @@ window.cpkitWebappExtension = {
         server.server_admin_user,
         server.region,
         server.zone,
+        server.runtime_profile,
         server.status,
         ...tags,
       ].filter(Boolean).join(" ").toLowerCase();
@@ -560,16 +563,18 @@ window.cpkitWebappExtension = {
         case 4:
           return server.zone || "";
         case 5:
-          return server.cpu_count ?? "";
+          return server.runtime_profile || "";
         case 6:
-          return server.mem_gb ?? "";
+          return server.cpu_count ?? "";
         case 7:
-          return server.disk_count ?? "";
+          return server.mem_gb ?? "";
         case 8:
-          return server.disk_size_gb ?? "";
+          return server.disk_count ?? "";
         case 9:
-          return this.serversTagsCompact(server.tags);
+          return server.disk_size_gb ?? "";
         case 10:
+          return this.serversTagsCompact(server.tags);
+        case 11:
           return server.status || "";
         default:
           return "";
@@ -591,6 +596,11 @@ window.cpkitWebappExtension = {
       if (normalized.includes("ing")) return "pending";
       if (!normalized || normalized === "unknown") return "neutral";
       return "danger";
+    },
+
+    runtimeProfileClass(profile) {
+      const normalized = String(profile || "standard").toLowerCase();
+      return ["minimal", "build"].includes(normalized) ? normalized : "";
     },
 
     serverCanDelete(server) {
@@ -1401,6 +1411,7 @@ window.cpkitWebappExtension = {
         server_admin_user: String(this.modal.serverInit.server_admin_user || "ubuntu").trim(),
         region: String(this.modal.serverInit.region || "").trim(),
         zone: String(this.modal.serverInit.zone || "").trim(),
+        runtime_profile: String(this.modal.serverInit.runtime_profile || "standard").trim(),
         cpu_count: numberOrNull(this.modal.serverInit.cpu_count),
         mem_gb: numberOrNull(this.modal.serverInit.mem_gb),
         disk_count: numberOrNull(this.modal.serverInit.disk_count),

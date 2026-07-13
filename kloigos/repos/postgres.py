@@ -32,11 +32,11 @@ class PostgresRepo(CPKitRepo):
             conn.execute(
                 """
                 INSERT INTO servers (
-                    hostname, private_ip, public_ip, server_admin_user, region, zone, status,
+                    hostname, private_ip, public_ip, server_admin_user, region, zone, runtime_profile, status,
                     cpu_count, mem_gb, disk_count, disk_size_gb, tags
                 )
                 VALUES (
-                    %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s
                 )
                 ON CONFLICT DO NOTHING
@@ -48,6 +48,7 @@ class PostgresRepo(CPKitRepo):
                     sir.server_admin_user,
                     sir.region,
                     sir.zone,
+                    sir.runtime_profile,
                     status,
                     sir.cpu_count,
                     sir.mem_gb,

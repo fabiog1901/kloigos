@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS servers (
     server_admin_user TEXT NOT NULL,
     region TEXT NOT NULL,
     zone TEXT NOT NULL,
+    runtime_profile TEXT NOT NULL DEFAULT 'standard',
     STATUS TEXT NOT NULL,
     cpu_count int2 NULL,
     mem_gb int2 NULL,

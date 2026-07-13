@@ -85,8 +85,17 @@ Applications may be deployed as:
 - Node.js applications
 - standard Linux services managed through `systemd --user`
 
-Kloigos can also support runtime profiles, where hosts provide a curated set of commonly used
-runtimes and development tools such as Java, Python, Node.js, Go, Rust, GCC, Clang, CMake, and Git.
+Kloigos supports host runtime profiles, where hosts provide a curated set of commonly used runtimes
+and development tools such as Java, Python, Node.js, Go, Rust, GCC, Clang, CMake, Git, `pipx`, and
+`uv`. Runtime profiles are installed once during server initialization and shared by every Compute
+Unit on that host.
+
+The first built-in profiles are:
+
+- `minimal`: Kloigos platform bootstrap packages only
+- `standard`: common application runtimes and operator tools
+- `build`: `standard` plus compilers and build tooling
+
 This gives application owners a productive execution environment without requiring them to install
 system packages.
 

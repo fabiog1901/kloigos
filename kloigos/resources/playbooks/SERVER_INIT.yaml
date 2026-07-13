@@ -8,6 +8,7 @@
 #   server_public_ip
 #   ansible_host
 #   server_admin_user
+#   runtime_profile
 #   disk_size_gb
 #   compute_units
 #
@@ -31,21 +32,161 @@
   hosts: init_server
   gather_facts: yes
   become: yes
+  vars:
+    bootstrap_package_map:
+      debian:
+        - e2fsprogs
+        - apparmor
+        - apparmor-utils
+        - libcap2-bin
+        - libpam-apparmor
+        - lvm2
+        - nftables
+        - rsync
+      redhat:
+        - e2fsprogs
+        - libcap
+        - lvm2
+        - nftables
+        - rsync
+    runtime_profile_package_map:
+      debian:
+        minimal: []
+        standard:
+          - default-jre-headless
+          - python3
+          - python3-pip
+          - python3-venv
+          - pipx
+          - nodejs
+          - npm
+          - git
+          - curl
+          - wget
+          - jq
+          - unzip
+        build:
+          - default-jre-headless
+          - python3
+          - python3-pip
+          - python3-venv
+          - pipx
+          - nodejs
+          - npm
+          - git
+          - curl
+          - wget
+          - jq
+          - unzip
+          - build-essential
+          - gcc
+          - g++
+          - clang
+          - make
+          - cmake
+          - pkg-config
+          - golang-go
+          - rustc
+          - cargo
+      redhat:
+        minimal: []
+        standard:
+          - java-21-openjdk-headless
+          - python3
+          - python3-pip
+          - pipx
+          - nodejs
+          - npm
+          - git
+          - curl
+          - wget
+          - jq
+          - unzip
+          - tar
+        build:
+          - java-21-openjdk-headless
+          - python3
+          - python3-pip
+          - pipx
+          - nodejs
+          - npm
+          - git
+          - curl
+          - wget
+          - jq
+          - unzip
+          - tar
+          - gcc
+          - gcc-c++
+          - clang
+          - make
+          - cmake
+          - pkgconf-pkg-config
+          - golang
+          - rust
+          - cargo
   tasks:
-    - name: Install server bootstrap packages
+    - name: Validate supported package manager family
+      assert:
+        that:
+          - (ansible_facts["os_family"] | lower) in bootstrap_package_map
+        fail_msg: "Unsupported OS family '{{ ansible_facts['os_family'] }}'."
+
+    - name: Validate runtime profile
+      assert:
+        that:
+          - (runtime_profile | default('standard')) in runtime_profile_package_map[(ansible_facts["os_family"] | lower)]
+        fail_msg: "Unknown runtime profile '{{ runtime_profile | default('standard') }}'."
+
+    - name: Install Debian server bootstrap packages
       when: ansible_facts["os_family"] | lower == "debian"
-      apt:
-        name:
-          - e2fsprogs
-          - apparmor
-          - apparmor-utils
-          - libcap2-bin
-          - libpam-apparmor
-          - lvm2
-          - nftables
-          - rsync
-        state: present
-        update_cache: yes
+      shell: |
+        set -euo pipefail
+        apt update
+        DEBIAN_FRONTEND=noninteractive apt install -y {{ bootstrap_package_map["debian"] | join(" ") }}
+      args:
+        executable: /bin/bash
+
+    - name: Install RedHat server bootstrap packages
+      when: ansible_facts["os_family"] | lower == "redhat"
+      shell: |
+        set -euo pipefail
+        dnf makecache -y
+        dnf install -y {{ bootstrap_package_map["redhat"] | join(" ") }}
+      args:
+        executable: /bin/bash
+
+    - name: Install Debian host runtime profile packages
+      when:
+        - ansible_facts["os_family"] | lower == "debian"
+        - runtime_profile_package_map["debian"][(runtime_profile | default('standard'))] | length > 0
+      shell: |
+        set -euo pipefail
+        apt update
+        DEBIAN_FRONTEND=noninteractive apt install -y {{ runtime_profile_package_map["debian"][(runtime_profile | default('standard'))] | join(" ") }}
+      args:
+        executable: /bin/bash
+
+    - name: Install RedHat host runtime profile packages
+      when:
+        - ansible_facts["os_family"] | lower == "redhat"
+        - runtime_profile_package_map["redhat"][(runtime_profile | default('standard'))] | length > 0
+      shell: |
+        set -euo pipefail
+        dnf makecache -y
+        dnf install -y {{ runtime_profile_package_map["redhat"][(runtime_profile | default('standard'))] | join(" ") }}
+      args:
+        executable: /bin/bash
+
+    - name: Install uv through pipx for runtime profiles
+      when: runtime_profile | default('standard') != "minimal"
+      shell: |
+        set -euo pipefail
+        if ! command -v uv >/dev/null 2>&1; then
+          PIPX_HOME=/opt/kloigos/pipx PIPX_BIN_DIR=/usr/local/bin pipx install uv
+        fi
+      args:
+        executable: /bin/bash
 
     - name: Prepare Kloigos LVM volume group
       shell: |

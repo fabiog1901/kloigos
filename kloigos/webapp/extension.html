@@ -107,7 +107,15 @@
                       :disabled="allocationsBusyKey === row.allocation_id"
                       title="Scale allocation"
                       @click="openAllocationScaleModal(row)"
-                    >⇄</button>
+                      aria-label="Scale allocation"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M16 3h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M8 21H3v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M21 3l-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                        <path d="M3 21l7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                      </svg>
+                    </button>
                   </template>
                   <template x-if="canManageAllocations() && allocationCanDeallocate(row)">
                     <button
@@ -116,7 +124,14 @@
                       :disabled="allocationsBusyKey === row.allocation_id"
                       title="Deallocate allocation"
                       @click="openAllocationDeallocateConfirm(row)"
-                    >-</button>
+                      aria-label="Deallocate allocation"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M16 17l5-5-5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M21 12H9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                      </svg>
+                    </button>
                   </template>
                   <template x-if="!canManageAllocations() || (!allocationCanScale(row) && !allocationCanDeallocate(row))">
                     <span class="muted">-</span>
@@ -360,12 +375,13 @@
             <th @click="toggleServersSort(2)" :class="serversSortClass(2)">User</th>
             <th @click="toggleServersSort(3)" :class="serversSortClass(3)">Region</th>
             <th @click="toggleServersSort(4)" :class="serversSortClass(4)">Zone</th>
-            <th @click="toggleServersSort(5)" :class="serversSortClass(5)">CPU</th>
-            <th @click="toggleServersSort(6)" :class="serversSortClass(6)">Mem GB</th>
-            <th @click="toggleServersSort(7)" :class="serversSortClass(7)">Disks</th>
-            <th @click="toggleServersSort(8)" :class="serversSortClass(8)">Disk GB</th>
-            <th @click="toggleServersSort(9)" :class="serversSortClass(9)">Tags</th>
-            <th @click="toggleServersSort(10)" :class="serversSortClass(10)">Status</th>
+            <th @click="toggleServersSort(5)" :class="serversSortClass(5)">Runtime</th>
+            <th @click="toggleServersSort(6)" :class="serversSortClass(6)">CPU</th>
+            <th @click="toggleServersSort(7)" :class="serversSortClass(7)">Mem GB</th>
+            <th @click="toggleServersSort(8)" :class="serversSortClass(8)">Disks</th>
+            <th @click="toggleServersSort(9)" :class="serversSortClass(9)">Disk GB</th>
+            <th @click="toggleServersSort(10)" :class="serversSortClass(10)">Tags</th>
+            <th @click="toggleServersSort(11)" :class="serversSortClass(11)">Status</th>
             <th>Act</th>
           </tr>
         </thead>
@@ -379,6 +395,13 @@
               <td x-text="server.server_admin_user || '-'"></td>
               <td x-text="server.region || '-'"></td>
               <td x-text="server.zone || '-'"></td>
+              <td>
+                <span
+                  class="kloigos-runtime-pill"
+                  :class="runtimeProfileClass(server.runtime_profile)"
+                  x-text="server.runtime_profile || '-'"
+                ></span>
+              </td>
               <td x-text="server.cpu_count ?? '-'"></td>
               <td x-text="server.mem_gb ?? '-'"></td>
               <td x-text="server.disk_count ?? '-'"></td>
@@ -397,10 +420,23 @@
               <td>
                 <div class="row-actions compact">
                   <template x-if="serverCanDecommission(server)">
-                    <button class="icon-btn" title="Decommission server" @click="openServerActionConfirm(server, 'decommission')">!</button>
+                    <button class="icon-btn" title="Decommission server" aria-label="Decommission server" @click="openServerActionConfirm(server, 'decommission')">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 3v9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                        <path d="M6.4 7.5a8 8 0 1 0 11.2 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                      </svg>
+                    </button>
                   </template>
                   <template x-if="serverCanDelete(server)">
-                    <button class="icon-btn" title="Delete server record" @click="openServerActionConfirm(server, 'delete')">x</button>
+                    <button class="icon-btn" title="Delete server record" aria-label="Delete server record" @click="openServerActionConfirm(server, 'delete')">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 6h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                        <path d="M8 6V4h8v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M6 6l1 15h10l1-15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M10 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                        <path d="M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                      </svg>
+                    </button>
                   </template>
                   <template x-if="!serverCanDecommission(server) && !serverCanDelete(server)">
                     <span class="muted">-</span>
@@ -410,7 +446,7 @@
             </tr>
           </template>
           <tr x-show="!serversLoading.list && serversVisibleRows.length === 0">
-            <td colspan="12" class="empty-cell">No servers found.</td>
+            <td colspan="13" class="empty-cell">No servers found.</td>
           </tr>
         </tbody>
         </table>
@@ -511,7 +547,16 @@
                       title="Delete IP address"
                       :disabled="!ipPoolCanDelete(row) || ipPoolBusyKey === row.ip_address"
                       @click="openIpPoolDeleteConfirm(row)"
-                    >x</button>
+                      aria-label="Delete IP address"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 6h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                        <path d="M8 6V4h8v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M6 6l1 15h10l1-15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <path d="M10 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                        <path d="M14 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                      </svg>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -840,6 +885,14 @@
           <label>
             <span class="field-label">Disk GB</span>
             <input class="input" type="number" min="0" x-model.number="modal.serverInit.disk_size_gb" />
+          </label>
+          <label>
+            <span class="field-label">Runtime Profile</span>
+            <select class="input" x-model="modal.serverInit.runtime_profile">
+              <option value="minimal">minimal</option>
+              <option value="standard">standard</option>
+              <option value="build">build</option>
+            </select>
           </label>
         </div>
 
