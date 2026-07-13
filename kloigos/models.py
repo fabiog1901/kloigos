@@ -176,6 +176,7 @@ class ComputeUnitInDB(BaseModel):
     cpu_count: int
     cpu_set: str
     status: str
+    allocation_id: str | None = None
     started_at: dt.datetime | None = None
     tags: dict[str, Any] | None = None
 

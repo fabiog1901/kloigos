@@ -429,11 +429,11 @@ class PostgresRepo(CPKitRepo):
                 INSERT INTO compute_units (
                     hostname, ordinal, cpu_range, cpu_count, 
                     cpu_set,
-                    status, started_at, tags
+                    status, allocation_id, started_at, tags
                 ) 
                 VALUES (
                     %s, %s, %s, %s,
-                    %s, %s, %s, %s
+                    %s, %s, %s, %s, %s
                 )
                 ON CONFLICT DO NOTHING
                 """,
@@ -444,6 +444,7 @@ class PostgresRepo(CPKitRepo):
                     cudb.cpu_count,
                     cudb.cpu_set,
                     cudb.status,
+                    cudb.allocation_id,
                     cudb.started_at,
                     cudb.tags,
                 ),
@@ -453,6 +454,8 @@ class PostgresRepo(CPKitRepo):
         self,
         compute_unit: str,
         status: ComputeUnitStatus | None = None,
+        allocation_id: str | None = None,
+        clear_allocation_id: bool = False,
         tags: dict | None = None,
     ) -> None:
         # mark the compute_unit to allocating
@@ -463,11 +466,17 @@ class PostgresRepo(CPKitRepo):
                 UPDATE compute_units
                 SET 
                     status = coalesce(%s, status),
+                    allocation_id = CASE
+                        WHEN %s THEN NULL
+                        ELSE coalesce(%s, allocation_id)
+                    END,
                     tags = coalesce(%s, tags)
                 WHERE compute_id = %s
                 """,
                 (
                     status,
+                    clear_allocation_id,
+                    allocation_id,
                     json.dumps(tags) if tags is not None else None,
                     compute_unit,
                 ),
@@ -536,6 +545,7 @@ class PostgresRepo(CPKitRepo):
                     c.cpu_set,
                     c.cpu_count,
                     c.status,
+                    c.allocation_id,
                     c.started_at,
                     c.tags 
                 FROM compute_units c JOIN servers s 
@@ -564,6 +574,7 @@ class PostgresRepo(CPKitRepo):
             compute_units.cpu_set,
             compute_units.cpu_count,
             compute_units.status,
+            compute_units.allocation_id,
             compute_units.started_at,
             compute_units.tags 
         """
@@ -635,6 +646,7 @@ class PostgresRepo(CPKitRepo):
                 c.cpu_set,
                 c.cpu_count,
                 c.status,
+                c.allocation_id,
                 c.started_at,
                 c.tags 
             FROM compute_units c JOIN servers s 

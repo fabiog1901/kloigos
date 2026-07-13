@@ -146,6 +146,8 @@ def run_compute_unit_allocate(
         repo.update_compute_unit(
             cu.compute_id,
             status=final_status,
+            allocation_id=allocation.allocation_id if job_ok else None,
+            clear_allocation_id=not job_ok,
         )
         repo.update_allocation(
             allocation.allocation_id,
@@ -216,7 +218,12 @@ def run_compute_unit_deallocate(
     final_event = Event.DEALLOCATION_DONE if job_ok else Event.DEALLOCATION_FAILED
 
     try:
-        repo.update_compute_unit(cu.compute_id, status=final_status)
+        repo.update_compute_unit(
+            cu.compute_id,
+            status=final_status,
+            clear_allocation_id=job_ok,
+            allocation_id=None if job_ok else allocation.allocation_id,
+        )
         if job_ok:
             repo.clear_allocation_placement(
                 allocation.allocation_id,
@@ -341,11 +348,15 @@ def run_allocation_scale(
 
     if job_ok:
         repo.update_compute_unit(
-            source.compute_id, status=ComputeUnitStatus.FREE, tags={}
+            source.compute_id,
+            status=ComputeUnitStatus.FREE,
+            clear_allocation_id=True,
+            tags={},
         )
         repo.update_compute_unit(
             target.compute_id,
             status=ComputeUnitStatus.ALLOCATED,
+            allocation_id=allocation.allocation_id,
             tags=allocation.tags or {},
         )
         repo.update_allocation(
@@ -365,6 +376,7 @@ def run_allocation_scale(
         repo.update_compute_unit(
             target.compute_id,
             status=ComputeUnitStatus.ALLOCATION_FAIL,
+            clear_allocation_id=True,
             tags={},
         )
         repo.update_allocation(

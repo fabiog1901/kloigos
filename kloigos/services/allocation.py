@@ -177,6 +177,7 @@ class AllocationService:
                 self.repo.update_compute_unit(
                     cu.compute_id,
                     status=ComputeUnitStatus.FREE,
+                    clear_allocation_id=True,
                     tags={},
                 )
                 raise NoFreeIpAddressError()
@@ -206,6 +207,7 @@ class AllocationService:
             )
             self.repo.update_compute_unit(
                 cu.compute_id,
+                allocation_id=allocation.allocation_id,
                 tags=req.tags or {},
             )
             job: JobID = self.repo.enqueue_command(
@@ -226,6 +228,7 @@ class AllocationService:
                 self.repo.update_compute_unit(
                     cu.compute_id,
                     status=ComputeUnitStatus.FREE,
+                    clear_allocation_id=True,
                     tags={},
                 )
             except Exception:
@@ -247,6 +250,7 @@ class AllocationService:
                 self.repo.update_compute_unit(
                     cu.compute_id,
                     status=ComputeUnitStatus.FREE,
+                    clear_allocation_id=True,
                     tags={},
                 )
             except Exception:
@@ -321,7 +325,7 @@ class AllocationService:
             self.repo.update_compute_unit(
                 cu.compute_id,
                 status=ComputeUnitStatus.DEALLOCATING,
-                tags={},
+                allocation_id=allocation.allocation_id,
             )
             self.repo.update_allocation(
                 allocation.allocation_id,

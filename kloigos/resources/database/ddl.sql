@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS compute_units (
     cpu_count INT2 NOT NULL,
     cpu_set TEXT NOT NULL,
     STATUS TEXT NOT NULL,
+    allocation_id TEXT NULL,
     started_at TIMESTAMPTZ NULL,
     tags JSONB NULL,
     CONSTRAINT pk_compute_units PRIMARY KEY (compute_id),
@@ -67,6 +68,11 @@ WHERE compute_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_allocations_allocated_ip_address
 ON allocations (ip_address)
 WHERE status = 'ALLOCATED';
+
+ALTER TABLE compute_units DROP CONSTRAINT IF EXISTS compute_unit_allocation;
+
+ALTER TABLE compute_units
+ADD CONSTRAINT compute_unit_allocation FOREIGN KEY (allocation_id) REFERENCES allocations(allocation_id) ON UPDATE CASCADE ON DELETE SET NULL;
 
 ALTER TABLE ip_pool DROP CONSTRAINT IF EXISTS ip_pool_allocation;
 
