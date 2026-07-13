@@ -4,34 +4,52 @@ hide:
   - toc
 ---
 
-# VM-like isolation. Bare-metal performance. No orchestration.
+# Linux-native bare-metal Platform as a Service
 
-## Kloigos lets you split a powerful server into multiple independent compute environments - without virtual machines or containers
+## Kloigos provides VM-like application isolation using standard Linux primitives, without virtualization or containers
 
 ![dashboard](assets/dashboard.png)
 
 ---
 
-Kloigos is a Linux-native control plane for managing **compute units**: lightweight, VM-like
-execution environments carved directly out of a host using standard Linux primitives.
+Kloigos is a Linux-native Platform as a Service for bare-metal infrastructure. It provides a curated
+execution platform for Linux applications running on shared physical servers.
 
-Instead of relying on virtual machines or container orchestration,
-Kloigos subdivides large servers into isolated compute units by combining CPU pinning,
-resource limits, filesystem isolation, and network controls.
+Instead of virtualizing hardware or requiring applications to be packaged as containers, Kloigos
+assembles proven Linux capabilities into isolated application environments called **Compute Units**.
+Each Compute Unit shares the host kernel while receiving dedicated CPU resources, memory limits,
+storage ownership, networking, and a Linux user identity.
 
-Each compute unit behaves like a small, dedicated machine, with its own Unix user, SSH access,
-and systemd-managed services - while sharing the host kernel and avoiding virtualization overhead.
-Each unit is also addressable through its own private IP address and optional public IP address,
-so standard service ports can be reused across compute units without host-level port slicing.
-
-It gives teams a simple, VM-like way to run multiple workloads on the same host, with predictable performance, strong isolation, and a familiar Linux experience. No orchestration layers, no images, no extra overhead - just efficient use of the hardware you already have.
+Kloigos is designed for teams that want the operational feel of a small VM - SSH access, writable
+directories, predictable resources, and user-managed `systemd --user` services - without a hypervisor,
+container runtime, image pipeline, or orchestration layer.
 
 ---
 
-### Benefits
+### What Kloigos Builds On
 
-**Kloigos makes it easy to divide a single machine into multiple isolated compute units**, each with its own resources, user space, and lifecycle. It offers the convenience of virtual machines without the complexity or cost of virtualization.
+Kloigos intentionally does not invent new low-level isolation technologies. It integrates:
 
-Kloigos allows you to run multiple independent workloads on the same host with predictable performance and minimal overhead. By building directly on Linux primitives, it delivers VM-like isolation while staying fast, simple, and transparent.
+- systemd and cgroups for resource management
+- nftables for network isolation
+- Linux users and filesystem permissions for identity and storage isolation
+- LVM for logical storage management
+- AppArmor profiles for mandatory access control on supported hosts
+- standard Linux networking for floating IP management
 
-Each compute unit behaves like a lightweight VM - with SSH access, systemd services, and isolated resources - while avoiding the complexity of containers and hypervisors. It’s a pragmatic way to share powerful servers without surprises.
+The result is a consistent platform model that lets infrastructure teams partition powerful servers
+into isolated application environments while preserving native Linux performance and familiar
+operational tools.
+
+### Capacity and Identity
+
+Kloigos separates host capacity from workload identity.
+
+A **Compute Unit** represents capacity on a host: CPU allocation, memory limits, NUMA placement, and
+local storage.
+
+An **Allocation** represents a workload identity: allocation ID, Unix login user, IP address, storage,
+metadata, tags, and current Compute Unit placement.
+
+This separation allows workloads to scale or move while preserving their user, IP address, storage
+identity, and metadata. Only placement changes.

@@ -73,6 +73,7 @@ nav:
     - index.md
   - use-case.md
   - Docs:
+    - docs/getting-started.md
     - docs/auth.md
     - docs/deployment.md
     - docs/architecture.md

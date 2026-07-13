@@ -1,16 +1,13 @@
 # Kloigos | Κλοηγός
 
-Kloigos is a Linux-native control plane for managing **compute units**: lightweight, VM-like
-execution environments carved directly out of a host using standard Linux primitives.
+Kloigos is a **Linux-native bare-metal Platform as a Service** for running applications on shared
+physical servers.
 
-Instead of relying on virtual machines or container orchestration,
-Kloigos subdivides large servers into isolated compute units by combining CPU pinning,
-resource limits, filesystem isolation, and network controls.
-
-Each compute unit behaves like a small, dedicated machine, with its own Unix user, SSH access,
-and systemd-managed services - while sharing the host kernel and avoiding virtualization overhead.
-Compute units also have their own private IP address and optional public IP address, so users can
-connect to a stable compute unit ID without depending on host-level port ranges.
+Instead of virtualizing hardware or orchestrating containers, Kloigos uses standard Linux primitives
+to provide isolated, predictable application environments called **Compute Units**. A Compute Unit is
+not a virtual machine and does not contain its own operating system. It shares the host Linux kernel
+while providing dedicated CPU resources, memory limits, filesystem ownership, networking, and user
+identity.
 
 ## The problem Kloigos solves
 
@@ -28,8 +25,37 @@ on the same machine while maintaining:
 Traditional solutions - virtual machines, containers, or Kubernetes - can be too heavy, too complex,
 or too opinionated for this use case.
 
-Kloigos fills the gap by providing
-**fine-grained, host-level isolation without introducing a hypervisor or container runtime**.
+Kloigos fills the gap as:
+
+> **A Linux-native bare-metal Platform as a Service that provides VM-like application isolation using standard Linux primitives, without virtualization or containers.**
+
+The value of Kloigos is not that it replaces Linux technologies. It integrates systemd, cgroups,
+nftables, Linux users, LVM, standard networking, and mandatory access-control mechanisms into a
+consistent operational model for deploying, managing, and scaling applications.
+
+## Compute Units and Allocations
+
+Kloigos separates capacity from workload identity.
+
+A **Compute Unit** represents available host capacity: CPU allocation, memory limits, NUMA placement,
+and local storage.
+
+An **Allocation** represents a workload identity and owns the allocation identifier, Unix login user,
+IP address, storage, tags, metadata, and current Compute Unit placement.
+
+When a workload scales or moves, only its Compute Unit placement changes. Its user, IP address,
+storage identity, and metadata remain stable.
+
+## Security Model
+
+Kloigos follows an EC2-like model: users receive SSH access to their isolated execution environment
+and can manage their own processes. Security is enforced by the platform rather than by requiring
+users to start applications through a specific launcher.
+
+The primary boundaries are Linux users, cgroups and systemd slices, filesystem ownership, dedicated
+IP addresses, nftables isolation, and mandatory access-control profiles such as AppArmor. Systemd
+service sandboxing can be useful for managed services, but it is not treated as the primary security
+boundary because users may start processes directly from an interactive shell.
 
 ## Install
 

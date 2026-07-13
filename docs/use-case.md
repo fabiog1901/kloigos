@@ -3,241 +3,134 @@ hide:
   - navigation
 ---
 
-# Use Case
+# Product Positioning
 
-Kloigos is a Linux-native control plane for managing **compute units**: lightweight, VM-like
-execution environments carved directly out of a host using standard Linux primitives.
+Kloigos is a **Linux-native bare-metal Platform as a Service**.
 
-## The problem Kloigos solves
+It provides a curated execution platform for Linux applications running on shared physical servers.
+Rather than virtualizing hardware or orchestrating containers, Kloigos uses existing Linux primitives
+to create isolated, predictable application environments called **Compute Units**.
 
-On modern servers with dozens or hundreds of CPUs, teams often need to run multiple independent workloads
-on the same machine while maintaining:
+A Compute Unit is not a virtual machine and does not contain its own operating system. It shares the
+host Linux kernel while providing dedicated CPU resources, memory limits, filesystem ownership,
+networking, and user identity.
 
-- predictable CPU and resource allocation
+## Why Kloigos Exists
 
-- strong isolation between workloads
+Powerful Linux servers are often underutilized because the usual ways to share them are either too
+heavy or too opinionated.
 
-- a familiar, VM-like user experience (SSH, systemd, writable filesystem)
+Virtual machines provide strong isolation, but add operational overhead and duplicate operating
+systems. Kubernetes and container platforms are powerful, but they assume image-based deployment,
+container-native operations, and a larger orchestration model.
 
-- minimal operational overhead
+Kloigos occupies the space between bare-metal Linux and container orchestration:
 
-Traditional solutions - virtual machines, containers, or Kubernetes - can be too heavy, too complex,
-or too opinionated for this use case. Kloigos fills the gap by providing
-**fine-grained, host-level isolation without introducing a hypervisor or container runtime**.
+> **A Linux-native bare-metal Platform as a Service that provides VM-like application isolation using standard Linux primitives, without virtualization or containers.**
 
-## Use case for Kloigos
+The primary value proposition is operational simplicity. Kloigos lets infrastructure teams safely
+partition powerful Linux servers into multiple isolated application environments while preserving
+native performance, predictable resource allocation, and a familiar Linux experience.
 
-Kloigos can be broadly useful - but only for a specific class of users and environments.
-It’s not a universal replacement for VMs, containers, or Kubernetes, and that’s actually a strength, not a weakness.
+## Built from Proven Linux Technologies
 
-Let’s frame this clearly.
+Kloigos intentionally does not replace Linux. It assembles proven Linux capabilities into a coherent
+platform:
 
-## 1. What problem Kloigos _really_ solves
+- systemd and cgroups for resource management
+- nftables for network isolation
+- Linux users and filesystem permissions for identity and storage isolation
+- LVM for logical storage management
+- AppArmor profiles for mandatory access control on supported hosts
+- standard Linux networking for floating IP management
+- Ansible playbooks for auditable host operations
 
-At its core, Kloigos solves this problem:
+The value of Kloigos is not a new kernel primitive. Its value is the consistent operational model it
+builds from those primitives.
 
-> “How do I safely and efficiently subdivide a large Linux server into multiple _VM-like_ environments **without** a hypervisor or container stack, while keeping a familiar SSH + systemd user experience?”
+## Compute Units and Allocations
 
-That problem exists **far more often than people realize**, especially outside hyperscale cloud-native teams.
+Kloigos separates **capacity** from **identity**.
 
-Kloigos is most compelling where people want:
+A **Compute Unit** represents available compute capacity on a host:
 
-- **strong isolation**
-- **very low overhead**
-- **standard Linux tooling**
-- **no Kubernetes**
-- **no hypervisor**
-- **no image pipelines**
+- CPU allocation
+- memory limits
+- NUMA placement
+- local storage assignment
+- current capacity state
 
----
+An **Allocation** represents the durable identity of a workload:
 
-## 2. Who would find Kloigos immediately useful
+- allocation identifier
+- Unix login user
+- IP address
+- storage identity
+- metadata and tags
+- current Compute Unit placement
 
-### 1) Infrastructure / platform teams with large bare-metal servers
+This split is central to scaling. When a workload scales up, scales down, or moves to a different
+host, the Allocation remains the same. Its login user, IP address, storage identity, tags, and
+metadata stay stable. Only the Compute Unit placement changes.
 
-Common in:
+## Curated Runtime Environment
 
-- finance / trading
-- telco
-- research labs
-- enterprise data centers
-- on-prem AI / ML clusters
+Kloigos does not require applications to be containerized or rewritten.
 
-These teams often have:
+Applications may be deployed as:
 
-- 64-256 core machines
-- predictable workloads
-- strong isolation requirements
-- skepticism toward Kubernetes overhead
+- self-contained binaries
+- Java applications with bundled runtimes
+- Python virtual environments
+- Node.js applications
+- standard Linux services managed through `systemd --user`
 
-Kloigos lets them:
+Kloigos can also support runtime profiles, where hosts provide a curated set of commonly used
+runtimes and development tools such as Java, Python, Node.js, Go, Rust, GCC, Clang, CMake, and Git.
+This gives application owners a productive execution environment without requiring them to install
+system packages.
 
-- slice machines deterministically
-- assign ownership cleanly
-- avoid VM sprawl
-- keep performance predictable
+## Security Philosophy
 
----
+Kloigos follows an EC2-like operating model: users receive SSH access to their isolated execution
+environment and can manage their own processes.
 
-### 2) Teams running “pet services” rather than cattle
+Security is enforced by the platform, not by requiring users to launch applications through a
+specific mechanism.
 
-Not every workload fits the container model.
+The primary security boundaries are:
 
-Examples:
+- Linux users
+- cgroups and systemd slices
+- filesystem ownership and quotas
+- dedicated IP addresses
+- nftables network isolation
+- AppArmor profiles on supported hosts
+- capability auditing through journald
 
-- stateful services
-- legacy daemons
-- services that expect a writable filesystem
-- software that assumes SSH access
-- systemd-managed services
-- licensed software bound to host identity
+Systemd service sandboxing directives such as `PrivateTmp`, `ProtectSystem`, and
+`SystemCallFilter` can be useful for Kloigos-managed services, but they are not treated as primary
+security mechanisms. Users can start processes directly from an interactive shell with tools such as
+`nohup`, so Kloigos focuses on platform-level controls that workload authors cannot bypass.
 
-Kloigos gives them:
+## Where Kloigos Fits
 
-- isolation without rewriting deployment models
-- an EC2-like mental model
-- predictable CPU and IO placement
+Kloigos is not intended to replace every virtual machine or every Kubernetes cluster.
 
----
+It is a good fit for:
 
-### 3) Multi-tenant environments with _trusted but isolated_ users
+- infrastructure teams with large bare-metal Linux servers
+- internal platforms for trusted but isolated users
+- stateful services that expect SSH, writable filesystems, and systemd
+- build servers, CI runners, research clusters, and training environments
+- performance-sensitive workloads where VM or orchestration overhead is undesirable
 
-Examples:
+It is not the right tool for:
 
-- internal developer platforms
-- shared build servers
-- CI runners
-- academic compute clusters
-- training environments
+- hostile multi-tenant environments requiring separate kernels
+- teams deeply invested in image-based container operations
+- workloads that depend on Kubernetes ecosystem features such as sidecars or service meshes
+- ephemeral stateless microservice fleets
 
-These environments need:
-
-- real isolation
-- fair resource usage
-- simple cleanup
-- minimal ops burden
-
-Kloigos fits perfectly here.
-
----
-
-### 4) Performance-sensitive workloads
-
-Kloigos avoids:
-
-- VM exits
-- container overlay filesystems
-- network overlays
-- extra scheduler layers
-
-This matters for:
-
-- low-latency services
-- HPC-style workloads
-- NUMA-sensitive applications
-- IO-heavy pipelines
-
----
-
-## 3. Where Kloigos is _not_ a good fit
-
-Kloigos is _not_ ideal for:
-
-- untrusted internet-facing tenants (shared kernel risk)
-- workloads needing strong kernel isolation guarantees
-- ephemeral, stateless, image-based microservices
-- teams deeply invested in Kubernetes
-- workloads that rely on container ecosystems (sidecars, service mesh, etc.)
-
-Those users should stick with:
-
-- Kubernetes
-- microVMs (Firecracker)
-- traditional VMs
-
----
-
-## 4. How wide is the adaptability?
-
-### Conceptually
-
-Kloigos is adaptable to **any environment that already runs Linux and systemd**.
-
-It does not require:
-
-- special kernels
-- special hardware
-- custom runtimes
-- vendor lock-in
-
-That makes it _portable_ and _incrementally adoptable_.
-
----
-
-### Practically
-
-Kloigos is best described as:
-
-> **“A Linux-native, VM-like abstraction layer for subdividing large machines.”**
-
-That’s a niche - but it’s a **real and recurring niche**, and it’s underserved by existing tools.
-
----
-
-## 5. Why this niche exists (and persists)
-
-Many teams are stuck between:
-
-- **VMs** → too heavy, too expensive
-- **Containers** → too opinionated, too complex, too ephemeral
-
-Kloigos occupies the missing middle ground:
-
-- stronger isolation than “just users”
-- simpler than Kubernetes
-- lighter than VMs
-- more flexible than containers
-
-This “middle ground” is surprisingly common in real-world ops.
-
----
-
-## 6. The strongest argument for Kloigos
-
-The strongest argument isn’t technical—it’s experiential:
-
-> “Give a developer SSH access, systemd, predictable resources, and no surprises.”
-
-That’s an incredibly powerful value proposition.
-
-Many engineers **want**:
-
-- a small VM
-- with guaranteed CPU and IO
-- without having to understand Kubernetes internals
-
-Kloigos delivers exactly that.
-
----
-
-## 7. Final honest assessment
-
-Kloigos is not for everyone - and that’s okay.
-
-It is:
-
-- ❌ not a general-purpose cloud platform
-- ❌ not a Kubernetes replacement
-- ❌ not a security boundary for hostile tenants
-
-But it _is_:
-
-- ✅ a compelling alternative for a real, underserved segment
-- ✅ technically sound
-- ✅ operationally elegant
-- ✅ easy to reason about
-- ✅ easy to adopt incrementally
-
-We present Kloigos clearly as:
-
-> **“VM-like compute units without VMs, built from native Linux primitives”**
+Kloigos is the missing middle: simpler than Kubernetes, lighter than VMs, more structured than
+"just give everyone a Unix account", and built from the Linux tools operators already understand.

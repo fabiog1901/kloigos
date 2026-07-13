@@ -1,6 +1,6 @@
 # Authentication
 
-Kloigos uses cpkit's built-in OIDC authentication and group-based authorization.
+Kloigos supports OIDC authentication and group-based authorization.
 
 - Auth routes: `/api/auth/login`, `/api/auth/callback`, `/api/auth/logout`, `/api/auth/me`
 - Protected APIs:
@@ -31,7 +31,7 @@ Requests are rejected when `X-Timestamp` falls outside the
 
 API key secrets are stored encrypted at rest with `KLOIGOS_MASTER_KEY`, which must
 be a base64-encoded 32-byte key such as the output of `openssl rand -base64 32`.
-cpkit decrypts the stored secret before verifying the request HMAC.
+Kloigos decrypts the stored secret before verifying the request HMAC.
 
 Here is an example bash client
 
@@ -75,8 +75,8 @@ curl -X "$METHOD" "$API_URL" \
 ## Required Configuration
 
 Set `KLOIGOS_MASTER_KEY` in `.env`; it is used to encrypt API key and OIDC
-session secrets at rest. OIDC and authorization values are framework settings in
-`cpkit.settings`:
+session secrets at rest. OIDC and authorization values are stored as Kloigos
+settings:
 
 - `oidc.enabled`
 - `oidc.issuer_url`

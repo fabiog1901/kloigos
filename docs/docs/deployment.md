@@ -1,80 +1,134 @@
 # Deployment
 
-There are many ways you can deploy Kloigos in Production.
-Below is just a general guidance.
-Given that Kloigos is a FastAPI app, you should also consult the guidance
-given in the [official FastAPI deployment guide](https://fastapi.tiangolo.com/deployment/).
+Kloigos is a FastAPI application distributed as a Python package with a built-in
+CLI. A production deployment should run the packaged `kloigos` command, not import
+the FastAPI app directly.
 
-## 1. System & Environment Setup
+The examples below use systemd and Nginx. They are intended as practical guidance;
+for larger deployments, also consult the
+[official FastAPI deployment guide](https://fastapi.tiangolo.com/deployment/).
 
-Prepare the server and initialize the Python environment.
+## 1. Install Kloigos
+
+Install Kloigos into a virtual environment on the control-plane server.
 
 ```bash
-# Update system packages
-sudo apt update && sudo apt upgrade -y
+sudo apt update
 sudo apt install python3-pip python3-venv nginx git -y
 
-# Clone the repository
-git clone https://github.com/fabiog1901/kloigos
-cd kloigos
+sudo mkdir -p /opt/kloigos
+sudo chown "$USER":"$USER" /opt/kloigos
+cd /opt/kloigos
 
-# Create and activate virtual environment
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 
-# Install dependencies from requirements.txt
-pip install -r requirements.txt
-
-# Install production-specific dependencies (not in requirements.txt)
-pip install gunicorn uvicorn
-
+pip install "kloigos @ git+https://github.com/fabiog1901/kloigos.git@main"
 ```
 
----
+Kloigos is also published on PyPI, but while the project is moving quickly the
+recommended install path is the latest committed GitHub `main` branch.
 
-## 2. Systemd Service Configuration
+## 2. Configure Environment
 
-Create a service file to manage the Kloigos process.
+Kloigos requires a PostgreSQL-compatible database URL and a stable master key.
+The master key is used for encrypted application secrets and must remain the same
+across restarts.
 
-**File Path:** `/etc/systemd/system/kloigos.service`
+Create an environment file:
+
+```bash
+sudo install -d -m 0750 -o root -g root /etc/kloigos
+sudo tee /etc/kloigos/kloigos.env >/dev/null <<'EOF'
+KLOIGOS_DB_URL=postgresql://kloigos:change-me@db.example.com:5432/kloigos
+KLOIGOS_MASTER_KEY=replace-with-a-32-byte-base64-key
+EOF
+sudo chmod 0600 /etc/kloigos/kloigos.env
+```
+
+Generate a suitable master key with:
+
+```bash
+openssl rand -base64 32
+```
+
+For a quick local trial instead of a production-style deployment, use the built-in
+demo mode:
+
+```bash
+kloigos demo
+```
+
+Demo mode starts an embedded local Postgres instance, creates a master key if one
+does not exist, initializes the database, and runs the application.
+
+## 3. Initialize Database and Playbooks
+
+Run initialization once after creating the database and whenever a package upgrade
+adds new schema or playbook definitions.
+
+```bash
+set -a
+. /etc/kloigos/kloigos.env
+set +a
+
+kloigos init
+```
+
+The `init` command initializes the database schema and the versioned Ansible
+playbooks packaged with Kloigos.
+
+## 4. Run Kloigos with systemd
+
+Create a systemd service to run the packaged CLI.
+
+**File path:** `/etc/systemd/system/kloigos.service`
 
 ```ini
 [Unit]
-Description=Gunicorn instance to serve Kloigos
-After=network.target
+Description=Kloigos control plane
+After=network-online.target
+Wants=network-online.target
 
 [Service]
-User=ubuntu
-Group=www-data
-WorkingDirectory=/home/ubuntu/kloigos
-Environment="PATH=/home/ubuntu/kloigos/venv/bin"
-# Runs Gunicorn with 4 workers using the Uvicorn worker class
-ExecStart=/home/ubuntu/kloigos/venv/bin/gunicorn \
-    -w 4 \
-    -k uvicorn.workers.UvicornWorker \
-    main:app \
-    --bind unix:app.sock
+Type=simple
+User=kloigos
+Group=kloigos
+WorkingDirectory=/opt/kloigos
+EnvironmentFile=/etc/kloigos/kloigos.env
+ExecStart=/opt/kloigos/.venv/bin/kloigos serve --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-
 ```
 
-**Activation:**
+Create the service account if needed, then enable the service:
 
 ```bash
-sudo systemctl start kloigos
-sudo systemctl enable kloigos
+sudo useradd --system --home /opt/kloigos --shell /usr/sbin/nologin kloigos
+sudo chown -R kloigos:kloigos /opt/kloigos
 
+sudo systemctl daemon-reload
+sudo systemctl enable --now kloigos
 ```
 
----
+Useful maintenance commands:
 
-## 3. Nginx Configuration
+| Task | Command |
+| --- | --- |
+| View live logs | `journalctl -u kloigos -f` |
+| Restart application | `sudo systemctl restart kloigos` |
+| Check status | `systemctl status kloigos` |
+| Upgrade package | `source /opt/kloigos/.venv/bin/activate && pip install --force-reinstall "kloigos @ git+https://github.com/fabiog1901/kloigos.git@main"` |
+| Apply packaged schema/playbook updates | `set -a; . /etc/kloigos/kloigos.env; set +a; kloigos init` |
 
-Configure Nginx as a reverse proxy to route external traffic to the Unix socket.
+## 5. Configure Nginx
 
-**File Path:** `/etc/nginx/sites-available/kloigos`
+Use Nginx as a reverse proxy in front of the local Kloigos process.
+
+**File path:** `/etc/nginx/sites-available/kloigos`
 
 ```nginx
 server {
@@ -82,92 +136,48 @@ server {
     server_name your_domain_or_ip;
 
     location / {
-        include proxy_params;
-        proxy_pass http://unix:/home/ubuntu/kloigos/app.sock;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://127.0.0.1:8000;
     }
 }
-
 ```
 
-**Activation:**
+Enable the site:
 
 ```bash
-# Link the config and restart Nginx
-sudo ln -s /etc/nginx/sites-available/kloigos /etc/nginx/sites-enabled
+sudo ln -s /etc/nginx/sites-available/kloigos /etc/nginx/sites-enabled/kloigos
 sudo nginx -t
 sudo systemctl restart nginx
-
 ```
 
----
+## 6. Enable HTTPS
 
-## 4. Maintenance & Monitoring
-
-| Task | Command |
-| --- | --- |
-| **View Live Logs** | `journalctl -u kloigos -f` |
-| **Restart Application** | `sudo systemctl restart kloigos` |
-| **Apply Code Changes** | `git pull && sudo systemctl restart kloigos` |
-| **Check App Status** | `systemctl status kloigos` |
-
-
-To finalize your production setup, you should secure your API with **HTTPS**. This is essential for modern web applications and required if you plan to handle sensitive data or authentication.
-
-The industry standard for this is **Certbot** from Let's Encrypt, which provides free, automated SSL certificates.
-
----
-
-## 🔒 Securing your Kloigos with HTTPS
-
-### 1. Install Certbot
-
-Install Certbot and the Nginx plugin to automate the certificate challenge and configuration.
+Install Certbot and the Nginx plugin:
 
 ```bash
 sudo apt install certbot python3-certbot-nginx -y
-
 ```
 
-### 2. Obtain and Install the SSL Certificate
-
-Run the following command. Certbot will automatically read your Nginx configuration, find your `server_name`, and request a certificate for it.
+Request and install a certificate:
 
 ```bash
 sudo certbot --nginx -d your_domain.com
-
 ```
 
-> **Note:** Ensure your domain's **A Record** is already pointing to your server's IP address before running this, otherwise the validation will fail.
-
-During the process, Certbot will ask if you want to **redirect all HTTP traffic to HTTPS**. You should choose **Yes (Option 2)**.
-
----
-
-### 3. Automated Certificate Renewal
-
-Let's Encrypt certificates expire every 90 days. Certbot installs a timer that automatically handles renewals. You can verify it is working with a dry run:
+Ensure the domain's DNS record points to the server before running Certbot.
+Certbot installs a renewal timer automatically. You can test renewal with:
 
 ```bash
 sudo certbot renew --dry-run
-
 ```
 
----
+## Production Checklist
 
-## 🏗️ The Complete Production Stack (Summary)
-
-Now that you have the full guide, here is how the data flows through your production stack:
-
-1. **Client:** Requests `https://your_domain.com`.
-2. **Nginx:** Receives the encrypted request on port 443, decrypts it using the SSL certificate.
-3. **Unix Socket:** Nginx forwards the plain request to `app.sock`.
-4. **Gunicorn:** Picks up the request from the socket and assigns it to an available **Uvicorn Worker**.
-5. **FastAPI:** Processes the logic and returns the response back up the chain.
-
----
-
-### Final Check List before Launch
-
-* ✅ **Firewall:** Ensure your firewall allows traffic on ports 80 (HTTP) and 443 (HTTPS) using `sudo ufw allow 'Nginx Full'`.
-* ✅ **Environment Variables:** If your app uses `.env` files, ensure they are present in the `WorkingDirectory`.
-* ✅ **Logs:** Keep an eye on `journalctl -u kloigos -f` during the first hour of traffic to catch any hidden bugs.
+- Allow inbound HTTP and HTTPS traffic, for example with `sudo ufw allow 'Nginx Full'`.
+- Keep `/etc/kloigos/kloigos.env` readable only by root.
+- Keep `KLOIGOS_MASTER_KEY` stable; changing it can make encrypted secrets unreadable.
+- Run `kloigos init` after installing or upgrading Kloigos.
+- Monitor startup with `journalctl -u kloigos -f`.
