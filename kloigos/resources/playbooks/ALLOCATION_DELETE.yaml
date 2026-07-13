@@ -34,7 +34,7 @@
 
 - name: CLEANUP COMPUTE UNIT
   hosts: dealloc
-  gather_facts: no
+  gather_facts: yes
   become: yes
   tasks:
     - name: finding id for user
@@ -48,11 +48,23 @@
 
     - name: stop the user systemd instance to stop any running process
       shell: |
-        systemctl stop user@{{ login_uid.stdout }}.service
+        systemctl stop user@{{ login_uid.stdout }}.service || true
 
     - name: severe any open connection
       shell: |
         loginctl kill-user {{ login_user }} || true
+
+    - name: remove allocation AppArmor systemd attachment
+      when: ansible_facts["os_family"] | lower == "debian"
+      shell: |
+        rm -rf /etc/systemd/system/user@{{ login_uid.stdout }}.service.d/50-kloigos-apparmor.conf
+        rmdir /etc/systemd/system/user@{{ login_uid.stdout }}.service.d 2>/dev/null || true
+
+    - name: unload and remove allocation AppArmor profile
+      when: ansible_facts["os_family"] | lower == "debian"
+      shell: |
+        apparmor_parser -R /etc/apparmor.d/kloigos-{{ login_user }} 2>/dev/null || true
+        rm -f /etc/apparmor.d/kloigos-{{ login_user }}
 
     - name: remove allocation IP alias
       shell: |

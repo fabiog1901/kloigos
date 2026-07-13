@@ -37,6 +37,9 @@
       apt:
         name:
           - e2fsprogs
+          - apparmor
+          - apparmor-utils
+          - libpam-apparmor
           - lvm2
           - nftables
           - rsync

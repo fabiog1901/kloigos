@@ -83,9 +83,23 @@
 
 - name: PREPARE TARGET COMPUTE UNIT
   hosts: scale_target
-  gather_facts: no
+  gather_facts: yes
   become: yes
   tasks:
+    - name: Fail when mandatory SELinux confinement is not implemented
+      when: ansible_facts["os_family"] | lower == "redhat"
+      fail:
+        msg: "Kloigos requires mandatory SELinux confinement on RedHat-family hosts, but SELinux policy installation is not implemented yet."
+
+    - name: Ensure AppArmor is available and enabled
+      when: ansible_facts["os_family"] | lower == "debian"
+      shell: |
+        set -euo pipefail
+        command -v apparmor_parser >/dev/null
+        aa-enabled --quiet
+      args:
+        executable: /bin/bash
+
     - name: Ensure target allocation user exists
       shell: |
         set -euo pipefail
@@ -116,9 +130,95 @@
       shell: |
         set -euo pipefail
         mkdir -p /etc/systemd/system/user-{{ target_login_uid.stdout }}.slice.d
+        mkdir -p /etc/systemd/system/user@{{ target_login_uid.stdout }}.service.d
+        mkdir -p /etc/apparmor.d
         mkdir -p /etc/nftables.d
       args:
         executable: /bin/bash
+
+    - name: Install mandatory AppArmor profile for target allocation user
+      when: ansible_facts["os_family"] | lower == "debian"
+      copy:
+        dest: /etc/apparmor.d/kloigos-{{ login_user }}
+        mode: "0644"
+        content: |
+          #include <tunables/global>
+
+          profile kloigos-{{ login_user }} flags=(attach_disconnected,mediate_deleted) {
+            #include <abstractions/base>
+            #include <abstractions/nameservice>
+
+            capability dac_read_search,
+            capability setgid,
+            capability setuid,
+
+            network inet stream,
+            network inet6 stream,
+
+            / r,
+            /bin/** rix,
+            /sbin/** rix,
+            /usr/bin/** rix,
+            /usr/sbin/** rix,
+            /usr/lib/** r,
+            /usr/lib64/** r,
+            /lib/** r,
+            /lib64/** r,
+
+            /etc/ld.so.cache r,
+            /etc/ld.so.conf r,
+            /etc/ld.so.conf.d/** r,
+            /etc/hosts r,
+            /etc/resolv.conf r,
+            /etc/passwd r,
+            /etc/group r,
+            /etc/nsswitch.conf r,
+
+            owner /home/{{ login_user }}/** rwklix,
+            owner /opt/{{ login_user }}/** rwklix,
+            owner /mnt/{{ login_user }}/** rwklix,
+            /home/{{ login_user }}/ r,
+            /opt/{{ login_user }}/ r,
+            /mnt/{{ login_user }}/ r,
+
+            owner /run/user/{{ target_login_uid.stdout }}/** rwklix,
+            owner /tmp/** rwkl,
+            /tmp/ rw,
+            /dev/null rw,
+            /dev/zero r,
+            /dev/urandom r,
+            /dev/random r,
+            /dev/tty rw,
+            /dev/pts/* rw,
+
+            /proc/ r,
+            /proc/sys/kernel/random/boot_id r,
+            owner /proc/@{pid}/** rw,
+
+            deny /etc/shadow r,
+            deny /etc/sudoers r,
+            deny /etc/sudoers.d/** r,
+            deny /root/** rwklx,
+            deny /proc/sys/** rwklx,
+            deny /sys/** rwklx,
+          }
+
+    - name: Load mandatory AppArmor profile for target allocation user
+      when: ansible_facts["os_family"] | lower == "debian"
+      shell: |
+        set -euo pipefail
+        apparmor_parser -r /etc/apparmor.d/kloigos-{{ login_user }}
+      args:
+        executable: /bin/bash
+
+    - name: Attach target allocation user manager to AppArmor profile
+      when: ansible_facts["os_family"] | lower == "debian"
+      copy:
+        dest: /etc/systemd/system/user@{{ target_login_uid.stdout }}.service.d/50-kloigos-apparmor.conf
+        mode: "0644"
+        content: |
+          [Service]
+          AppArmorProfile=kloigos-{{ login_user }}
 
     - name: Allocate memory proportionate to CPU count
       shell: |
@@ -245,7 +345,7 @@
 
 - name: MOVE FLOATING IP OFF SOURCE
   hosts: scale_source
-  gather_facts: no
+  gather_facts: yes
   become: yes
   tasks:
     - name: Remove floating IP alias from source host
@@ -286,6 +386,21 @@
         chmod 600 /home/{{ login_user }}/.ssh/authorized_keys
       args:
         executable: /bin/bash
+
+    - name: Remove source allocation AppArmor systemd attachment
+      when: ansible_facts["os_family"] | lower == "debian"
+      shell: |
+        SOURCE_UID="$(id -u {{ login_user }} 2>/dev/null || true)"
+        if [ -n "$SOURCE_UID" ]; then
+          rm -rf /etc/systemd/system/user@"$SOURCE_UID".service.d/50-kloigos-apparmor.conf
+          rmdir /etc/systemd/system/user@"$SOURCE_UID".service.d 2>/dev/null || true
+        fi
+
+    - name: Unload and remove source allocation AppArmor profile
+      when: ansible_facts["os_family"] | lower == "debian"
+      shell: |
+        apparmor_parser -R /etc/apparmor.d/kloigos-{{ login_user }} 2>/dev/null || true
+        rm -f /etc/apparmor.d/kloigos-{{ login_user }}
 
 - name: MOVE FLOATING IP TO TARGET
   hosts: scale_target

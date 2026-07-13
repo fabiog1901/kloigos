@@ -64,6 +64,11 @@
           add_uid "$uid"
         done < <(find /etc/systemd/system -maxdepth 1 -type d -name 'user-*.slice.d' 2>/dev/null | sort)
 
+        while IFS= read -r service_dir; do
+          uid="$(basename "$service_dir" | sed -E 's/^user@([0-9]+)\.service\.d$/\1/')"
+          add_uid "$uid"
+        done < <(find /etc/systemd/system -maxdepth 1 -type d -name 'user@*.service.d' 2>/dev/null | sort)
+
         if [ -f "$NFT_FILE" ]; then
           while IFS= read -r uid; do
             add_uid "$uid"
@@ -106,6 +111,7 @@
           loginctl kill-user "$user" || true
           loginctl disable-linger "$user" || true
           rm -rf "/etc/systemd/system/user-${uid}.slice.d"
+          rm -rf "/etc/systemd/system/user@${uid}.service.d"
           rm -f "/var/lib/systemd/linger/${user}"
         fi
       args:
@@ -241,6 +247,18 @@
 
         rm -f /etc/systemd/system/user@.service.d/delegate.conf
         rmdir /etc/systemd/system/user@.service.d 2>/dev/null || true
+      args:
+        executable: /bin/bash
+
+    - name: Remove Kloigos AppArmor profiles
+      shell: |
+        set -euo pipefail
+
+        shopt -s nullglob
+        for profile in /etc/apparmor.d/kloigos-*; do
+          apparmor_parser -R "$profile" 2>/dev/null || true
+          rm -f "$profile"
+        done
       args:
         executable: /bin/bash
 
