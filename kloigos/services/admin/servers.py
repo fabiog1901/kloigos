@@ -2,6 +2,7 @@ from cpkit.audit import log_event
 from cpkit.jobs.types import JobID
 
 from ...models import (
+    AllocationStatus,
     Event,
     QueueCommand,
     ServerDecommRequest,
@@ -48,6 +49,24 @@ class ServersAdminService(AdminServiceBase):
         actor_id: str,
         sdr: ServerDecommRequest,
     ) -> JobID:
+        matches = self.repo.get_servers(sdr.hostname)
+        if not matches:
+            raise ServerNotFoundError(f"Server {sdr.hostname} was not found.")
+
+        active_allocations = [
+            allocation
+            for allocation in self.repo.get_allocations(current_host=sdr.hostname)
+            if allocation.status != AllocationStatus.DEALLOCATED.value
+        ]
+        if active_allocations:
+            allocation_ids = ", ".join(
+                sorted(allocation.allocation_id for allocation in active_allocations)
+            )
+            raise ServerStateError(
+                f"Server {sdr.hostname} cannot be decommissioned while allocations "
+                f"are still placed on it: {allocation_ids}."
+            )
+
         log_event(
             self.repo,
             actor_id,
@@ -56,7 +75,6 @@ class ServersAdminService(AdminServiceBase):
         )
 
         self.repo.server_update_status(sdr.hostname, ServerStatus.DECOMMISSIONING)
-        self.repo.delete_compute_units(sdr.hostname)
         return self.repo.enqueue_command(QueueCommand.SERVER_DECOMM, sdr, actor_id)
 
     def delete_server(self, actor_id: str, hostname: str) -> None:

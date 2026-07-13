@@ -267,6 +267,18 @@
       args:
         executable: /bin/bash
 
+    - name: Remove Kloigos SSH AppArmor confinement
+      shell: |
+        set -euo pipefail
+
+        rm -f /etc/ssh/sshd_config.d/kloigos-*.conf
+        rm -f /usr/local/sbin/kloigos-aa-shell
+        SSHD_BIN="$(command -v sshd || echo /usr/sbin/sshd)"
+        "$SSHD_BIN" -t
+        systemctl reload ssh || systemctl reload sshd || true
+      args:
+        executable: /bin/bash
+
     - name: Remove Kloigos AppArmor profiles
       shell: |
         set -euo pipefail

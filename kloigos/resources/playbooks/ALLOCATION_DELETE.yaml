@@ -57,8 +57,15 @@
     - name: remove allocation AppArmor systemd attachment
       when: ansible_facts["os_family"] | lower == "debian"
       shell: |
+        set -euo pipefail
         rm -rf /etc/systemd/system/user@{{ login_uid.stdout }}.service.d/50-kloigos-apparmor.conf
         rmdir /etc/systemd/system/user@{{ login_uid.stdout }}.service.d 2>/dev/null || true
+        rm -f /etc/ssh/sshd_config.d/kloigos-{{ login_user }}.conf
+        SSHD_BIN="$(command -v sshd || echo /usr/sbin/sshd)"
+        "$SSHD_BIN" -t
+        systemctl reload ssh || systemctl reload sshd || true
+      args:
+        executable: /bin/bash
 
     - name: unload and remove allocation AppArmor profile
       when: ansible_facts["os_family"] | lower == "debian"

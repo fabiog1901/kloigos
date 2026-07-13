@@ -142,6 +142,7 @@
       shell: |
         mkdir -p /etc/systemd/system/user@.service.d
         mkdir -p /etc/nftables.d
+        mkdir -p /etc/ssh/sshd_config.d
 
     - name: write user service delegate.conf
       copy:
@@ -151,6 +152,45 @@
           DelegateControllers=cpuset cpu io memory pids
 
         dest: /etc/systemd/system/user@.service.d/delegate.conf
+
+    - name: write AppArmor SSH login wrapper
+      when: ansible_facts["os_family"] | lower == "debian"
+      copy:
+        mode: "0755"
+        dest: /usr/local/sbin/kloigos-aa-shell
+        content: |
+          #!/bin/bash
+          set -euo pipefail
+
+          user="${USER:-$(id -un)}"
+          if [ -z "$user" ]; then
+            echo "Unable to determine login user." >&2
+            exit 1
+          fi
+
+          profile="kloigos-${user}"
+          shell="$(getent passwd "$user" | cut -d: -f7 || true)"
+          if [ -z "$shell" ]; then
+            shell="/bin/bash"
+          fi
+
+          if [ -n "${SSH_ORIGINAL_COMMAND:-}" ]; then
+            exec /usr/bin/aa-exec -p "$profile" -- "$shell" -lc "$SSH_ORIGINAL_COMMAND"
+          fi
+
+          exec /usr/bin/aa-exec -p "$profile" -- "$shell" -l
+
+    - name: Ensure sshd loads Kloigos configuration snippets
+      when: ansible_facts["os_family"] | lower == "debian"
+      shell: |
+        set -euo pipefail
+        grep -Eq '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\.d/\*\.conf' /etc/ssh/sshd_config || \
+          sed -i '1i Include /etc/ssh/sshd_config.d/*.conf' /etc/ssh/sshd_config
+        SSHD_BIN="$(command -v sshd || echo /usr/sbin/sshd)"
+        "$SSHD_BIN" -t
+        systemctl reload ssh || systemctl reload sshd || true
+      args:
+        executable: /bin/bash
 
     - name: write base nftables allocation source-IP enforcement table
       copy:

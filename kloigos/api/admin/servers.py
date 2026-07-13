@@ -74,7 +74,18 @@ async def decommission_server(
     actor_id: str = Depends(get_audit_actor),
     service: AdminService = Depends(get_admin_service),
 ) -> JobID:
-    return service.decommission_server(actor_id, sdr)
+    try:
+        return service.decommission_server(actor_id, sdr)
+    except ServerNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except ServerStateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
 
 
 @router.delete(

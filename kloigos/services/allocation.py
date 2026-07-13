@@ -114,6 +114,7 @@ class AllocationService:
         allocation_id: str | None = None,
         login_user: str | None = None,
         compute_id: str | None = None,
+        current_host: str | None = None,
         ip_address: str | None = None,
         status: str | None = None,
     ) -> list[AllocationInDB]:
@@ -122,6 +123,7 @@ class AllocationService:
             allocation_id=allocation_id,
             login_user=login_user,
             compute_id=compute_id,
+            current_host=current_host,
             ip_address=ip_address,
             status=status,
         )

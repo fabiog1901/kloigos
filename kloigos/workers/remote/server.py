@@ -128,6 +128,8 @@ def run_server_decommission(
         srv.hostname,
         ServerStatus.DECOMMISSIONED if job_ok else ServerStatus.DECOMMISSION_FAIL,
     )
+    if job_ok:
+        repo.delete_compute_units(srv.hostname)
 
     log_event(
         repo,

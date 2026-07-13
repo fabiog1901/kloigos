@@ -158,21 +158,28 @@
             / r,
             /bin/** rix,
             /sbin/** rix,
-            /usr/bin/** rix,
-            /usr/sbin/** rix,
-            /usr/lib/** r,
-            /usr/lib64/** r,
-            /lib/** r,
-            /lib64/** r,
+            /usr/** rix,
+            /lib/** rix,
+            /lib64/** rix,
 
             /etc/ld.so.cache r,
             /etc/ld.so.conf r,
             /etc/ld.so.conf.d/** r,
+            /etc/profile r,
+            /etc/profile.d/** r,
+            /etc/bash.bashrc r,
+            /etc/inputrc r,
             /etc/hosts r,
             /etc/resolv.conf r,
             /etc/passwd r,
             /etc/group r,
             /etc/nsswitch.conf r,
+            /etc/apt/** r,
+            /var/lib/apt/** r,
+            /var/cache/apt/** r,
+            /var/lib/command-not-found/** r,
+            /var/lib/command-not-found/commands.db k,
+            /var/lib/dpkg/** r,
 
             owner /home/{{ login_user }}/** rwklix,
             owner /opt/{{ login_user }}/** rwklix,
@@ -192,6 +199,7 @@
             /dev/pts/* rw,
 
             /proc/ r,
+            /proc/self/** r,
             /proc/sys/kernel/random/boot_id r,
             owner /proc/@{pid}/** rw,
 
@@ -219,6 +227,25 @@
         content: |
           [Service]
           AppArmorProfile=kloigos-{{ login_user }}
+
+    - name: Force target SSH sessions through allocation AppArmor profile
+      when: ansible_facts["os_family"] | lower == "debian"
+      copy:
+        dest: /etc/ssh/sshd_config.d/kloigos-{{ login_user }}.conf
+        mode: "0644"
+        content: |
+          Match User {{ login_user }}
+              ForceCommand /usr/local/sbin/kloigos-aa-shell
+
+    - name: Reload target SSH after AppArmor login confinement update
+      when: ansible_facts["os_family"] | lower == "debian"
+      shell: |
+        set -euo pipefail
+        SSHD_BIN="$(command -v sshd || echo /usr/sbin/sshd)"
+        "$SSHD_BIN" -t
+        systemctl reload ssh || systemctl reload sshd || true
+      args:
+        executable: /bin/bash
 
     - name: Allocate memory proportionate to CPU count
       shell: |
@@ -395,6 +422,10 @@
           rm -rf /etc/systemd/system/user@"$SOURCE_UID".service.d/50-kloigos-apparmor.conf
           rmdir /etc/systemd/system/user@"$SOURCE_UID".service.d 2>/dev/null || true
         fi
+        rm -f /etc/ssh/sshd_config.d/kloigos-{{ login_user }}.conf
+        SSHD_BIN="$(command -v sshd || echo /usr/sbin/sshd)"
+        "$SSHD_BIN" -t
+        systemctl reload ssh || systemctl reload sshd || true
 
     - name: Unload and remove source allocation AppArmor profile
       when: ansible_facts["os_family"] | lower == "debian"

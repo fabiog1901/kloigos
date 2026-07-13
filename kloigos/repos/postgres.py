@@ -191,6 +191,7 @@ class PostgresRepo(CPKitRepo):
         allocation_id: str | None = None,
         login_user: str | None = None,
         compute_id: str | None = None,
+        current_host: str | None = None,
         ip_address: str | None = None,
         status: str | None = None,
     ) -> list[AllocationInDB]:
@@ -208,6 +209,10 @@ class PostgresRepo(CPKitRepo):
         if compute_id is not None:
             conditions.append("a.compute_id = %s")
             params.append(compute_id)
+
+        if current_host is not None:
+            conditions.append("a.current_host = %s")
+            params.append(current_host)
 
         if ip_address is not None:
             conditions.append("a.ip_address = %s")
