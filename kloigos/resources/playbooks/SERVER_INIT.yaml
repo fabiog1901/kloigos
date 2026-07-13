@@ -39,6 +39,7 @@
           - e2fsprogs
           - apparmor
           - apparmor-utils
+          - libcap2-bin
           - libpam-apparmor
           - lvm2
           - nftables
@@ -168,9 +169,107 @@
         nft -c -f /etc/nftables.d/kloigos-compute-units.nft
         nft -f /etc/nftables.d/kloigos-compute-units.nft
 
+    - name: write Kloigos capability audit script
+      copy:
+        mode: "0755"
+        dest: /usr/local/sbin/kloigos-capability-audit
+        content: |
+          #!/bin/bash
+          set -euo pipefail
+
+          TAG="kloigos-capability-audit"
+          SCAN_DIRS=()
+          RISKY_CAPS=(
+            cap_sys_admin
+            cap_net_admin
+            cap_net_raw
+            cap_sys_ptrace
+            cap_sys_module
+            cap_dac_override
+            cap_setuid
+            cap_setgid
+          )
+
+          for dir in /usr /bin /sbin /usr/local/bin /usr/local/sbin /opt /home /mnt; do
+            [ -e "$dir" ] && SCAN_DIRS+=("$dir")
+          done
+
+          if [ "${#SCAN_DIRS[@]}" -eq 0 ]; then
+            logger -t "$TAG" "kloigos_capability_audit=true severity=info message=no_scan_dirs"
+            exit 0
+          fi
+
+          found_any=0
+          while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            found_any=1
+            path="${line%% = *}"
+            caps="${line#* = }"
+            risky_found=()
+
+            for cap in "${RISKY_CAPS[@]}"; do
+              if [[ "$caps" == *"$cap"* ]]; then
+                risky_found+=("$cap")
+              fi
+            done
+
+            severity="info"
+            if [ "${#risky_found[@]}" -gt 0 ]; then
+              severity="warning"
+              case "$path" in
+                /home/*|/opt/*|/mnt/*)
+                  severity="critical"
+                  ;;
+              esac
+            fi
+
+            risky_csv=""
+            if [ "${#risky_found[@]}" -gt 0 ]; then
+              IFS=,
+              risky_csv="${risky_found[*]}"
+              unset IFS
+            fi
+
+            logger -t "$TAG" "kloigos_capability_audit=true severity=${severity} path=${path} caps=${caps} risky_caps=${risky_csv}"
+          done < <(getcap -r "${SCAN_DIRS[@]}" 2>/dev/null || true)
+
+          if [ "$found_any" -eq 0 ]; then
+            logger -t "$TAG" "kloigos_capability_audit=true severity=info message=no_file_capabilities_found"
+          fi
+
+    - name: write Kloigos capability audit service
+      copy:
+        mode: "0644"
+        dest: /etc/systemd/system/kloigos-capability-audit.service
+        content: |
+          [Unit]
+          Description=Kloigos file capability audit
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/kloigos-capability-audit
+
+    - name: write Kloigos capability audit timer
+      copy:
+        mode: "0644"
+        dest: /etc/systemd/system/kloigos-capability-audit.timer
+        content: |
+          [Unit]
+          Description=Run Kloigos file capability audit periodically
+
+          [Timer]
+          OnBootSec=2min
+          OnUnitActiveSec=5min
+          AccuracySec=30s
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+
     - name: reload systemd and restart logind
       shell: |
         systemctl daemon-reload
+        systemctl enable --now kloigos-capability-audit.timer
         systemctl restart systemd-logind
 
     - name: enforce disk util

@@ -250,6 +250,17 @@
       args:
         executable: /bin/bash
 
+    - name: Remove Kloigos capability audit timer
+      shell: |
+        set -euo pipefail
+
+        systemctl disable --now kloigos-capability-audit.timer 2>/dev/null || true
+        rm -f /etc/systemd/system/kloigos-capability-audit.timer
+        rm -f /etc/systemd/system/kloigos-capability-audit.service
+        rm -f /usr/local/sbin/kloigos-capability-audit
+      args:
+        executable: /bin/bash
+
     - name: Remove Kloigos AppArmor profiles
       shell: |
         set -euo pipefail
