@@ -148,8 +148,24 @@ class AllocationService:
             raise NoFreeComputeUnitError()
 
         allocation: AllocationInDB | None = None
+        allocation_inserted = False
         ip_address: IpPoolAddressInDB | None = None
         try:
+            allocation_id, login_user = _request_allocation_identity(req, cu)
+            if self.repo.get_allocations(allocation_id=allocation_id):
+                raise ComputeUnitOperationError(
+                    f"allocation_id '{allocation_id}' already exists."
+                )
+            _validate_login_user(login_user)
+            login_user_matches = self.repo.get_allocations(login_user=login_user)
+            if any(
+                match.status != AllocationStatus.DEALLOCATED
+                for match in login_user_matches
+            ):
+                raise ComputeUnitOperationError(
+                    f"login_user '{login_user}' is already in use."
+                )
+
             ip_address = self.repo.lock_ip_pool_address(
                 free_status=IpAddressStatus.FREE,
                 reserved_status=IpAddressStatus.RESERVED,
@@ -163,12 +179,6 @@ class AllocationService:
                 )
                 raise NoFreeIpAddressError()
 
-            allocation_id, login_user = _request_allocation_identity(req, cu)
-            _validate_login_user(login_user)
-            if self.repo.get_allocations(login_user=login_user):
-                raise ComputeUnitOperationError(
-                    f"login_user '{login_user}' is already in use."
-                )
             allocation = AllocationInDB(
                 allocation_id=allocation_id,
                 login_user=login_user,
@@ -185,6 +195,7 @@ class AllocationService:
                 _allocation_request_audit_details(allocation, cu),
             )
             self.repo.insert_allocation(allocation)
+            allocation_inserted = True
             self.repo.update_ip_pool_address(
                 ip_address.ip_address,
                 status=IpAddressStatus.RESERVED,
@@ -223,7 +234,7 @@ class AllocationService:
             raise
         except Exception as exc:
             try:
-                if allocation:
+                if allocation and allocation_inserted:
                     self.repo.clear_allocation_placement(
                         allocation.allocation_id,
                         status=AllocationStatus.ALLOCATION_FAIL,

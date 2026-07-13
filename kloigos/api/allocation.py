@@ -70,7 +70,7 @@ async def allocate(
         raise HTTPException(460, "No free IP address found to match your request")
     except ComputeUnitOperationError as exc:
         message = str(exc)
-        if "already in use" in message:
+        if "already in use" in message or "already exists" in message:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=message,

@@ -52,10 +52,13 @@ CREATE TABLE IF NOT EXISTS allocations (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT pk_allocations PRIMARY KEY (allocation_id),
-    CONSTRAINT uq_allocations_login_user UNIQUE (login_user),
     CONSTRAINT allocation_compute_unit FOREIGN KEY (compute_id) REFERENCES compute_units(compute_id) ON UPDATE CASCADE ON DELETE SET NULL,
     CONSTRAINT allocation_current_host FOREIGN KEY (current_host) REFERENCES servers(hostname) ON UPDATE CASCADE ON DELETE SET NULL
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_allocations_active_login_user
+ON allocations (login_user)
+WHERE status <> 'DEALLOCATED';
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_allocations_compute_id
 ON allocations (compute_id)
