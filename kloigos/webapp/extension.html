@@ -555,25 +555,24 @@
         <input class="input" x-model="modal.allocate.login_user" placeholder="app-prod-1" />
       </div>
       <div>
-        <label class="field-label">Floating IP</label>
-        <input class="input" x-model="modal.allocate.ip_address" placeholder="optional" />
-      </div>
-      <div>
         <label class="field-label">CPU Count</label>
-        <input class="input" type="number" min="1" x-model.number="modal.allocate.cpu_count" placeholder="optional" />
+        <select class="input" x-model="modal.allocate.cpu_count">
+          <option value="">Any available CPU count</option>
+          <template x-for="count in allocationCpuCountOptions()" :key="count">
+            <option :value="count" x-text="count"></option>
+          </template>
+        </select>
       </div>
       <div>
-        <label class="field-label">Region</label>
-        <input class="input" x-model="modal.allocate.region" placeholder="optional" />
-      </div>
-      <div>
-        <label class="field-label">Zone</label>
-        <input class="input" x-model="modal.allocate.zone" placeholder="optional" />
+        <label class="field-label">Region-Zone</label>
+        <select class="input" x-model="modal.allocate.location">
+          <option value="">Any deployed region-zone</option>
+          <template x-for="location in allocationLocationOptions()" :key="location.value">
+            <option :value="location.value" x-text="location.label"></option>
+          </template>
+        </select>
       </div>
     </div>
-
-    <label class="field-label">Compute ID</label>
-    <input class="input" x-model="modal.allocate.compute_id" placeholder="leave blank for any available unit" />
 
     <label class="field-label">SSH Public Key</label>
     <textarea class="input kloigos-textarea kloigos-ssh-key-input" x-model="modal.allocate.ssh_public_key" placeholder="ssh-ed25519 AAAA... user@host"></textarea>

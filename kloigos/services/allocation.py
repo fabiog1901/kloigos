@@ -6,6 +6,7 @@ from cpkit.jobs.types import JobID
 
 from kloigos.models import (
     AllocationCreateCommand,
+    AllocationCreateRequest,
     AllocationCreateResponse,
     AllocationDeallocateCommand,
     AllocationInDB,
@@ -15,7 +16,6 @@ from kloigos.models import (
     ComputeUnitNotFoundError,
     ComputeUnitOperationError,
     ComputeUnitOverview,
-    ComputeUnitRequest,
     ComputeUnitStateError,
     ComputeUnitStatus,
     Event,
@@ -83,7 +83,7 @@ RESERVED_LOGIN_USERS = {
 
 
 def _request_allocation_identity(
-    req: ComputeUnitRequest,
+    req: AllocationCreateRequest,
     cu: ComputeUnitOverview,
 ) -> tuple[str, str]:
     tags = req.tags if isinstance(req.tags, dict) else {}
@@ -133,11 +133,11 @@ class AllocationService:
     def allocate(
         self,
         actor_id: str,
-        req: ComputeUnitRequest,
+        req: AllocationCreateRequest,
     ) -> AllocationCreateResponse:
         """Reserve capacity, create allocation metadata, and queue preparation."""
         cu: ComputeUnitOverview = self.repo.lock_compute_unit(
-            compute_id=req.compute_id,
+            compute_id=None,
             region=req.region,
             zone=req.zone,
             cpu_count=req.cpu_count,
@@ -153,7 +153,7 @@ class AllocationService:
             ip_address = self.repo.lock_ip_pool_address(
                 free_status=IpAddressStatus.FREE,
                 reserved_status=IpAddressStatus.RESERVED,
-                ip_address=req.ip_address,
+                ip_address=None,
             )
             if not ip_address:
                 self.repo.update_compute_unit(
@@ -253,9 +253,7 @@ class AllocationService:
                     "login_user": (
                         allocation.login_user if allocation else req.login_user
                     ),
-                    "ip_address": (
-                        ip_address.ip_address if ip_address else req.ip_address
-                    ),
+                    "ip_address": ip_address.ip_address if ip_address else None,
                     "compute_id": cu.compute_id,
                     "hostname": cu.hostname,
                     "cpu_count": cu.cpu_count,

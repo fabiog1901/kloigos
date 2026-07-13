@@ -10,12 +10,12 @@ from fastapi import (
 
 from ..dep import get_allocation_service
 from ..models import (
+    AllocationCreateRequest,
     AllocationCreateResponse,
     AllocationInDB,
     AllocationScaleRequest,
     ComputeUnitNotFoundError,
     ComputeUnitOperationError,
-    ComputeUnitRequest,
     ComputeUnitStateError,
     NoFreeComputeUnitError,
     NoFreeIpAddressError,
@@ -57,7 +57,7 @@ async def list_allocations(
     dependencies=[Security(require_user)],
 )
 async def allocate(
-    req: ComputeUnitRequest,
+    req: AllocationCreateRequest,
     actor_id: str = Depends(get_audit_actor),
     service: AllocationService = Depends(get_allocation_service),
 ) -> AllocationCreateResponse:

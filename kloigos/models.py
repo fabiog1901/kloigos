@@ -2,7 +2,7 @@ import datetime as dt
 from enum import StrEnum, auto
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class AutoNameStrEnum(StrEnum):
@@ -214,14 +214,14 @@ class ComputeUnitOverview(ComputeUnitInDB):
     zone: str
 
 
-class ComputeUnitRequest(BaseModel):
+class AllocationCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     allocation_id: str | None = None
     login_user: str | None = None
-    compute_id: str | None = None
     cpu_count: int | None = None
     region: str | None = None
     zone: str | None = None
-    ip_address: str | None = None
     tags: dict[str, Any] | None = None
     ssh_public_key: str
 

@@ -152,11 +152,8 @@ window.cpkitWebappExtension = {
         open: false,
         allocation_id: "",
         login_user: "",
-        ip_address: "",
-        cpu_count: null,
-        region: "",
-        zone: "",
-        compute_id: "",
+        cpu_count: "",
+        location: "",
         tagPairs: [{ key: "", value: "" }],
         ssh_public_key: "",
       },
@@ -288,6 +285,12 @@ window.cpkitWebappExtension = {
       } else {
         this.applyAllocationsFilterSort();
       }
+      if (this.computeUnits.length === 0 && !this.computeLoading.list) {
+        await this.refreshComputeUnits();
+      }
+      if (this.canViewKloigosAdmin() && this.servers.length === 0 && !this.serversLoading.list) {
+        await this.refreshServers();
+      }
     },
 
     async ensureComputeUnitsView() {
@@ -385,6 +388,38 @@ window.cpkitWebappExtension = {
 
     canViewKloigosAdmin() {
       return this.authIsUnauthenticatedMode() || this.hasRole("CP_ADMIN");
+    },
+
+    allocationCpuCountOptions() {
+      const counts = new Set();
+      for (const row of this.computeUnits || []) {
+        const status = String(row.status || "").toLowerCase();
+        if (status !== "free") continue;
+        const count = Number(row.cpu_count);
+        if (Number.isFinite(count) && count > 0) counts.add(count);
+      }
+      return Array.from(counts).sort((left, right) => left - right);
+    },
+
+    allocationLocationOptions() {
+      const options = new Map();
+      for (const server of this.servers || []) {
+        const status = String(server.status || "").toLowerCase();
+        const region = String(server.region || "").trim();
+        const zone = String(server.zone || "").trim();
+        if (status !== "ready" || !region || !zone) continue;
+        const value = `${region}|${zone}`;
+        if (!options.has(value)) options.set(value, { value, label: `${region}-${zone}` });
+      }
+      return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label));
+    },
+
+    parseAllocationLocation(value) {
+      const [region = "", zone = ""] = String(value || "").split("|", 2);
+      return {
+        region: region.trim() || null,
+        zone: zone.trim() || null,
+      };
     },
 
     async ensureLicenseStatusAdminCard() {
@@ -886,14 +921,11 @@ window.cpkitWebappExtension = {
       return "danger";
     },
 
-    openAllocationCreateModal(computeId = "") {
+    openAllocationCreateModal() {
       this.modal.allocate.allocation_id = "";
       this.modal.allocate.login_user = "";
-      this.modal.allocate.ip_address = "";
-      this.modal.allocate.cpu_count = null;
-      this.modal.allocate.region = "";
-      this.modal.allocate.zone = "";
-      this.modal.allocate.compute_id = computeId ? String(computeId) : "";
+      this.modal.allocate.cpu_count = "";
+      this.modal.allocate.location = "";
       this.modal.allocate.tagPairs = [{ key: "", value: "" }];
       this.modal.allocate.ssh_public_key = "";
       this.modalError.allocate = "";
@@ -937,14 +969,17 @@ window.cpkitWebappExtension = {
       try {
         const tags = this.buildAllocationTags();
         const allocationId = (this.modal.allocate.allocation_id || "").trim();
+        const location = this.parseAllocationLocation(this.modal.allocate.location);
+        const rawCpuCount = this.modal.allocate.cpu_count;
+        const cpuCount = rawCpuCount === "" || rawCpuCount === null
+          ? null
+          : Number(rawCpuCount);
         const payload = {
           allocation_id: allocationId || null,
           login_user: (this.modal.allocate.login_user || "").trim() || null,
-          ip_address: (this.modal.allocate.ip_address || "").trim() || null,
-          cpu_count: this.modal.allocate.cpu_count ?? null,
-          region: (this.modal.allocate.region || "").trim() || null,
-          zone: (this.modal.allocate.zone || "").trim() || null,
-          compute_id: (this.modal.allocate.compute_id || "").trim() || null,
+          cpu_count: Number.isFinite(cpuCount) ? cpuCount : null,
+          region: location.region,
+          zone: location.zone,
           tags,
           ssh_public_key: (this.modal.allocate.ssh_public_key || "").trim(),
         };
