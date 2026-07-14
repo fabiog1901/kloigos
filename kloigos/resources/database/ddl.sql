@@ -12,8 +12,39 @@ CREATE TABLE IF NOT EXISTS servers (
     mem_gb int2 NULL,
     disk_count int2 NULL,
     disk_size_gb int2 NULL,
+    health_status TEXT NOT NULL DEFAULT 'UNKNOWN',
+    last_health_check_at TIMESTAMPTZ NULL,
+    last_health_error TEXT NULL,
+    last_healthy_at TIMESTAMPTZ NULL,
     tags JSONB NULL,
     CONSTRAINT pk_servers PRIMARY KEY (hostname)
+);
+
+CREATE TABLE IF NOT EXISTS alerts (
+    alert_id BIGSERIAL NOT NULL,
+    alert_type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    status TEXT NOT NULL,
+    resource_type TEXT NOT NULL,
+    resource_id TEXT NOT NULL,
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    resolved_at TIMESTAMPTZ NULL,
+    message TEXT NOT NULL,
+    details JSONB NULL,
+    CONSTRAINT pk_alerts PRIMARY KEY (alert_id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_alerts_open_resource
+ON alerts (alert_type, resource_type, resource_id)
+WHERE status = 'OPEN';
+
+INSERT INTO cpkit.mq (msg_type, start_after)
+SELECT 'SERVER_HEALTH_CHECK', now() + INTERVAL '60s' + (random() * INTERVAL '10s')
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM cpkit.mq
+    WHERE msg_type = 'SERVER_HEALTH_CHECK'
 );
 
 CREATE TABLE IF NOT EXISTS compute_units (

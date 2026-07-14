@@ -5,6 +5,9 @@ from psycopg.rows import class_row
 from psycopg_pool import ConnectionPool
 
 from ..models import (
+    AlertSeverity,
+    AlertStatus,
+    AlertType,
     AllocationInDB,
     AllocationStatus,
     ComputeUnitInDB,
@@ -12,6 +15,7 @@ from ..models import (
     ComputeUnitStatus,
     IpAddressStatus,
     IpPoolAddressInDB,
+    ServerHealthStatus,
     ServerInDB,
     ServerInitRequest,
     ServerStatus,
@@ -64,13 +68,149 @@ class PostgresRepo(CPKitRepo):
             cur.execute(
                 """
                 UPDATE servers
-                SET status = %s
+                SET
+                    status = %s,
+                    health_status = CASE
+                        WHEN %s = 'READY' THEN 'HEALTHY'
+                        WHEN %s IN ('DECOMMISSIONED', 'DECOMMISSION_FAIL') THEN 'UNKNOWN'
+                        ELSE health_status
+                    END,
+                    last_health_check_at = CASE
+                        WHEN %s = 'READY' THEN now()
+                        ELSE last_health_check_at
+                    END,
+                    last_health_error = CASE
+                        WHEN %s = 'READY' THEN NULL
+                        ELSE last_health_error
+                    END,
+                    last_healthy_at = CASE
+                        WHEN %s = 'READY' THEN now()
+                        ELSE last_healthy_at
+                    END
                 WHERE hostname = %s
                 """,
                 (
                     status,
+                    status,
+                    status,
+                    status,
+                    status,
+                    status,
                     hostname,
                 ),
+            )
+
+    def update_server_health(
+        self,
+        hostname: str,
+        health_status: ServerHealthStatus,
+        error: str | None = None,
+    ) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                UPDATE servers
+                SET
+                    health_status = %s,
+                    last_health_check_at = now(),
+                    last_health_error = %s,
+                    last_healthy_at = CASE
+                        WHEN %s = 'HEALTHY' THEN now()
+                        ELSE last_healthy_at
+                    END
+                WHERE hostname = %s
+                """,
+                (
+                    health_status,
+                    error,
+                    health_status,
+                    hostname,
+                ),
+            )
+
+    def open_or_touch_alert(
+        self,
+        *,
+        alert_type: AlertType,
+        severity: AlertSeverity,
+        resource_type: str,
+        resource_id: str,
+        message: str,
+        details: dict | None = None,
+    ) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO alerts (
+                    alert_type, severity, status, resource_type, resource_id,
+                    message, details
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (alert_type, resource_type, resource_id)
+                WHERE status = 'OPEN'
+                DO UPDATE SET
+                    severity = EXCLUDED.severity,
+                    last_seen_at = now(),
+                    message = EXCLUDED.message,
+                    details = EXCLUDED.details
+                """,
+                (
+                    alert_type,
+                    severity,
+                    AlertStatus.OPEN,
+                    resource_type,
+                    resource_id,
+                    message,
+                    json.dumps(details) if details is not None else None,
+                ),
+            )
+
+    def resolve_alert(
+        self,
+        *,
+        alert_type: AlertType,
+        resource_type: str,
+        resource_id: str,
+        message: str,
+        details: dict | None = None,
+    ) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                UPDATE alerts
+                SET
+                    status = %s,
+                    resolved_at = now(),
+                    last_seen_at = now(),
+                    message = %s,
+                    details = coalesce(%s, details)
+                WHERE alert_type = %s
+                  AND resource_type = %s
+                  AND resource_id = %s
+                  AND status = %s
+                """,
+                (
+                    AlertStatus.RESOLVED,
+                    message,
+                    json.dumps(details) if details is not None else None,
+                    alert_type,
+                    resource_type,
+                    resource_id,
+                    AlertStatus.OPEN,
+                ),
+            )
+
+    def schedule_server_health_check(self, start_after_seconds: int) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO cpkit.mq (msg_type, start_after)
+                VALUES (
+                    'SERVER_HEALTH_CHECK',
+                    now() + (%s * INTERVAL '1s') + (random() * INTERVAL '10s')
+                )
+                """,
+                (start_after_seconds,),
             )
 
     def get_servers(
@@ -551,7 +691,9 @@ class PostgresRepo(CPKitRepo):
                     c.tags 
                 FROM compute_units c JOIN servers s 
                     ON c.hostname = s.hostname 
-                WHERE c.status = %s """
+                WHERE c.status = %s
+                  AND s.status = 'READY'
+                  AND s.health_status = 'HEALTHY' """
 
         if conditions:
             sql += " AND " + " AND ".join(conditions)

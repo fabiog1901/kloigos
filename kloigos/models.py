@@ -126,6 +126,7 @@ class QueueCommand(AutoNameStrEnum):
     ALLOCATION_SCALE = auto()
     SERVER_INIT = auto()
     SERVER_DECOMM = auto()
+    SERVER_HEALTH_CHECK = auto()
 
 
 class ComputeUnitStatus(AutoNameStrEnum):
@@ -167,6 +168,27 @@ class ServerStatus(AutoNameStrEnum):
     DECOMMISSIONING = auto()
     DECOMMISSIONED = auto()
     DECOMMISSION_FAIL = auto()
+
+
+class ServerHealthStatus(AutoNameStrEnum):
+    UNKNOWN = auto()
+    HEALTHY = auto()
+    DEGRADED = auto()
+    UNREACHABLE = auto()
+
+
+class AlertType(AutoNameStrEnum):
+    SERVER_UNHEALTHY = auto()
+
+
+class AlertSeverity(AutoNameStrEnum):
+    WARNING = auto()
+    CRITICAL = auto()
+
+
+class AlertStatus(AutoNameStrEnum):
+    OPEN = auto()
+    RESOLVED = auto()
 
 
 RUNTIME_PROFILES = {"minimal", "standard", "build"}
@@ -240,6 +262,10 @@ class AllocationCreateCommand(BaseModel):
 class AllocationCreateResponse(BaseModel):
     allocation_id: str
     job_id: int
+
+
+class ServerHealthCheckCommand(BaseModel):
+    pass
 
 
 class AllocationDeallocateCommand(BaseModel):
@@ -326,6 +352,24 @@ class BaseServer(BaseModel):
 
 class ServerInDB(BaseServer):
     status: str
+    health_status: str = ServerHealthStatus.UNKNOWN
+    last_health_check_at: dt.datetime | None = None
+    last_health_error: str | None = None
+    last_healthy_at: dt.datetime | None = None
+
+
+class AlertInDB(BaseModel):
+    alert_id: int
+    alert_type: str
+    severity: str
+    status: str
+    resource_type: str
+    resource_id: str
+    first_seen_at: dt.datetime
+    last_seen_at: dt.datetime
+    resolved_at: dt.datetime | None = None
+    message: str
+    details: dict[str, Any] | None = None
 
 
 class ServerComputeUnitInitSpec(BaseModel):

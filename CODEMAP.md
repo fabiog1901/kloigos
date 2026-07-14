@@ -22,7 +22,7 @@ python tools/codemap.py --write
 
 | Package | Modules | Classes | Functions | Routes |
 | --- | ---: | ---: | ---: | ---: |
-| `kloigos` | 27 | 50 | 26 | 14 |
+| `kloigos` | 28 | 57 | 27 | 14 |
 
 ## API Routes
 
@@ -62,7 +62,7 @@ python tools/codemap.py --write
 | `kloigos/cli.py` | Kloigos command-line entrypoint.; classes: KloigosCLI; functions: main |
 | `kloigos/dep.py` | functions: get_allocation_service, get_compute_unit_service, get_admin_service, get_license_service |
 | `kloigos/main.py` | no public surface |
-| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, ServerNotFoundError, ServerStateError, MissingLicenseError, InvalidTokenError, UnknownSigningKeyError, InvalidSignatureError, ExpiredLicenseError, FeatureNotLicensedError, Event, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, AllocationCreateRequest, AllocationCreateCommand, AllocationCreateResponse, AllocationDeallocateCommand, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolInsertRequest, ValidatedLicense, LicenseStatusResponse, BaseServer, ServerInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
+| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, ServerNotFoundError, ServerStateError, MissingLicenseError, InvalidTokenError, UnknownSigningKeyError, InvalidSignatureError, ExpiredLicenseError, FeatureNotLicensedError, Event, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ServerHealthStatus, AlertType, AlertSeverity, AlertStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, AllocationCreateRequest, AllocationCreateCommand, AllocationCreateResponse, ServerHealthCheckCommand, AllocationDeallocateCommand, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolInsertRequest, ValidatedLicense, LicenseStatusResponse, BaseServer, ServerInDB, AlertInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
 | `kloigos/repos/__init__.py` | classes: Repo |
 | `kloigos/repos/postgres.py` | classes: PostgresRepo |
 | `kloigos/services/__init__.py` | no public surface |
@@ -75,6 +75,7 @@ python tools/codemap.py --write
 | `kloigos/services/compute_unit.py` | classes: ComputeUnitService |
 | `kloigos/util.py` | functions: to_cpu_set, parse_cpu_range |
 | `kloigos/workers/__init__.py` | Job worker entry points for Kloigos. |
+| `kloigos/workers/health.py` | Server health check queue handler.; classes: HealthProbeResult; functions: run_server_health_check |
 | `kloigos/workers/remote/__init__.py` | Remote job handlers that execute playbooks on Kloigos-managed servers. |
 | `kloigos/workers/remote/allocation.py` | Remote allocation worker handlers.; functions: run_compute_unit_allocate, run_compute_unit_deallocate, run_allocation_scale |
 | `kloigos/workers/remote/server.py` | Remote server worker handlers.; functions: run_server_init, run_server_decommission |
