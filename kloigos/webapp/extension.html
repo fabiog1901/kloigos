@@ -47,8 +47,8 @@
                 </td>
                 <td>
                   <span class="kloigos-health-indicator" :class="serverHealthClass(server.health_status)" :title="serverHealthTitle(server)">
-                    <span class="kloigos-health-dot" aria-hidden="true"></span>
-                    <span x-text="serverHealthLabel(server.health_status)"></span>
+                    <span x-html="serverHealthIcon(server.health_status)"></span>
+                    <span class="sr-only" x-text="serverHealthLabel(server.health_status)"></span>
                   </span>
                 </td>
                 <td x-text="formatDateTime(server.last_health_check_at)"></td>
@@ -480,8 +480,8 @@
               </td>
               <td>
                 <span class="kloigos-health-indicator" :class="serverHealthClass(server.health_status)" :title="serverHealthTitle(server)">
-                  <span class="kloigos-health-dot" aria-hidden="true"></span>
-                  <span x-text="serverHealthLabel(server.health_status)"></span>
+                  <span x-html="serverHealthIcon(server.health_status)"></span>
+                  <span class="sr-only" x-text="serverHealthLabel(server.health_status)"></span>
                 </span>
               </td>
               <td>
@@ -777,13 +777,22 @@
 </div>
 
 <div class="modal-backdrop" x-show="modal.allocationDetails.open" @click.self="closeAllocationDetails()">
-  <div class="modal">
+  <div class="modal kloigos-details-modal">
     <div class="modal-head">
       <h2>Allocation Details</h2>
       <button class="icon-btn" @click="closeAllocationDetails()">x</button>
     </div>
     <p class="muted">Full record for <span x-text="modal.allocationDetails.row?.allocation_id || '-'"></span></p>
-    <pre class="json-panel small" x-text="formatYaml(modal.allocationDetails.row || {})"></pre>
+    <div
+      class="editor kloigos-yaml-editor"
+      x-ref="allocationDetailsYamlEditor"
+      x-show="isAceAvailable()"
+    ></div>
+    <pre
+      class="json-panel small kloigos-details-fallback"
+      x-show="!isAceAvailable()"
+      x-text="formatYaml(modal.allocationDetails.row || {})"
+    ></pre>
     <div class="modal-actions">
       <button class="btn" @click="closeAllocationDetails()">Close</button>
     </div>
@@ -791,13 +800,22 @@
 </div>
 
 <div class="modal-backdrop" x-show="modal.serverDetails.open" @click.self="closeServerDetails()">
-  <div class="modal">
+  <div class="modal kloigos-details-modal">
     <div class="modal-head">
       <h2>Server Details</h2>
       <button class="icon-btn" @click="closeServerDetails()">x</button>
     </div>
     <p class="muted">Full record for <span x-text="modal.serverDetails.row?.hostname || '-'"></span></p>
-    <pre class="json-panel small" x-text="formatYaml(modal.serverDetails.row || {})"></pre>
+    <div
+      class="editor kloigos-yaml-editor"
+      x-ref="serverDetailsYamlEditor"
+      x-show="isAceAvailable()"
+    ></div>
+    <pre
+      class="json-panel small kloigos-details-fallback"
+      x-show="!isAceAvailable()"
+      x-text="formatYaml(modal.serverDetails.row || {})"
+    ></pre>
     <div class="modal-actions">
       <button class="btn" @click="closeServerDetails()">Close</button>
     </div>

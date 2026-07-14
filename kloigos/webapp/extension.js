@@ -150,6 +150,8 @@ window.cpkitWebappExtension = {
     ipPoolAutoRefreshEnabled: true,
     _ipPoolAutoTimer: null,
     ipPoolBusyKey: null,
+    _allocationDetailsAce: null,
+    _serverDetailsAce: null,
     modal: {
       allocate: {
         open: false,
@@ -648,6 +650,21 @@ window.cpkitWebappExtension = {
       if (normalized === "degraded") return "degraded";
       if (normalized === "unreachable") return "unreachable";
       return "unknown";
+    },
+
+    serverHealthIcon(status) {
+      const normalized = String(status || "unknown").toLowerCase();
+      const iconAttrs = "viewBox=\"0 0 24 24\" aria-hidden=\"true\"";
+      if (normalized === "healthy") {
+        return `<svg ${iconAttrs}><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>`;
+      }
+      if (normalized === "degraded") {
+        return `<svg ${iconAttrs}><path d="M12 3 2.6 20h18.8L12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M12 9v5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"></path><path d="M12 17.5h.01" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg>`;
+      }
+      if (normalized === "unreachable") {
+        return `<svg ${iconAttrs}><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="m15 9-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></path><path d="m9 9 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></path></svg>`;
+      }
+      return `<svg ${iconAttrs}><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="M9.2 9a3 3 0 1 1 4.9 2.3c-1.1.8-1.7 1.4-1.7 2.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path><path d="M12 17.5h.01" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg>`;
     },
 
     serverHealthTitle(server) {
@@ -1166,11 +1183,13 @@ window.cpkitWebappExtension = {
     openAllocationDetails(row) {
       this.modal.allocationDetails.row = row || null;
       this.modal.allocationDetails.open = true;
+      this.renderAllocationDetailsYaml();
     },
 
     closeAllocationDetails() {
       this.modal.allocationDetails.open = false;
       this.modal.allocationDetails.row = null;
+      this.destroyDetailsYamlEditor("_allocationDetailsAce");
     },
 
     openComputeDetails(row) {
@@ -1186,11 +1205,59 @@ window.cpkitWebappExtension = {
     openServerDetails(row) {
       this.modal.serverDetails.row = row || null;
       this.modal.serverDetails.open = true;
+      this.renderServerDetailsYaml();
     },
 
     closeServerDetails() {
       this.modal.serverDetails.open = false;
       this.modal.serverDetails.row = null;
+      this.destroyDetailsYamlEditor("_serverDetailsAce");
+    },
+
+    renderAllocationDetailsYaml() {
+      this.renderDetailsYamlEditor(
+        "allocationDetailsYamlEditor",
+        "_allocationDetailsAce",
+        this.formatYaml(this.modal.allocationDetails.row || {}),
+      );
+    },
+
+    renderServerDetailsYaml() {
+      this.renderDetailsYamlEditor(
+        "serverDetailsYamlEditor",
+        "_serverDetailsAce",
+        this.formatYaml(this.modal.serverDetails.row || {}),
+      );
+    },
+
+    renderDetailsYamlEditor(refName, editorKey, yaml) {
+      if (!this.isAceAvailable()) return;
+      setTimeout(() => {
+        const element = this.$refs?.[refName];
+        if (!element) return;
+        if (!this[editorKey]) {
+          this[editorKey] = this.createAceEditor(element, {
+            mode: "yaml",
+            theme: "cobalt",
+            readOnly: true,
+            wrap: true,
+            value: yaml,
+            minLines: 18,
+            maxLines: 34,
+          });
+        } else {
+          this.setAceValue(this[editorKey], yaml);
+        }
+        if (this[editorKey] && typeof this[editorKey].resize === "function") {
+          this[editorKey].resize();
+        }
+      }, 0);
+    },
+
+    destroyDetailsYamlEditor(editorKey) {
+      if (!this[editorKey]) return;
+      this.destroyAceEditor(this[editorKey]);
+      this[editorKey] = null;
     },
 
     async openLicenseStatusModal() {
@@ -1240,13 +1307,22 @@ window.cpkitWebappExtension = {
 
     formatYamlScalar(value) {
       if (value === null || value === undefined) return "null";
+      if (value instanceof Date) return JSON.stringify(this.formatDateTime(value));
       if (typeof value === "boolean" || typeof value === "number") return String(value);
-      const text = String(value);
+      const text = this.formatYamlDateTimeScalar(String(value));
       if (text === "") return "\"\"";
       if (/^\s|\s$|[:#\n]|^(true|false|null|yes|no|on|off)$/i.test(text) || /^[-+]?\d/.test(text)) {
         return JSON.stringify(text);
       }
       return text;
+    },
+
+    formatYamlDateTimeScalar(value) {
+      const text = String(value || "");
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(text)) return text;
+      const date = new Date(text);
+      if (Number.isNaN(date.getTime())) return text;
+      return this.formatDateTime(date);
     },
 
     openServerActionConfirm(server, action) {
