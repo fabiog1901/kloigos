@@ -111,12 +111,13 @@ class Event(AutoNameStrEnum):
 
 
 class Playbook(AutoNameStrEnum):
-    # compute unit level statuses
     ALLOCATION_CREATE = auto()
     ALLOCATION_DELETE = auto()
     ALLOCATION_SCALE = auto()
     SERVER_INIT = auto()
     SERVER_DECOMM = auto()
+    SSH_CREDENTIAL_PREPARE = auto()
+    SSH_CREDENTIAL_CLEANUP = auto()
 
 
 class QueueCommand(AutoNameStrEnum):

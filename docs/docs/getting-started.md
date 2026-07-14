@@ -69,11 +69,11 @@ A typical home lab process is:
 2. Find the DHCP range, for example `192.168.1.100` through `192.168.1.200`.
 3. Choose a small static pool outside that range, for example:
 
-```text
-192.168.1.80
-192.168.1.81
-192.168.1.82
-```
+    ```text
+    192.168.1.80
+    192.168.1.81
+    192.168.1.82
+    ```
 
 4. Confirm those addresses are not already assigned to another device.
 5. In Kloigos, open **Admin**.
