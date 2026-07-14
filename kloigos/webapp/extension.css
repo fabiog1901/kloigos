@@ -11,6 +11,17 @@
   min-width: 980px;
 }
 
+.kloigos-alert-table {
+  min-width: 720px;
+}
+
+.kloigos-alert-message {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .kloigos-metric-label {
   color: var(--muted);
   font-size: 12px;
@@ -70,6 +81,56 @@
   border-color: rgba(34, 197, 94, 0.4);
   background: rgba(22, 163, 74, 0.18);
   color: #bbf7d0;
+}
+
+.kloigos-health-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.kloigos-health-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.13);
+}
+
+.kloigos-health-indicator.healthy {
+  color: #bbf7d0;
+}
+
+.kloigos-health-indicator.healthy .kloigos-health-dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+}
+
+.kloigos-health-indicator.degraded {
+  color: #fde68a;
+}
+
+.kloigos-health-indicator.degraded .kloigos-health-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
+
+.kloigos-health-indicator.unreachable {
+  color: #fecaca;
+}
+
+.kloigos-health-indicator.unreachable .kloigos-health-dot {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+}
+
+.kloigos-health-indicator.unknown {
+  color: #cbd5e1;
 }
 
 .field-label.required::after {

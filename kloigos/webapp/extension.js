@@ -1,5 +1,6 @@
 window.cpkitWebappExtension = {
   htmlPath: "/app/extension.html",
+  dashboardEnsure: "ensureKloigosDashboard",
   navItems: [
     { view: "allocations", label: "Allocations" },
     { view: "compute_units", label: "Compute" },
@@ -102,6 +103,7 @@ window.cpkitWebappExtension = {
       9: "number",
       10: "string",
       11: "string",
+      12: "string",
     },
     serversLoading: { list: false, action: false, init: false, license: false },
     serversAutoRefreshEnabled: true,
@@ -223,7 +225,7 @@ window.cpkitWebappExtension = {
       }
     }, 5000);
     this.setManagedInterval("_serversAutoTimer", () => {
-      if (this.serversAutoRefreshEnabled && this.view === "kloigos_servers") {
+      if (this.serversAutoRefreshEnabled && (this.view === "kloigos_servers" || this.view === "dashboard")) {
         this.refreshServers();
       }
     }, 5000);
@@ -366,6 +368,13 @@ window.cpkitWebappExtension = {
       }
     },
 
+    async ensureKloigosDashboard({ onlyIfEmpty = false } = {}) {
+      if (!this.canViewKloigosAdmin()) return;
+      if (!onlyIfEmpty || this.servers.length === 0) {
+        await this.refreshServers();
+      }
+    },
+
     async refreshComputeUnits() {
       this.computeLoading.list = true;
       try {
@@ -408,9 +417,10 @@ window.cpkitWebappExtension = {
       const options = new Map();
       for (const server of this.servers || []) {
         const status = String(server.status || "").toLowerCase();
+        const health = String(server.health_status || "unknown").toLowerCase();
         const region = String(server.region || "").trim();
         const zone = String(server.zone || "").trim();
-        if (status !== "ready" || !region || !zone) continue;
+        if (status !== "ready" || health !== "healthy" || !region || !zone) continue;
         const value = `${region}|${zone}`;
         if (!options.has(value)) options.set(value, { value, label: `${region}-${zone}` });
       }
@@ -546,6 +556,8 @@ window.cpkitWebappExtension = {
         server.zone,
         server.runtime_profile,
         server.status,
+        server.health_status,
+        server.last_health_error,
         ...tags,
       ].filter(Boolean).join(" ").toLowerCase();
     },
@@ -576,6 +588,8 @@ window.cpkitWebappExtension = {
           return this.serversTagsCompact(server.tags);
         case 11:
           return server.status || "";
+        case 12:
+          return server.health_status || "";
         default:
           return "";
       }
@@ -596,6 +610,51 @@ window.cpkitWebappExtension = {
       if (normalized.includes("ing")) return "pending";
       if (!normalized || normalized === "unknown") return "neutral";
       return "danger";
+    },
+
+    serverHealthAlerts() {
+      return (this.servers || []).filter((server) => {
+        const lifecycle = String(server?.status || "").toLowerCase();
+        const health = String(server?.health_status || "unknown").toLowerCase();
+        return lifecycle === "ready" && health !== "healthy";
+      });
+    },
+
+    healthyServerCount() {
+      return (this.servers || []).filter((server) => (
+        String(server?.status || "").toLowerCase() === "ready"
+        && String(server?.health_status || "").toLowerCase() === "healthy"
+      )).length;
+    },
+
+    unknownHealthServerCount() {
+      return (this.servers || []).filter((server) => (
+        String(server?.status || "").toLowerCase() === "ready"
+        && ["", "unknown"].includes(String(server?.health_status || "").toLowerCase())
+      )).length;
+    },
+
+    serverHealthLabel(status) {
+      const normalized = String(status || "unknown").toLowerCase();
+      if (normalized === "healthy") return "Healthy";
+      if (normalized === "degraded") return "Degraded";
+      if (normalized === "unreachable") return "Unreachable";
+      return "Unknown";
+    },
+
+    serverHealthClass(status) {
+      const normalized = String(status || "unknown").toLowerCase();
+      if (normalized === "healthy") return "healthy";
+      if (normalized === "degraded") return "degraded";
+      if (normalized === "unreachable") return "unreachable";
+      return "unknown";
+    },
+
+    serverHealthTitle(server) {
+      const label = this.serverHealthLabel(server?.health_status);
+      const checked = this.formatDateTime(server?.last_health_check_at);
+      const error = server?.last_health_error ? `: ${server.last_health_error}` : "";
+      return `${label} - checked ${checked}${error}`;
     },
 
     runtimeProfileClass(profile) {

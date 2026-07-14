@@ -5,6 +5,66 @@
   data-login-subtitle="Authenticate to manage Kloigos compute units"
 ></template>
 
+<template id="cpkit-extension-dashboard">
+  <article class="dashboard-card dashboard-table-card kloigos-alert-card" data-dashboard-key="kloigos-alerts">
+    <div class="dashboard-card-inner dashboard-table-inner">
+      <div class="dashboard-card-head">
+        <div>
+          <div class="dashboard-card-kicker">Operations</div>
+          <h3>Alerts</h3>
+        </div>
+        <button type="button" class="dashboard-link-button" @click="setView('kloigos_servers')">Open Servers</button>
+      </div>
+      <div class="dashboard-kv-grid">
+        <div class="dashboard-kv">
+          <div class="dashboard-kv-label">Active</div>
+          <div class="dashboard-kv-value" x-text="serverHealthAlerts().length"></div>
+        </div>
+        <div class="dashboard-kv">
+          <div class="dashboard-kv-label">Healthy</div>
+          <div class="dashboard-kv-value" x-text="healthyServerCount()"></div>
+        </div>
+        <div class="dashboard-kv">
+          <div class="dashboard-kv-label">Unknown</div>
+          <div class="dashboard-kv-value" x-text="unknownHealthServerCount()"></div>
+        </div>
+      </div>
+      <div class="dashboard-mini-table-wrap">
+        <table class="dashboard-mini-table kloigos-alert-table">
+          <thead>
+            <tr>
+              <th>Host</th>
+              <th>Health</th>
+              <th>Last Check</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="server in serverHealthAlerts()" :key="`alert-${server.hostname}`">
+              <tr>
+                <td>
+                  <button type="button" class="kloigos-id-button" @click="setView('kloigos_servers')" x-text="server.hostname"></button>
+                </td>
+                <td>
+                  <span class="kloigos-health-indicator" :class="serverHealthClass(server.health_status)" :title="serverHealthTitle(server)">
+                    <span class="kloigos-health-dot" aria-hidden="true"></span>
+                    <span x-text="serverHealthLabel(server.health_status)"></span>
+                  </span>
+                </td>
+                <td x-text="formatDateTime(server.last_health_check_at)"></td>
+                <td class="kloigos-alert-message" x-text="server.last_health_error || '-'"></td>
+              </tr>
+            </template>
+            <tr x-show="serverHealthAlerts().length === 0">
+              <td colspan="4" class="empty-cell">No active server alerts.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </article>
+</template>
+
 <main class="layout kloigos-layout" x-show="view === 'allocations'">
   <aside class="sidebar">
     <section>
@@ -382,6 +442,7 @@
             <th @click="toggleServersSort(9)" :class="serversSortClass(9)">Disk GB</th>
             <th @click="toggleServersSort(10)" :class="serversSortClass(10)">Tags</th>
             <th @click="toggleServersSort(11)" :class="serversSortClass(11)">Status</th>
+            <th @click="toggleServersSort(12)" :class="serversSortClass(12)">Health</th>
             <th>Act</th>
           </tr>
         </thead>
@@ -418,6 +479,12 @@
                 <span class="status-pill" :class="serversStatusClass(server.status)" x-text="String(server.status || 'unknown').toUpperCase()"></span>
               </td>
               <td>
+                <span class="kloigos-health-indicator" :class="serverHealthClass(server.health_status)" :title="serverHealthTitle(server)">
+                  <span class="kloigos-health-dot" aria-hidden="true"></span>
+                  <span x-text="serverHealthLabel(server.health_status)"></span>
+                </span>
+              </td>
+              <td>
                 <div class="row-actions compact">
                   <template x-if="serverCanDecommission(server)">
                     <button class="icon-btn" title="Decommission server" aria-label="Decommission server" @click="openServerActionConfirm(server, 'decommission')">
@@ -446,7 +513,7 @@
             </tr>
           </template>
           <tr x-show="!serversLoading.list && serversVisibleRows.length === 0">
-            <td colspan="13" class="empty-cell">No servers found.</td>
+            <td colspan="14" class="empty-cell">No servers found.</td>
           </tr>
         </tbody>
         </table>
