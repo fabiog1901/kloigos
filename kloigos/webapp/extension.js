@@ -208,6 +208,7 @@ window.cpkitWebappExtension = {
     },
   },
   async init() {
+    this.configureKloigosChrome();
     this.restoreAllocationsLocalState();
     this.restoreComputeLocalState();
     this.restoreServersLocalState();
@@ -238,6 +239,38 @@ window.cpkitWebappExtension = {
     }, 5000);
   },
   methods: {
+    configureKloigosChrome() {
+      this.removeOpenApiJsonLink();
+      this.addDocsTopbarLink();
+    },
+
+    removeOpenApiJsonLink() {
+      const openApiJsonLink = document.querySelector('a[href="/api/openapi.json"]');
+      if (openApiJsonLink) openApiJsonLink.remove();
+    },
+
+    addDocsTopbarLink() {
+      const nav = document.querySelector(".topbar-nav");
+      if (!nav || nav.querySelector(".kloigos-docs-link")) return;
+      const link = document.createElement("a");
+      link.className = "pill kloigos-docs-link";
+      link.href = "https://fabiog1901.github.io/kloigos/";
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.title = "Open Kloigos docs";
+      link.setAttribute("aria-label", "Open Kloigos docs in a new tab");
+      link.innerHTML = `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+          <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path>
+          <path d="M8 6h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+          <path d="M8 10h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+        </svg>
+        <span>Docs</span>
+      `;
+      nav.appendChild(link);
+    },
+
     async apiFetch(path, options = {}) {
       const headers = { Accept: "application/json", ...(options.headers || {}) };
       const fetchOptions = { method: options.method || "GET", headers };

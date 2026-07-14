@@ -156,6 +156,19 @@
   pointer-events: none;
 }
 
+.kloigos-docs-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kloigos-docs-link svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+}
+
 .kloigos-textarea {
   min-height: 96px;
   resize: vertical;
