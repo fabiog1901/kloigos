@@ -29,6 +29,12 @@ class KloigosCLI(ApplicationCLI):
         init = subparsers.add_parser("init", help="Initialize database schemas.")
         init.set_defaults(handler=self.init)
 
+        disable_oidc = subparsers.add_parser(
+            "disable-oidc",
+            help="Disable OIDC in cpkit settings for lockout recovery.",
+        )
+        disable_oidc.set_defaults(handler=self.disable_oidc)
+
         server = subparsers.add_parser("serve", help="Run the FastAPI application.")
         server.add_argument("--host", default="0.0.0.0")
         server.add_argument("--port", type=int, default=8000)

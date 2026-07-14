@@ -28,7 +28,7 @@ def _package_path(relative_path: str) -> Path:
     return Path(str(files("kloigos").joinpath(relative_path)))
 
 
-cpkit_capabilities = create_cpkit_bundle(
+cpkit_bundle = create_cpkit_bundle(
     command_models={
         QueueCommand.ALLOCATION_CREATE: AllocationCreateCommand,
         QueueCommand.ALLOCATION_DELETE: AllocationDeallocateCommand,
@@ -50,7 +50,7 @@ app = create_cpkit_app(
     version="0.4.0",
     repo_class=Repo,
     db_url=KLOIGOS_DB_URL,
-    capabilities=(cpkit_capabilities,),
+    bundles=(cpkit_bundle,),
     routers=(
         admin.router,
         allocation.router,
