@@ -1,3 +1,5 @@
+import base64
+import binascii
 import datetime as dt
 from enum import StrEnum, auto
 from typing import Any
@@ -192,6 +194,40 @@ class AlertStatus(AutoNameStrEnum):
 
 
 RUNTIME_PROFILES = {"minimal", "standard", "build"}
+SSH_PUBLIC_KEY_TYPES = {
+    "ssh-ed25519",
+    "ssh-rsa",
+    "ecdsa-sha2-nistp256",
+    "ecdsa-sha2-nistp384",
+    "ecdsa-sha2-nistp521",
+}
+
+
+def _validate_ssh_public_key(value: str) -> str:
+    text = str(value or "").strip()
+    parts = text.split()
+    if len(parts) < 2:
+        raise ValueError("ssh_public_key must be an OpenSSH public key.")
+
+    key_type, encoded_key = parts[0], parts[1]
+    if key_type not in SSH_PUBLIC_KEY_TYPES:
+        allowed = ", ".join(sorted(SSH_PUBLIC_KEY_TYPES))
+        raise ValueError(f"ssh_public_key type must be one of: {allowed}.")
+
+    try:
+        decoded = base64.b64decode(encoded_key.encode("ascii"), validate=True)
+    except (binascii.Error, UnicodeEncodeError) as exc:
+        raise ValueError("ssh_public_key key material is not valid base64.") from exc
+
+    if len(decoded) < 32:
+        raise ValueError("ssh_public_key key material is too short.")
+
+    type_length = int.from_bytes(decoded[:4], "big")
+    encoded_type = decoded[4 : 4 + type_length].decode("ascii", errors="ignore")
+    if encoded_type != key_type:
+        raise ValueError("ssh_public_key key material does not match its key type.")
+
+    return text
 
 
 class ComputeUnitInDB(BaseModel):
@@ -251,6 +287,11 @@ class AllocationCreateRequest(BaseModel):
     zone: str | None = None
     tags: dict[str, Any] | None = None
     ssh_public_key: str
+
+    @field_validator("ssh_public_key")
+    @classmethod
+    def validate_ssh_public_key(cls, value: str) -> str:
+        return _validate_ssh_public_key(value)
 
 
 class AllocationCreateCommand(BaseModel):
