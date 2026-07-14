@@ -39,6 +39,8 @@ The server should have:
 - storage available for Kloigos-managed volumes
 - AppArmor available on Ubuntu or Debian hosts
 
+For disk and LVM preparation details, see [Server preparation](server-preparation.md).
+
 At the moment, the Kloigos process assumes that an SSH agent is already loaded
 with a private key that can log in to the target server.
 

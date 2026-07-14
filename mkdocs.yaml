@@ -74,6 +74,7 @@ nav:
   - use-case.md
   - Docs:
     - docs/getting-started.md
+    - docs/server-preparation.md
     - docs/auth.md
     - docs/deployment.md
     - docs/playbooks.md

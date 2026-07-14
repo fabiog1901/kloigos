@@ -238,6 +238,58 @@ window.cpkitWebappExtension = {
     }, 5000);
   },
   methods: {
+    async apiFetch(path, options = {}) {
+      const headers = { Accept: "application/json", ...(options.headers || {}) };
+      const fetchOptions = { method: options.method || "GET", headers };
+      if (options.body !== undefined) {
+        headers["Content-Type"] = "application/json";
+        fetchOptions.body = JSON.stringify(options.body);
+      }
+      const res = await fetch(`${this.apiBase}${path}`, fetchOptions);
+      const data = await this.safeJson(res);
+      if (res.status === 401) {
+        this.setAuthRequired(res.headers.get("x-auth-login-url"), this.apiErrorMessage(data, "Not authenticated."));
+        throw new Error("Not authenticated.");
+      }
+      if (!res.ok) throw new Error(this.apiErrorMessage(data, `HTTP ${res.status}`));
+      return data;
+    },
+
+    apiErrorMessage(data, fallback) {
+      if (!data) return fallback;
+      if (typeof data === "string") return data;
+      const detail = this.formatApiErrorDetail(data.detail);
+      if (detail) return detail;
+      const message = this.formatApiErrorDetail(data.message);
+      if (message) return message;
+      return fallback;
+    },
+
+    formatApiErrorDetail(detail) {
+      if (!detail) return "";
+      if (typeof detail === "string") return detail;
+      if (Array.isArray(detail)) {
+        return detail
+          .map((item) => this.formatApiErrorDetail(item))
+          .filter(Boolean)
+          .join(" ");
+      }
+      if (typeof detail === "object") {
+        const location = Array.isArray(detail.loc)
+          ? detail.loc.filter((part) => part !== "body").join(".")
+          : "";
+        const message = detail.msg || detail.message || "";
+        if (location && message) return `${location}: ${message}`;
+        if (message) return String(message);
+        try {
+          return JSON.stringify(detail);
+        } catch {
+          return String(detail);
+        }
+      }
+      return String(detail);
+    },
+
     restoreAllocationsLocalState() {
       const sortIndex = localStorage.getItem("kloigos_allocations_sort_index");
       const sortDir = localStorage.getItem("kloigos_allocations_sort_dir");
