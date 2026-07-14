@@ -345,10 +345,67 @@
 
     - name: ensure nftables includes kloigos rules
       shell: |
+        set -euo pipefail
         touch /etc/nftables.conf
         grep -qxF 'include "/etc/nftables.d/*.nft"' /etc/nftables.conf || echo 'include "/etc/nftables.d/*.nft"' >> /etc/nftables.conf
         nft -c -f /etc/nftables.d/kloigos-compute-units.nft
         nft -f /etc/nftables.d/kloigos-compute-units.nft
+        systemctl enable --now nftables
+      args:
+        executable: /bin/bash
+
+    - name: Install Kloigos floating IP restore service
+      copy:
+        mode: "0644"
+        dest: /etc/systemd/system/kloigos-floating-ips.service
+        content: |
+          [Unit]
+          Description=Restore Kloigos floating IP aliases
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/kloigos-floating-ips-restore
+          RemainAfterExit=yes
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Install Kloigos floating IP restore script
+      copy:
+        mode: "0755"
+        dest: /usr/local/sbin/kloigos-floating-ips-restore
+        content: |
+          #!/bin/bash
+          set -euo pipefail
+
+          CONFIG_DIR="/etc/kloigos/floating-ips.d"
+          [ -d "$CONFIG_DIR" ] || exit 0
+
+          while IFS= read -r config; do
+            [ -f "$config" ] || continue
+            ip_address=""
+            prefix="32"
+            interface=""
+            # shellcheck disable=SC1090
+            source "$config"
+            [ -n "$ip_address" ] || continue
+            if [ -z "$interface" ]; then
+              interface="$(ip -o route show default | awk '{for (i=1; i<=NF; i++) if ($i == "dev") print $(i+1)}' | head -1)"
+            fi
+            [ -n "$interface" ] || continue
+            ip addr show dev "$interface" | grep -q "${ip_address}/" || ip addr add "${ip_address}/${prefix}" dev "$interface"
+          done < <(find "$CONFIG_DIR" -type f -name '*.conf' | sort)
+
+    - name: Enable Kloigos floating IP restore service
+      shell: |
+        set -euo pipefail
+        mkdir -p /etc/kloigos/floating-ips.d
+        systemctl daemon-reload
+        systemctl enable --now kloigos-floating-ips.service
+      args:
+        executable: /bin/bash
 
     - name: write Kloigos capability audit script
       copy:

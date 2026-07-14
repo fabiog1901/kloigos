@@ -247,6 +247,18 @@
       args:
         executable: /bin/bash
 
+    - name: Remove Kloigos floating IP restore service
+      shell: |
+        set -euo pipefail
+
+        systemctl disable --now kloigos-floating-ips.service 2>/dev/null || true
+        rm -f /etc/systemd/system/kloigos-floating-ips.service
+        rm -f /usr/local/sbin/kloigos-floating-ips-restore
+        rm -rf /etc/kloigos/floating-ips.d
+        rmdir /etc/kloigos 2>/dev/null || true
+      args:
+        executable: /bin/bash
+
     - name: Remove Kloigos systemd delegation override
       shell: |
         set -euo pipefail

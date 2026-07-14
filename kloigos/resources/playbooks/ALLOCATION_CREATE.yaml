@@ -120,6 +120,11 @@
         set -euo pipefail
         IFACE="$(ip -o route show default | awk '{for (i=1; i<=NF; i++) if ($i == "dev") print $(i+1)}' | head -1)"
         ip addr show dev "$IFACE" | grep -q "{{ private_ip }}/" || ip addr add {{ private_ip }}/32 dev "$IFACE"
+        mkdir -p /etc/kloigos/floating-ips.d
+        printf 'ip_address="%s"\nprefix="32"\ninterface="%s"\n' "{{ private_ip }}" "$IFACE" > /etc/kloigos/floating-ips.d/{{ login_user }}.conf
+        chmod 0644 /etc/kloigos/floating-ips.d/{{ login_user }}.conf
+        systemctl daemon-reload
+        systemctl enable --now kloigos-floating-ips.service || true
       args:
         executable: /bin/bash
 
@@ -302,6 +307,7 @@
         grep -qxF 'include "/etc/nftables.d/*.nft"' /etc/nftables.conf || echo 'include "/etc/nftables.d/*.nft"' >> /etc/nftables.conf
         nft -c -f "$NFT_FILE"
         nft -f "$NFT_FILE"
+        systemctl enable --now nftables
       args:
         executable: /bin/bash
 

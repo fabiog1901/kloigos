@@ -75,11 +75,17 @@
 
     - name: remove allocation IP alias
       shell: |
+        set -euo pipefail
         IFACE="$(ip -o route show default | awk '{for (i=1; i<=NF; i++) if ($i == "dev") print $(i+1)}' | head -1)"
         ip addr del {{ private_ip }}/32 dev "$IFACE" || true
+        rm -f /etc/kloigos/floating-ips.d/{{ login_user }}.conf
+        systemctl restart kloigos-floating-ips.service || true
+      args:
+        executable: /bin/bash
 
     - name: remove allocation nftables rules
       shell: |
+        set -euo pipefail
         NFT_FILE="/etc/nftables.d/kloigos-compute-units.nft"
         if [ -f "$NFT_FILE" ]; then
           sed -i -E "/meta skuid {{ login_uid.stdout }} /d" "$NFT_FILE"
