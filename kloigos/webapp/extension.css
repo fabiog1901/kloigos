@@ -72,6 +72,17 @@
   color: #bbf7d0;
 }
 
+.field-label.required::after {
+  content: " *";
+  color: #f87171;
+  font-weight: 800;
+}
+
+.required-marker {
+  color: #f87171;
+  font-weight: 800;
+}
+
 .icon-btn svg {
   display: block;
   width: 15px;

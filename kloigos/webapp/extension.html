@@ -619,8 +619,8 @@
       </div>
     </div>
 
-    <label class="field-label">SSH Public Key</label>
-    <textarea class="input kloigos-textarea kloigos-ssh-key-input" x-model="modal.allocate.ssh_public_key" placeholder="ssh-ed25519 AAAA... user@host"></textarea>
+    <label class="field-label required">SSH Public Key</label>
+    <textarea class="input kloigos-textarea kloigos-ssh-key-input" required x-model="modal.allocate.ssh_public_key" placeholder="ssh-ed25519 AAAA... user@host"></textarea>
 
     <div class="kloigos-tags-head">
       <label class="field-label">Tags</label>
@@ -842,28 +842,28 @@
       <div x-show="modal.serverInit.step === 1">
         <div class="kloigos-form-grid">
           <label>
-            <span class="field-label">Hostname</span>
-            <input class="input" x-model="modal.serverInit.hostname" placeholder="server-123" />
+            <span class="field-label required">Hostname</span>
+            <input class="input" required x-model="modal.serverInit.hostname" placeholder="server-123" />
           </label>
           <label>
-            <span class="field-label">Server Private IP</span>
-            <input class="input" x-model="modal.serverInit.private_ip" placeholder="10.0.0.12" />
+            <span class="field-label required">Server Private IP</span>
+            <input class="input" required x-model="modal.serverInit.private_ip" placeholder="10.0.0.12" />
           </label>
           <label>
             <span class="field-label">Server Public IP</span>
             <input class="input" x-model="modal.serverInit.public_ip" placeholder="optional" />
           </label>
           <label>
-            <span class="field-label">Server Admin User</span>
-            <input class="input" x-model="modal.serverInit.server_admin_user" placeholder="ubuntu" />
+            <span class="field-label required">Server Admin User</span>
+            <input class="input" required x-model="modal.serverInit.server_admin_user" placeholder="ubuntu" />
           </label>
           <label>
-            <span class="field-label">Region</span>
-            <input class="input" x-model="modal.serverInit.region" placeholder="us-east-1" />
+            <span class="field-label required">Region</span>
+            <input class="input" required x-model="modal.serverInit.region" placeholder="us-east-1" />
           </label>
           <label>
-            <span class="field-label">Zone</span>
-            <input class="input" x-model="modal.serverInit.zone" placeholder="us-east-1a" />
+            <span class="field-label required">Zone</span>
+            <input class="input" required x-model="modal.serverInit.zone" placeholder="us-east-1a" />
           </label>
         </div>
       </div>
@@ -871,7 +871,7 @@
       <div x-show="modal.serverInit.step === 2">
         <div class="kloigos-form-grid">
           <label>
-            <span class="field-label">CPU Count</span>
+            <span class="field-label required">CPU Count</span>
             <input class="input" type="number" min="1" required x-model.number="modal.serverInit.cpu_count" />
           </label>
           <label>
@@ -925,7 +925,7 @@
             <div class="kloigos-unit-card">
               <div class="kloigos-unit-card-head">
                 <div>
-                  <div class="kloigos-unit-title">Compute Unit <span x-text="index + 1"></span></div>
+                  <div class="kloigos-unit-title">Compute Unit <span x-text="index + 1"></span> <span class="required-marker">*</span></div>
                   <div class="muted">CPU range: <span x-text="unit.cpu_range || '-'"></span></div>
                 </div>
                 <button class="btn danger" :disabled="modal.serverInit.compute_units.length <= 1" @click="removeServerInitComputeUnit(index)">Remove</button>

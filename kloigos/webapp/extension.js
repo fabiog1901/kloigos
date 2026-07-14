@@ -1002,6 +1002,10 @@ window.cpkitWebappExtension = {
         const cpuCount = rawCpuCount === "" || rawCpuCount === null
           ? null
           : Number(rawCpuCount);
+        const sshPublicKey = (this.modal.allocate.ssh_public_key || "").trim();
+        if (!sshPublicKey) {
+          throw new Error("SSH Public Key is required.");
+        }
         const payload = {
           allocation_id: allocationId || null,
           login_user: (this.modal.allocate.login_user || "").trim() || null,
@@ -1009,11 +1013,8 @@ window.cpkitWebappExtension = {
           region: location.region,
           zone: location.zone,
           tags,
-          ssh_public_key: (this.modal.allocate.ssh_public_key || "").trim(),
+          ssh_public_key: sshPublicKey,
         };
-
-        if (!payload.ssh_public_key) throw new Error("SSH public key is required.");
-
         const result = await this.apiFetch("/allocations/", { method: "POST", body: payload });
         this.closeAllocateModal();
         this.showNotice("Allocation queued.", { jobId: result?.job_id });
