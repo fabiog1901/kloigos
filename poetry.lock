@@ -381,7 +381,7 @@ systemd-python = {version = ">=235,<236", markers = "sys_platform == \"linux\""}
 type = "git"
 url = "https://github.com/fabiog1901/cpkit.git"
 reference = "main"
-resolved_reference = "9cec6e94585557d668f5d8c4103b14b18d6e7b73"
+resolved_reference = "1bc97105548dafa8a8d2c02ca7098b7ff3f7b880"
 
 [[package]]
 name = "cryptography"
