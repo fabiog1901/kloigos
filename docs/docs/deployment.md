@@ -76,7 +76,8 @@ kloigos init
 ```
 
 The `init` command initializes the database schema and the versioned Ansible
-playbooks packaged with Kloigos.
+playbooks packaged with Kloigos. See [Playbooks](playbooks.md) for the built-in playbook list,
+versioning model, and optional SSH credential hook settings.
 
 ## 4. Run Kloigos with systemd
 

@@ -76,6 +76,7 @@ nav:
     - docs/getting-started.md
     - docs/auth.md
     - docs/deployment.md
+    - docs/playbooks.md
     - docs/architecture.md
   - about.md
 

@@ -39,7 +39,9 @@ To perform host-level operations - such as creating users, configuring systemd s
 filesystems, assigning floating IPs, installing AppArmor profiles, auditing capabilities, or
 enforcing network policies - the backend delegates execution to **Ansible**, using `ansible-runner`.
 All infrastructure actions are externalized into versioned, auditable Ansible playbooks, keeping the
-backend thin and focused on orchestration rather than configuration details.
+backend thin and focused on orchestration rather than configuration details. See
+[Playbooks](playbooks.md) for the playbook model, built-in playbook list, and SSH credential hook
+design.
 
 Like the web application, the backend is **completely stateless**. It does not rely on local files or persistent storage, and any backend instance can handle any request. This enables multiple backend instances to run concurrently for redundancy and load sharing.
 

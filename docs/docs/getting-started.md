@@ -109,7 +109,8 @@ After submitting the server wizard, Kloigos schedules a background job.
 Open **Jobs** and select the new job to watch progress. Server initialization uses
 versioned Ansible playbooks to prepare the host, create Compute Unit capacity,
 configure storage, install platform helpers, and set up the base networking and
-security controls.
+security controls. See [Playbooks](playbooks.md) for details about the built-in playbooks and how
+Kloigos records playbook versions.
 
 The server is ready for allocations when the job reaches a successful terminal
 state and the Compute Units appear as available.
