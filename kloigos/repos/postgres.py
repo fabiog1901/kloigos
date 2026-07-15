@@ -15,6 +15,7 @@ from ..models import (
     ComputeUnitStatus,
     IpAddressStatus,
     IpPoolAddressInDB,
+    LicenseUsage,
     ServerHealthStatus,
     ServerInDB,
     ServerInitRequest,
@@ -226,7 +227,7 @@ class PostgresRepo(CPKitRepo):
                 (start_after_seconds,),
             )
 
-    def get_license_usage(self) -> dict[str, int]:
+    def get_license_usage(self) -> LicenseUsage:
         with self.pool.connection() as conn:
             cur = conn.cursor()
             cur.execute("""
@@ -239,8 +240,8 @@ class PostgresRepo(CPKitRepo):
                 """)
             row = cur.fetchone()
             if row is None:
-                return {"servers": 0, "cpus": 0}
-            return {"servers": int(row[0] or 0), "cpus": int(row[1] or 0)}
+                return LicenseUsage(servers=0, cpus=0)
+            return LicenseUsage(servers=int(row[0] or 0), cpus=int(row[1] or 0))
 
     def get_servers(
         self,

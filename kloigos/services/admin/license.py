@@ -2,7 +2,6 @@
 
 import datetime as dt
 import logging
-import threading
 from typing import Any
 
 import jwt
@@ -20,7 +19,6 @@ from ...models import (
     LicenseCompliance,
     LicenseLimits,
     LicenseStatusResponse,
-    LicenseUsage,
     MissingLicenseError,
     UnknownSigningKeyError,
     ValidatedLicense,
@@ -30,7 +28,6 @@ from ...repos import Repo
 logger = logging.getLogger(__name__)
 
 LICENSE_SETTING_KEY = "license.jwt"
-LICENSE_CACHE_SECONDS = 300
 FREE_SERVER_LIMIT = 10
 FREE_CPU_LIMIT = 500
 
@@ -51,27 +48,81 @@ MCowBQYDK2VwAyEAveX8xwBGd37M/Y4eSgsmTJ8S9DfPtKtbnGdsk5dsxJM=
 class LicenseService:
     """Validate offline licenses and report usage compliance without blocking Kloigos."""
 
-    _cache_lock = threading.Lock()
-    _cached_license: ValidatedLicense | None = None
-    _cached_valid = False
-    _cached_reason: str | None = None
-    _cache_expires_at: dt.datetime | None = None
-
     def __init__(self, repo: Repo):
         self.repo = repo
 
     def status(self) -> LicenseStatusResponse:
         """Return license validation and current usage compliance status."""
-        valid, reason, license_data = self._license_state()
-        usage = self._usage()
-        limits = self._limits(license_data if valid else None)
-        compliance = self._compliance(usage, limits, valid)
+        setting = self.repo.get_setting(LICENSE_SETTING_KEY)
+        token = setting.value if setting else None
+        valid = False
+        reason: str | None = "MissingLicense"
+        license_data: ValidatedLicense | None = None
+
+        if token:
+            try:
+                license_data = self._validate_token(token)
+                valid = True
+                reason = None
+            except (
+                InvalidTokenError,
+                UnknownSigningKeyError,
+                InvalidSignatureError,
+                ExpiredLicenseError,
+            ) as exc:
+                logger.warning("Kloigos license validation failed: %s", exc)
+                reason = exc.__class__.__name__.removesuffix("Error")
+        else:
+            logger.info("Kloigos license is not installed.")
+
+        usage = self.repo.get_license_usage()
+        license_limits = license_data.limits if valid and license_data else {}
+        limits = LicenseLimits(
+            servers=self._positive_int(
+                license_limits.get("servers"), FREE_SERVER_LIMIT
+            ),
+            cpus=self._positive_int(
+                license_limits.get("cpus", license_limits.get("compute_units")),
+                FREE_CPU_LIMIT,
+            ),
+        )
+        over_servers = usage.servers > limits.servers
+        over_cpus = usage.cpus > limits.cpus
+        compliant = not over_servers and not over_cpus
+        license_required = not valid and (
+            usage.servers > FREE_SERVER_LIMIT or usage.cpus > FREE_CPU_LIMIT
+        )
+
+        if compliant:
+            message = (
+                f"Kloigos is compliant: {usage.servers}/{limits.servers} servers "
+                f"and {usage.cpus}/{limits.cpus} CPUs are under management."
+            )
+        elif license_required:
+            message = (
+                "A Kloigos license is required because usage exceeds the community "
+                f"limit: {usage.servers}/{FREE_SERVER_LIMIT} servers and "
+                f"{usage.cpus}/{FREE_CPU_LIMIT} CPUs are under management."
+            )
+        else:
+            message = (
+                "Kloigos usage exceeds the installed license limits: "
+                f"{usage.servers}/{limits.servers} servers and "
+                f"{usage.cpus}/{limits.cpus} CPUs are under management."
+            )
+
         return LicenseStatusResponse(
             licensed=bool(valid and license_data),
             valid=valid,
             reason=reason,
             license=license_data if valid else None,
-            compliance=compliance,
+            compliance=LicenseCompliance(
+                compliant=compliant,
+                license_required=license_required,
+                message=message,
+                usage=usage,
+                limits=limits,
+            ),
         )
 
     def check_compliance(self, actor_id: str = "system") -> LicenseStatusResponse:
@@ -98,99 +149,6 @@ class LicenseService:
             details,
         )
         return status
-
-    def _license_state(self) -> tuple[bool, str | None, ValidatedLicense | None]:
-        now = dt.datetime.now(dt.UTC)
-        with self._cache_lock:
-            if self._cache_expires_at is not None and self._cache_expires_at > now:
-                return self._cached_valid, self._cached_reason, self._cached_license
-
-        setting = self.repo.get_setting(LICENSE_SETTING_KEY)
-        token = setting.value if setting else None
-        try:
-            license_data = self._validate_token(token)
-            valid = True
-            reason = None
-        except MissingLicenseError:
-            logger.info("Kloigos license is not installed.")
-            license_data = None
-            valid = False
-            reason = "MissingLicense"
-        except (
-            InvalidTokenError,
-            UnknownSigningKeyError,
-            InvalidSignatureError,
-            ExpiredLicenseError,
-        ) as exc:
-            logger.warning("Kloigos license validation failed: %s", exc)
-            license_data = None
-            valid = False
-            reason = exc.__class__.__name__.removesuffix("Error")
-
-        with self._cache_lock:
-            self._cached_license = license_data
-            self._cached_valid = valid
-            self._cached_reason = reason
-            self._cache_expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(
-                seconds=LICENSE_CACHE_SECONDS
-            )
-        return valid, reason, license_data
-
-    def _usage(self) -> LicenseUsage:
-        usage = self.repo.get_license_usage()
-        return LicenseUsage(
-            servers=int(usage.get("servers") or 0),
-            cpus=int(usage.get("cpus") or 0),
-        )
-
-    def _limits(self, license_data: ValidatedLicense | None) -> LicenseLimits:
-        limits = license_data.limits if license_data else {}
-        return LicenseLimits(
-            servers=self._positive_int(limits.get("servers"), FREE_SERVER_LIMIT),
-            cpus=self._positive_int(
-                limits.get("cpus", limits.get("compute_units")),
-                FREE_CPU_LIMIT,
-            ),
-        )
-
-    def _compliance(
-        self,
-        usage: LicenseUsage,
-        limits: LicenseLimits,
-        valid_license: bool,
-    ) -> LicenseCompliance:
-        over_servers = usage.servers > limits.servers
-        over_cpus = usage.cpus > limits.cpus
-        compliant = not over_servers and not over_cpus
-        license_required = not valid_license and (
-            usage.servers > FREE_SERVER_LIMIT or usage.cpus > FREE_CPU_LIMIT
-        )
-
-        if compliant:
-            message = (
-                f"Kloigos is compliant: {usage.servers}/{limits.servers} servers "
-                f"and {usage.cpus}/{limits.cpus} CPUs are under management."
-            )
-        elif license_required:
-            message = (
-                "A Kloigos license is required because usage exceeds the community "
-                f"limit: {usage.servers}/{FREE_SERVER_LIMIT} servers and "
-                f"{usage.cpus}/{FREE_CPU_LIMIT} CPUs are under management."
-            )
-        else:
-            message = (
-                "Kloigos usage exceeds the installed license limits: "
-                f"{usage.servers}/{limits.servers} servers and "
-                f"{usage.cpus}/{limits.cpus} CPUs are under management."
-            )
-
-        return LicenseCompliance(
-            compliant=compliant,
-            license_required=license_required,
-            message=message,
-            usage=usage,
-            limits=limits,
-        )
 
     def _positive_int(self, value: Any, default: int) -> int:
         try:
