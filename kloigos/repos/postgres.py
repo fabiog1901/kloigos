@@ -15,7 +15,6 @@ from ..models import (
     ComputeUnitStatus,
     IpAddressStatus,
     IpPoolAddressInDB,
-    LicenseUsage,
     ServerHealthStatus,
     ServerInDB,
     ServerInitRequest,
@@ -206,33 +205,6 @@ class PostgresRepo(CPKitRepo):
             """,
             (start_after_seconds,),
         )
-
-    def schedule_license_compliance_check(self, start_after_seconds: int) -> None:
-        execute_stmt(
-            """
-            INSERT INTO cpkit.mq (msg_type, start_after)
-            VALUES (
-                'LICENSE_COMPLIANCE_CHECK',
-                now() + (%s * INTERVAL '1s') + (random() * INTERVAL '10s')
-            )
-            """,
-            (start_after_seconds,),
-        )
-
-    def get_license_usage(self) -> LicenseUsage:
-        usage = fetch_one(
-            """
-            SELECT
-                count(DISTINCT s.hostname)::int AS servers,
-                coalesce(sum(c.cpu_count), 0)::int AS cpus
-            FROM servers s
-            LEFT JOIN compute_units c ON c.hostname = s.hostname
-            WHERE s.status <> 'DECOMMISSIONED'
-            """,
-            (),
-            LicenseUsage,
-        )
-        return usage or LicenseUsage(servers=0, cpus=0)
 
     def get_servers(
         self,

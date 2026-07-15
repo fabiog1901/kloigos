@@ -167,6 +167,8 @@ def iter_python_files(roots: list[Path]) -> list[Path]:
         for path in root.rglob("*.py"):
             if any(part in SKIP_DIRS for part in path.parts):
                 continue
+            if any(part.startswith(".") for part in path.relative_to(root).parts):
+                continue
             files.append(path)
     return sorted(files)
 

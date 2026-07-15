@@ -47,14 +47,6 @@ WHERE NOT EXISTS (
     WHERE msg_type = 'SERVER_HEALTH_CHECK'
 );
 
-INSERT INTO cpkit.mq (msg_type, start_after)
-SELECT 'LICENSE_COMPLIANCE_CHECK', now() + INTERVAL '300s' + (random() * INTERVAL '10s')
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM cpkit.mq
-    WHERE msg_type = 'LICENSE_COMPLIANCE_CHECK'
-);
-
 CREATE TABLE IF NOT EXISTS compute_units (
     compute_id TEXT NOT NULL GENERATED ALWAYS AS (hostname || '-cu' || lpad(ordinal::TEXT, 2, '0')) STORED,
     hostname TEXT NOT NULL,
@@ -118,15 +110,3 @@ ALTER TABLE ip_pool DROP CONSTRAINT IF EXISTS ip_pool_allocation;
 
 ALTER TABLE ip_pool
 ADD CONSTRAINT ip_pool_allocation FOREIGN KEY (allocation_id) REFERENCES allocations(allocation_id) ON UPDATE CASCADE ON DELETE SET NULL;
-
--- kloigos specific settings
-INSERT INTO cpkit.settings (
-    key,
-    default_value,
-    value_type,
-    category,
-    is_secret,
-    description
-) VALUES
-    ('license.jwt', '', 'text', 'license', true, 'Signed offline Kloigos license JWT.')
-ON CONFLICT (key) DO NOTHING;

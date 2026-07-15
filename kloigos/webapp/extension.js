@@ -15,13 +15,6 @@ window.cpkitWebappExtension = {
       icon: "network",
       countKey: "ipPool",
     },
-    {
-      view: "license_status",
-      label: "License",
-      kicker: "Compliance",
-      description: "License validation and managed server/CPU compliance status.",
-      icon: "license",
-    },
   ],
   routes: {
     allocations: {
@@ -47,13 +40,6 @@ window.cpkitWebappExtension = {
       label: "IP Pool",
       subtitle: "Floating IP address pool",
       ensure: "ensureIpPoolView",
-      adminOnly: true,
-    },
-    license_status: {
-      path: "/admin/license",
-      label: "License",
-      subtitle: "License compliance status",
-      ensure: "ensureLicenseStatusAdminCard",
       adminOnly: true,
     },
   },
@@ -105,7 +91,7 @@ window.cpkitWebappExtension = {
       11: "string",
       12: "string",
     },
-    serversLoading: { list: false, action: false, init: false, license: false },
+    serversLoading: { list: false, action: false, init: false },
     serversAutoRefreshEnabled: true,
     _serversAutoTimer: null,
     computeUnits: [],
@@ -150,8 +136,6 @@ window.cpkitWebappExtension = {
     ipPoolAutoRefreshEnabled: true,
     _ipPoolAutoTimer: null,
     ipPoolBusyKey: null,
-    licenseComplianceStatus: null,
-    _licenseComplianceTimer: null,
     _allocationDetailsAce: null,
     _serverDetailsAce: null,
     modal: {
@@ -194,7 +178,6 @@ window.cpkitWebappExtension = {
         tagPairs: [{ key: "", value: "" }],
         compute_units: [{ ordinal: 1, cpu_range: "0-3", cpus: [0, 1, 2, 3] }],
       },
-      licenseStatus: { open: false, yaml: "" },
       ipPoolAdd: { open: false, ipAddresses: [{ value: "" }] },
       ipPoolDeleteConfirm: { open: false, ip_address: "" },
     },
@@ -204,7 +187,6 @@ window.cpkitWebappExtension = {
       deallocateConfirm: "",
       serverActionConfirm: "",
       serverInit: "",
-      licenseStatus: "",
       ipPoolAdd: "",
       ipPoolDeleteConfirm: "",
     },
@@ -215,7 +197,6 @@ window.cpkitWebappExtension = {
     this.restoreComputeLocalState();
     this.restoreServersLocalState();
     this.restoreIpPoolLocalState();
-    await this.refreshLicenseCompliance();
     if (this.view === "allocations") await this.ensureAllocationsView();
     if (this.view === "compute_units") await this.ensureComputeUnitsView();
     if (this.view === "kloigos_servers") await this.ensureKloigosServersView();
@@ -240,15 +221,11 @@ window.cpkitWebappExtension = {
         this.refreshIpPool();
       }
     }, 5000);
-    this.setManagedInterval("_licenseComplianceTimer", () => {
-      this.refreshLicenseCompliance();
-    }, 60000);
   },
   methods: {
     configureKloigosChrome() {
       this.removeOpenApiJsonLink();
       this.addDocsTopbarLink();
-      this.ensureLicenseComplianceBannerElement();
     },
 
     removeOpenApiJsonLink() {
@@ -276,53 +253,6 @@ window.cpkitWebappExtension = {
         <span>Docs</span>
       `;
       nav.appendChild(link);
-    },
-
-    ensureLicenseComplianceBannerElement() {
-      if (document.querySelector(".kloigos-compliance-banner")) return;
-      const banner = document.createElement("div");
-      banner.className = "kloigos-compliance-banner";
-      banner.hidden = true;
-      banner.innerHTML = `
-        <div class="kloigos-compliance-banner-inner">
-          <div>
-            <strong>License compliance warning</strong>
-            <span class="kloigos-compliance-banner-message"></span>
-          </div>
-          <button type="button" class="btn small">View license</button>
-        </div>
-      `;
-      banner.querySelector("button").addEventListener("click", () => this.openLicenseStatusModal());
-      const topbar = document.querySelector(".topbar") || document.querySelector("header");
-      if (topbar && topbar.parentElement) {
-        topbar.insertAdjacentElement("afterend", banner);
-      } else {
-        document.body.prepend(banner);
-      }
-    },
-
-    renderLicenseComplianceBanner() {
-      const banner = document.querySelector(".kloigos-compliance-banner");
-      if (!banner) return;
-      const compliance = this.licenseComplianceStatus?.compliance;
-      if (!compliance || compliance.compliant) {
-        banner.hidden = true;
-        return;
-      }
-      const message = banner.querySelector(".kloigos-compliance-banner-message");
-      if (message) message.textContent = compliance.message || "Kloigos usage is not license compliant.";
-      banner.hidden = false;
-    },
-
-    async refreshLicenseCompliance() {
-      try {
-        const data = await this.apiFetch("/license/status", { method: "GET" });
-        this.licenseComplianceStatus = data || null;
-        this.renderLicenseComplianceBanner();
-      } catch {
-        this.licenseComplianceStatus = null;
-        this.renderLicenseComplianceBanner();
-      }
     },
 
     async apiFetch(path, options = {}) {
@@ -574,12 +504,6 @@ window.cpkitWebappExtension = {
         region: region.trim() || null,
         zone: zone.trim() || null,
       };
-    },
-
-    async ensureLicenseStatusAdminCard() {
-      this.view = "admin";
-      window.location.hash = this.routeForView("admin");
-      await this.openLicenseStatusModal();
     },
 
     persistServersFilter() {
@@ -1397,29 +1321,6 @@ window.cpkitWebappExtension = {
       if (!this[editorKey]) return;
       this.destroyAceEditor(this[editorKey]);
       this[editorKey] = null;
-    },
-
-    async openLicenseStatusModal() {
-      this.modal.licenseStatus.yaml = "";
-      this.modalError.licenseStatus = "";
-      this.modal.licenseStatus.open = true;
-      this.serversLoading.license = true;
-      try {
-        const data = await this.apiFetch("/license/status", { method: "GET" });
-        this.licenseComplianceStatus = data || null;
-        this.renderLicenseComplianceBanner();
-        this.modal.licenseStatus.yaml = this.formatYaml(data || {});
-      } catch (error) {
-        this.modalError.licenseStatus = this.errorMessage(error, "Failed to load license status.");
-      } finally {
-        this.serversLoading.license = false;
-      }
-    },
-
-    closeLicenseStatusModal() {
-      this.modal.licenseStatus.open = false;
-      this.modalError.licenseStatus = "";
-      this.modal.licenseStatus.yaml = "";
     },
 
     formatYaml(value, indent = 0) {

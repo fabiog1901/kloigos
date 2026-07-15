@@ -90,10 +90,5 @@ For full documentation, design details, and usage guides, please visit:
 
 ## Licensing
 
-Kloigos is released under the **Apache License 2.0**. All features are community features.
-
-A commercial Kloigos license is only required when a deployment manages more than
-10 servers or more than 500 CPUs. Kloigos does not disable functionality when usage
-exceeds those limits. Instead, it reports non-compliance through logs, audit events,
-and the web application so operators can correct the deployment or install an
-appropriate license.
+Kloigos is released under the **Apache License 2.0**. All features are open source.
+See the `LICENSE` file for the full license text.

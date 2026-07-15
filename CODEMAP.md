@@ -22,7 +22,7 @@ python tools/codemap.py --write
 
 | Package | Modules | Classes | Functions | Routes |
 | --- | ---: | ---: | ---: | ---: |
-| `kloigos` | 29 | 60 | 28 | 14 |
+| `kloigos` | 27 | 48 | 26 | 13 |
 
 ## API Routes
 
@@ -37,7 +37,6 @@ python tools/codemap.py --write
 | `GET` | `/ip_pool` | `kloigos.api.admin.ip_pool.list_ip_pool_addresses` | `list[IpPoolAddressInDB]` |
 | `POST` | `/ip_pool` | `kloigos.api.admin.ip_pool.insert_ip_pool_addresses` | `list[IpPoolAddressInDB]` |
 | `DELETE` | `/ip_pool/{ip_address}` | `kloigos.api.admin.ip_pool.delete_ip_pool_address` | `-` |
-| `GET` | `/license/status` | `kloigos.api.admin.license.get_license_status` | `LicenseStatusResponse` |
 | `GET` | `/servers` | `kloigos.api.admin.servers.list_servers` | `list[ServerInDB]` |
 | `POST` | `/servers` | `kloigos.api.admin.servers.init_server` | `JobID` |
 | `PUT` | `/servers` | `kloigos.api.admin.servers.decommission_server` | `JobID` |
@@ -55,28 +54,26 @@ python tools/codemap.py --write
 | `kloigos/api/__init__.py` | no public surface |
 | `kloigos/api/admin/__init__.py` | no public surface |
 | `kloigos/api/admin/ip_pool.py` | functions: list_ip_pool_addresses, insert_ip_pool_addresses, delete_ip_pool_address; routes: 3 |
-| `kloigos/api/admin/license.py` | functions: get_license_status; routes: 1 |
 | `kloigos/api/admin/servers.py` | functions: list_servers, init_server, decommission_server, delete_server; routes: 4 |
 | `kloigos/api/allocation.py` | functions: list_allocations, allocate, get_allocation, deallocate_allocation, scale_allocation; routes: 5 |
 | `kloigos/api/compute_unit.py` | functions: list_compute_units; routes: 1 |
 | `kloigos/cli.py` | Kloigos command-line entrypoint.; classes: KloigosCLI; functions: main |
-| `kloigos/dep.py` | functions: get_allocation_service, get_compute_unit_service, get_admin_service, get_license_service |
+| `kloigos/dep.py` | functions: get_allocation_service, get_compute_unit_service, get_admin_service |
+| `kloigos/hooks.py` | Application extension hooks.; functions: run_periodic_hook |
 | `kloigos/main.py` | no public surface |
-| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, ServerNotFoundError, ServerStateError, MissingLicenseError, InvalidTokenError, UnknownSigningKeyError, InvalidSignatureError, ExpiredLicenseError, Event, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ServerHealthStatus, AlertType, AlertSeverity, AlertStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, AllocationCreateRequest, AllocationCreateCommand, AllocationCreateResponse, ServerHealthCheckCommand, LicenseComplianceCheckCommand, AllocationDeallocateCommand, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolInsertRequest, ValidatedLicense, LicenseUsage, LicenseLimits, LicenseCompliance, LicenseStatusResponse, BaseServer, ServerInDB, AlertInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
+| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, ServerNotFoundError, ServerStateError, Event, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ServerHealthStatus, AlertType, AlertSeverity, AlertStatus, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, AllocationCreateRequest, AllocationCreateCommand, AllocationCreateResponse, ServerHealthCheckCommand, AllocationDeallocateCommand, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolInsertRequest, BaseServer, ServerInDB, AlertInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
 | `kloigos/repos/__init__.py` | classes: Repo |
 | `kloigos/repos/postgres.py` | classes: PostgresRepo |
 | `kloigos/services/__init__.py` | no public surface |
 | `kloigos/services/admin/__init__.py` | classes: AdminService |
 | `kloigos/services/admin/base.py` | classes: AdminServiceBase |
 | `kloigos/services/admin/ip_pool.py` | classes: IpPoolAdminService |
-| `kloigos/services/admin/license.py` | Offline license validation and non-blocking compliance reporting.; classes: LicenseService |
 | `kloigos/services/admin/servers.py` | classes: ServersAdminService |
 | `kloigos/services/allocation.py` | classes: AllocationService |
 | `kloigos/services/compute_unit.py` | classes: ComputeUnitService |
 | `kloigos/util.py` | functions: to_cpu_set, parse_cpu_range |
 | `kloigos/workers/__init__.py` | Job worker entry points for Kloigos. |
 | `kloigos/workers/health.py` | Server health check queue handler.; classes: HealthProbeResult; functions: run_server_health_check |
-| `kloigos/workers/license.py` | License compliance queue handler.; functions: run_license_compliance_check |
 | `kloigos/workers/remote/__init__.py` | Remote job handlers that execute playbooks on Kloigos-managed servers. |
 | `kloigos/workers/remote/allocation.py` | Remote allocation worker handlers.; functions: run_compute_unit_allocate, run_compute_unit_deallocate, run_allocation_scale |
 | `kloigos/workers/remote/server.py` | Remote server worker handlers.; functions: run_server_init, run_server_decommission |

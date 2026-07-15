@@ -169,39 +169,6 @@
   pointer-events: none;
 }
 
-.kloigos-compliance-banner {
-  border-bottom: 1px solid rgba(245, 158, 11, 0.34);
-  background: rgba(120, 53, 15, 0.34);
-  color: #fde68a;
-}
-
-.kloigos-compliance-banner[hidden] {
-  display: none;
-}
-
-.kloigos-compliance-banner-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  width: min(1440px, 100%);
-  margin: 0 auto;
-  padding: 10px 22px;
-}
-
-.kloigos-compliance-banner strong {
-  display: block;
-  color: #fef3c7;
-  font-size: 13px;
-}
-
-.kloigos-compliance-banner-message {
-  display: block;
-  margin-top: 2px;
-  color: #fde68a;
-  font-size: 12px;
-}
-
 .kloigos-textarea {
   min-height: 96px;
   resize: vertical;
