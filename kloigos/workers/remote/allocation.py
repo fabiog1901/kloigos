@@ -375,7 +375,7 @@ def run_allocation_scale(
     else:
         repo.update_compute_unit(
             target.compute_id,
-            status=ComputeUnitStatus.ALLOCATION_FAIL,
+            status=ComputeUnitStatus.FREE,
             clear_allocation_id=True,
             tags={},
         )

@@ -581,7 +581,7 @@ window.cpkitWebappExtension = {
     },
 
     allocationCanDeallocate(row) {
-      return ["allocated", "allocation_fail", "deallocation_fail"].includes(String(row?.status || "").toLowerCase());
+      return ["allocated", "allocation_fail", "scale_fail", "deallocation_fail"].includes(String(row?.status || "").toLowerCase());
     },
 
     allocationCanScale(row) {

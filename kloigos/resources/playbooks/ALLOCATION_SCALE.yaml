@@ -221,14 +221,15 @@
       args:
         executable: /bin/bash
 
-    - name: Attach target allocation user manager to AppArmor profile
+    - name: Ensure target allocation user manager is not AppArmor-confined
       when: ansible_facts["os_family"] | lower == "debian"
-      copy:
-        dest: /etc/systemd/system/user@{{ target_login_uid.stdout }}.service.d/50-kloigos-apparmor.conf
-        mode: "0644"
-        content: |
-          [Service]
-          AppArmorProfile=kloigos-{{ login_user }}
+      shell: |
+        set -euo pipefail
+        rm -f /etc/systemd/system/user@{{ target_login_uid.stdout }}.service.d/50-kloigos-apparmor.conf
+        rmdir /etc/systemd/system/user@{{ target_login_uid.stdout }}.service.d 2>/dev/null || true
+        systemctl daemon-reload
+      args:
+        executable: /bin/bash
 
     - name: Force target SSH sessions through allocation AppArmor profile
       when: ansible_facts["os_family"] | lower == "debian"
