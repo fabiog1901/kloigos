@@ -163,6 +163,7 @@ window.cpkitWebappExtension = {
       serverActionConfirm: { open: false, hostname: "", action: "decommission" },
       serverInit: {
         open: false,
+        mode: "init",
         step: 1,
         private_ip: "",
         public_ip: "",
@@ -663,6 +664,7 @@ window.cpkitWebappExtension = {
     serversTagsCompact(tags) {
       if (!tags || typeof tags !== "object") return "";
       const text = Object.entries(tags)
+        .filter(([key]) => !String(key).startsWith("_kloigos_"))
         .map(([key, value]) => `${key}=${Array.isArray(value) ? value.join(",") : value}`)
         .join(" ");
       return text.length > 60 ? `${text.slice(0, 60)}...` : text;
@@ -749,6 +751,10 @@ window.cpkitWebappExtension = {
     serverCanDecommission(server) {
       const status = String(server?.status || "").toLowerCase();
       return !["decommissioning", "decommissioned"].includes(status);
+    },
+
+    serverCanRecommission(server) {
+      return String(server?.status || "").toLowerCase() === "decommissioned";
     },
 
     serversSortClass(index) {
@@ -1404,9 +1410,84 @@ window.cpkitWebappExtension = {
     },
 
     openServerInitModal() {
+      this.resetServerInitModal();
+      this.modal.serverInit.mode = "init";
+      this.modal.serverInit.open = true;
+    },
+
+    openServerRecommissionModal(server) {
+      this.resetServerInitModal();
+      this.modal.serverInit.mode = "recommission";
+      this.modal.serverInit.hostname = server?.hostname || "";
+      this.modal.serverInit.private_ip = server?.private_ip || "";
+      this.modal.serverInit.public_ip = server?.public_ip || "";
+      this.modal.serverInit.server_admin_user = server?.server_admin_user || "ubuntu";
+      this.modal.serverInit.region = server?.region || "";
+      this.modal.serverInit.zone = server?.zone || "";
+      this.modal.serverInit.runtime_profile = server?.runtime_profile || "standard";
+      this.modal.serverInit.cpu_count = server?.cpu_count ?? null;
+      this.modal.serverInit.mem_gb = server?.mem_gb ?? null;
+      this.modal.serverInit.disk_count = server?.disk_count ?? null;
+      this.modal.serverInit.disk_size_gb = server?.disk_size_gb ?? null;
+      this.modal.serverInit.tagPairs = this.serverInitTagPairsFromServer(server);
+      this.modal.serverInit.compute_units = this.serverInitComputeUnitsFromServer(server);
+      this.modal.serverInit.open = true;
+    },
+
+    resetServerInitModal() {
       this.modal.serverInit.step = 1;
       this.modalError.serverInit = "";
-      this.modal.serverInit.open = true;
+      this.modal.serverInit.mode = "init";
+      this.modal.serverInit.private_ip = "";
+      this.modal.serverInit.public_ip = "";
+      this.modal.serverInit.hostname = "";
+      this.modal.serverInit.server_admin_user = "ubuntu";
+      this.modal.serverInit.region = "";
+      this.modal.serverInit.zone = "";
+      this.modal.serverInit.runtime_profile = "standard";
+      this.modal.serverInit.cpu_count = null;
+      this.modal.serverInit.mem_gb = null;
+      this.modal.serverInit.disk_count = null;
+      this.modal.serverInit.disk_size_gb = null;
+      this.modal.serverInit.tagPairs = [{ key: "", value: "" }];
+      this.modal.serverInit.compute_units = [{ ordinal: 1, cpu_range: "0-3", cpus: [0, 1, 2, 3] }];
+    },
+
+    serverInitTagPairsFromServer(server) {
+      const tags = server?.tags && typeof server.tags === "object" ? server.tags : {};
+      const pairs = Object.entries(tags)
+        .filter(([key]) => !String(key).startsWith("_kloigos_"))
+        .map(([key, value]) => ({ key, value: String(value ?? "") }));
+      return pairs.length ? pairs : [{ key: "", value: "" }];
+    },
+
+    serverInitComputeUnitsFromServer(server) {
+      const specs = Array.isArray(server?.tags?._kloigos_compute_units)
+        ? server.tags._kloigos_compute_units
+        : [];
+      const units = specs
+        .map((unit, index) => {
+          const cpuRange = String(unit?.cpu_range || "").trim();
+          return {
+            ordinal: Number(unit?.ordinal) || index + 1,
+            cpu_range: cpuRange,
+            cpus: this.parseServerInitCpuRange(cpuRange),
+          };
+        })
+        .filter((unit) => unit.cpu_range && unit.cpus.length > 0);
+      if (units.length > 0) {
+        return units.sort((left, right) => left.ordinal - right.ordinal);
+      }
+
+      const cpuCount = Number(server?.cpu_count);
+      const cpus = Number.isInteger(cpuCount) && cpuCount > 0
+        ? Array.from({ length: cpuCount }, (_, index) => index)
+        : [0, 1, 2, 3];
+      return [{
+        ordinal: 1,
+        cpu_range: cpus.length === 1 ? String(cpus[0]) : `${cpus[0]}-${cpus[cpus.length - 1]}`,
+        cpus,
+      }];
     },
 
     closeServerInitModal() {

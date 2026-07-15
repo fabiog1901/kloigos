@@ -26,6 +26,17 @@ class PostgresRepo(CPKitRepo):
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool: ConnectionPool = pool
 
+    def _server_init_tags(self, sir: ServerInitRequest) -> dict:
+        tags = dict(sir.tags or {})
+        tags["_kloigos_compute_units"] = [
+            {
+                "ordinal": unit.ordinal,
+                "cpu_range": unit.cpu_range,
+            }
+            for unit in sir.compute_units
+        ]
+        return tags
+
     def server_init_new(
         self,
         sir: ServerInitRequest,
@@ -42,7 +53,23 @@ class PostgresRepo(CPKitRepo):
                 %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s
             )
-            ON CONFLICT DO NOTHING
+            ON CONFLICT (hostname) DO UPDATE SET
+                private_ip = EXCLUDED.private_ip,
+                public_ip = EXCLUDED.public_ip,
+                server_admin_user = EXCLUDED.server_admin_user,
+                region = EXCLUDED.region,
+                zone = EXCLUDED.zone,
+                runtime_profile = EXCLUDED.runtime_profile,
+                status = EXCLUDED.status,
+                cpu_count = EXCLUDED.cpu_count,
+                mem_gb = EXCLUDED.mem_gb,
+                disk_count = EXCLUDED.disk_count,
+                disk_size_gb = EXCLUDED.disk_size_gb,
+                health_status = 'UNKNOWN',
+                last_health_check_at = NULL,
+                last_health_error = NULL,
+                last_healthy_at = NULL,
+                tags = EXCLUDED.tags
             """,
             (
                 sir.hostname,
@@ -57,7 +84,7 @@ class PostgresRepo(CPKitRepo):
                 sir.mem_gb,
                 sir.disk_count,
                 sir.disk_size_gb,
-                sir.tags,
+                self._server_init_tags(sir),
             ),
         )
 
