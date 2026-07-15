@@ -291,8 +291,9 @@ class AllocationDeallocateCommand(BaseModel):
 
 
 class AllocationScaleRequest(BaseModel):
-    compute_id: str | None = None
-    cpu_count: int | None = None
+    model_config = ConfigDict(extra="forbid")
+
+    cpu_count: int = Field(gt=0)
     region: str | None = None
     zone: str | None = None
 

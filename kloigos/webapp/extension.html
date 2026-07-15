@@ -764,17 +764,24 @@
       <dd x-text="modal.allocationScale.allocation_id || '-'"></dd>
     </dl>
 
-    <label class="field-label">Target Compute ID</label>
-    <input class="input" x-model="modal.allocationScale.compute_id" placeholder="optional exact compute unit" />
+    <label class="field-label required">Target CPU Count</label>
+    <select class="input" required x-model.number="modal.allocationScale.cpu_count">
+      <option value="">Select CPU count</option>
+      <template x-for="count in allocationScaleCpuCountOptions()" :key="count">
+        <option :value="count" x-text="count"></option>
+      </template>
+    </select>
+    <div class="muted" x-show="allocationScaleCpuCountOptions().length === 0">
+      No free compute units with a different CPU count are currently available.
+    </div>
 
-    <label class="field-label">Target CPU Count</label>
-    <input class="input" type="number" min="1" x-model.number="modal.allocationScale.cpu_count" placeholder="optional" />
-
-    <label class="field-label">Target Region</label>
-    <input class="input" x-model="modal.allocationScale.region" placeholder="optional" />
-
-    <label class="field-label">Target Zone</label>
-    <input class="input" x-model="modal.allocationScale.zone" placeholder="optional" />
+    <label class="field-label">Target Region-Zone</label>
+    <select class="input" x-model="modal.allocationScale.location">
+      <option value="">Any healthy region-zone</option>
+      <template x-for="option in allocationLocationOptions()" :key="option.value">
+        <option :value="option.value" x-text="option.label"></option>
+      </template>
+    </select>
 
     <div class="modal-actions">
       <button class="btn" @click="closeAllocationScaleModal()">Cancel</button>

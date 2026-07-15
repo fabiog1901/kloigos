@@ -265,7 +265,6 @@ def run_allocation_scale(
     source = _get_compute_unit(repo, allocation.compute_id)
     try:
         target = repo.lock_compute_unit(
-            compute_id=payload.compute_id,
             region=payload.region,
             zone=payload.zone,
             cpu_count=payload.cpu_count,

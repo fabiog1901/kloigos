@@ -368,6 +368,12 @@ class AllocationService:
                 f"Allocation '{allocation_id}' cannot scale from status '{current_status.value}'."
             )
 
+        source = self._get_active_compute_unit(allocation)
+        if req.cpu_count == source.cpu_count:
+            raise ComputeUnitOperationError(
+                f"Allocation '{allocation_id}' is already placed on a {source.cpu_count}-CPU compute unit."
+            )
+
         command = AllocationScaleCommand(
             allocation_id=allocation_id,
             **_model_details(req),

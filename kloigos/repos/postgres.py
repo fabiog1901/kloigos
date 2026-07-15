@@ -708,7 +708,7 @@ class PostgresRepo(CPKitRepo):
             compute_units.cpu_set,
             compute_units.cpu_count,
             compute_units.status,
-            compute_units.allocation_id,
+            compute_units.allocation_id AS allocation_id,
             compute_units.started_at,
             compute_units.tags 
         """
@@ -772,7 +772,7 @@ class PostgresRepo(CPKitRepo):
                 c.cpu_set,
                 c.cpu_count,
                 c.status,
-                c.allocation_id,
+                c.allocation_id AS allocation_id,
                 c.started_at,
                 c.tags 
             FROM compute_units c JOIN servers s 

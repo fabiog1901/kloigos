@@ -152,10 +152,9 @@ window.cpkitWebappExtension = {
       allocationScale: {
         open: false,
         allocation_id: "",
-        compute_id: "",
+        current_cpu_count: null,
         cpu_count: null,
-        region: "",
-        zone: "",
+        location: "",
       },
       deallocateConfirm: { open: false, allocation_id: "", compute_id: "" },
       computeDetails: { open: false, row: null },
@@ -497,6 +496,25 @@ window.cpkitWebappExtension = {
         if (!options.has(value)) options.set(value, { value, label: `${region}-${zone}` });
       }
       return Array.from(options.values()).sort((left, right) => left.label.localeCompare(right.label));
+    },
+
+    computeUnitById(computeId) {
+      const target = String(computeId || "");
+      return (this.computeUnits || []).find((row) => String(row.compute_id || "") === target) || null;
+    },
+
+    allocationScaleCpuCountOptions() {
+      const current = Number(this.modal.allocationScale.current_cpu_count);
+      const counts = new Set();
+      for (const row of this.computeUnits || []) {
+        const status = String(row.status || "").toLowerCase();
+        if (status !== "free") continue;
+        const count = Number(row.cpu_count);
+        if (!Number.isFinite(count) || count <= 0) continue;
+        if (Number.isFinite(current) && count === current) continue;
+        counts.add(count);
+      }
+      return Array.from(counts).sort((left, right) => left - right);
     },
 
     parseAllocationLocation(value) {
@@ -1082,7 +1100,7 @@ window.cpkitWebappExtension = {
     },
 
     allocationTagValue(row) {
-      return this.tagValue(row, "allocation_id") || this.tagValue(row, "deployment_id");
+      return row?.allocation_id || this.tagValue(row, "allocation_id") || this.tagValue(row, "deployment_id");
     },
 
     computeStatusClass(status) {
@@ -1205,10 +1223,10 @@ window.cpkitWebappExtension = {
 
     openAllocationScaleModal(row) {
       this.modal.allocationScale.allocation_id = String(row?.allocation_id || "");
-      this.modal.allocationScale.compute_id = "";
+      const currentComputeUnit = this.computeUnitById(row?.compute_id);
+      this.modal.allocationScale.current_cpu_count = currentComputeUnit?.cpu_count ?? null;
       this.modal.allocationScale.cpu_count = null;
-      this.modal.allocationScale.region = "";
-      this.modal.allocationScale.zone = "";
+      this.modal.allocationScale.location = "";
       this.modalError.allocationScale = "";
       this.modal.allocationScale.open = true;
     },
@@ -1224,14 +1242,14 @@ window.cpkitWebappExtension = {
       this.allocationsBusyKey = allocationId;
       this.modalError.allocationScale = "";
       try {
+        const location = this.parseAllocationLocation(this.modal.allocationScale.location);
         const payload = {
-          compute_id: (this.modal.allocationScale.compute_id || "").trim() || null,
-          cpu_count: this.modal.allocationScale.cpu_count ?? null,
-          region: (this.modal.allocationScale.region || "").trim() || null,
-          zone: (this.modal.allocationScale.zone || "").trim() || null,
+          cpu_count: this.modal.allocationScale.cpu_count,
+          region: location.region,
+          zone: location.zone,
         };
-        if (!payload.compute_id && !payload.cpu_count && !payload.region && !payload.zone) {
-          throw new Error("Provide at least one target constraint.");
+        if (!payload.cpu_count) {
+          throw new Error("Select a target CPU count.");
         }
         const result = await this.apiFetch(`/allocations/${encodeURIComponent(allocationId)}/scale`, {
           method: "POST",
