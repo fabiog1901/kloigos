@@ -310,6 +310,14 @@ class AllocationInDB(BaseModel):
     current_host: str | None = None
     status: str
     tags: dict[str, Any] | None = None
+    cpu_count: int | None = None
+    cpu_range: str | None = None
+    cpu_set: str | None = None
+    memory_gb: float | None = None
+    disk_size_gb: int | None = None
+    region: str | None = None
+    zone: str | None = None
+    runtime_profile: str | None = None
     created_at: dt.datetime | None = None
     updated_at: dt.datetime | None = None
 

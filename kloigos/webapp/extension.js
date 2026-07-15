@@ -1305,8 +1305,22 @@ window.cpkitWebappExtension = {
       this.renderDetailsYamlEditor(
         "allocationDetailsYamlEditor",
         "_allocationDetailsAce",
-        this.formatYaml(this.modal.allocationDetails.row || {}),
+        this.formatYaml(this.allocationDetailsRecord(this.modal.allocationDetails.row || {})),
       );
+    },
+
+    allocationDetailsRecord(row) {
+      const record = { ...(row || {}) };
+      const hardware = {};
+      for (const key of ["cpu_count", "cpu_range", "cpu_set", "memory_gb", "disk_size_gb", "region", "zone", "runtime_profile"]) {
+        const value = record[key];
+        if (value !== undefined && value !== null && value !== "") hardware[key] = value;
+        delete record[key];
+      }
+      if (Object.keys(hardware).length > 0) {
+        record.hardware = hardware;
+      }
+      return record;
     },
 
     renderServerDetailsYaml() {
@@ -1328,6 +1342,7 @@ window.cpkitWebappExtension = {
             theme: "cobalt",
             readOnly: true,
             wrap: true,
+            fontSize: 14,
             value: yaml,
             minLines: 18,
             maxLines: 34,

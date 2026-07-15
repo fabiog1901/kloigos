@@ -808,7 +808,7 @@
     <pre
       class="json-panel small kloigos-details-fallback"
       x-show="!isAceAvailable()"
-      x-text="formatYaml(modal.allocationDetails.row || {})"
+      x-text="formatYaml(allocationDetailsRecord(modal.allocationDetails.row || {}))"
     ></pre>
     <div class="modal-actions">
       <button class="btn" @click="closeAllocationDetails()">Close</button>

@@ -372,7 +372,33 @@ class PostgresRepo(CPKitRepo):
             conditions.append("a.status = %s")
             params.append(status)
 
-        sql = "SELECT a.* FROM allocations a"
+        sql = """
+            SELECT
+                a.*,
+                c.cpu_count,
+                c.cpu_range,
+                c.cpu_set,
+                CASE
+                    WHEN s.mem_gb IS NOT NULL
+                         AND s.cpu_count IS NOT NULL
+                         AND s.cpu_count > 0
+                         AND c.cpu_count IS NOT NULL
+                    THEN round(
+                        s.mem_gb::numeric * c.cpu_count::numeric / s.cpu_count::numeric,
+                        1
+                    )
+                    ELSE NULL
+                END::float AS memory_gb,
+                s.disk_size_gb,
+                s.region,
+                s.zone,
+                s.runtime_profile
+            FROM allocations a
+            LEFT JOIN compute_units c
+              ON a.compute_id = c.compute_id
+            LEFT JOIN servers s
+              ON c.hostname = s.hostname
+        """
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
         sql += " ORDER BY a.created_at DESC, a.allocation_id"
