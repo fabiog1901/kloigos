@@ -60,10 +60,6 @@ class ExpiredLicenseError(Exception):
     pass
 
 
-class FeatureNotLicensedError(Exception):
-    pass
-
-
 def _cpu_ids_for_range(cpu_range: str) -> set[int]:
     raw_range = cpu_range.strip()
     if not raw_range:
@@ -110,6 +106,7 @@ class Event(AutoNameStrEnum):
     ALLOCATION_SCALE_FAILED = auto()
     IP_POOL_INSERT = auto()
     IP_POOL_DELETE = auto()
+    LICENSE_NON_COMPLIANT = auto()
 
 
 class Playbook(AutoNameStrEnum):
@@ -129,6 +126,7 @@ class QueueCommand(AutoNameStrEnum):
     SERVER_INIT = auto()
     SERVER_DECOMM = auto()
     SERVER_HEALTH_CHECK = auto()
+    LICENSE_COMPLIANCE_CHECK = auto()
 
 
 class ComputeUnitStatus(AutoNameStrEnum):
@@ -309,6 +307,10 @@ class ServerHealthCheckCommand(BaseModel):
     pass
 
 
+class LicenseComplianceCheckCommand(BaseModel):
+    pass
+
+
 class AllocationDeallocateCommand(BaseModel):
     allocation_id: str
     compute_id: str
@@ -355,16 +357,34 @@ class ValidatedLicense(BaseModel):
     customer: str
     issued_at: dt.datetime
     expires_at: dt.datetime
-    features: list[str] = Field(default_factory=list)
     limits: dict[str, Any] = Field(default_factory=dict)
     key_id: str
 
 
+class LicenseUsage(BaseModel):
+    servers: int
+    cpus: int
+
+
+class LicenseLimits(BaseModel):
+    servers: int
+    cpus: int
+
+
+class LicenseCompliance(BaseModel):
+    compliant: bool
+    license_required: bool
+    message: str
+    usage: LicenseUsage
+    limits: LicenseLimits
+
+
 class LicenseStatusResponse(BaseModel):
-    edition: str
+    licensed: bool
     valid: bool
     reason: str | None = None
     license: ValidatedLicense | None = None
+    compliance: LicenseCompliance
 
 
 class BaseServer(BaseModel):

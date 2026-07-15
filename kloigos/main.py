@@ -10,6 +10,7 @@ from .models import (
     AllocationCreateCommand,
     AllocationDeallocateCommand,
     AllocationScaleCommand,
+    LicenseComplianceCheckCommand,
     QueueCommand,
     ServerDecommRequest,
     ServerHealthCheckCommand,
@@ -17,6 +18,7 @@ from .models import (
 )
 from .repos import Repo
 from .workers.health import run_server_health_check
+from .workers.license import run_license_compliance_check
 from .workers.remote import (
     run_allocation_scale,
     run_compute_unit_allocate,
@@ -38,6 +40,7 @@ cpkit_bundle = create_cpkit_bundle(
         QueueCommand.SERVER_INIT: ServerInitRequest,
         QueueCommand.SERVER_DECOMM: ServerDecommRequest,
         QueueCommand.SERVER_HEALTH_CHECK: ServerHealthCheckCommand,
+        QueueCommand.LICENSE_COMPLIANCE_CHECK: LicenseComplianceCheckCommand,
     },
     command_handlers={
         QueueCommand.ALLOCATION_CREATE: run_compute_unit_allocate,
@@ -46,6 +49,7 @@ cpkit_bundle = create_cpkit_bundle(
         QueueCommand.SERVER_INIT: run_server_init,
         QueueCommand.SERVER_DECOMM: run_server_decommission,
         QueueCommand.SERVER_HEALTH_CHECK: run_server_health_check,
+        QueueCommand.LICENSE_COMPLIANCE_CHECK: run_license_compliance_check,
     },
 )
 

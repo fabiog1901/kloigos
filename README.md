@@ -90,35 +90,10 @@ For full documentation, design details, and usage guides, please visit:
 
 ## Licensing
 
-Kloigos is developed using an **open-core** model.
+Kloigos is released under the **Apache License 2.0**. All features are community features.
 
-### Open-source components
-
-Unless otherwise noted, all source code and resources in this repository are released under
-the **Apache License 2.0**. This includes, but is not limited to:
-
-- the Kloigos backend (FastAPI services, dependencies, and supporting modules)
-- the web application
-- database schema and migration files
-- CLI tools and utilities
-- documentation and examples
-
-These components are free to use, modify, and redistribute under the terms of the Apache License 2.0.
-See the `LICENSE` file for full details.
-
-### Enterprise components
-
-The contents of the `enterprise/` directory are **not open source**.
-
-Code and resources under `enterprise/` are **source-available** and distributed under a
-**commercial license**. These components provide additional features intended for enterprise
-and production environments, such as advanced access control, auditing, high availability,
-and integrations.
-
-Use of enterprise components in production requires a valid commercial license.
-See `enterprise/README.md` and `LICENSE-ENTERPRISE` for details.
-
-### Summary
-
-- **Apache License 2.0** applies to all files and directories *except* `enterprise/`
-- **Enterprise License** applies exclusively to the contents of the `enterprise/` directory
+A commercial Kloigos license is only required when a deployment manages more than
+10 servers or more than 500 CPUs. Kloigos does not disable functionality when usage
+exceeds those limits. Instead, it reports non-compliance through logs, audit events,
+and the web application so operators can correct the deployment or install an
+appropriate license.

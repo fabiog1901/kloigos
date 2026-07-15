@@ -2,13 +2,6 @@ license_id: lic-example-001
 customer: Example Customer LLC
 issued_at: "2026-06-28"
 expires_at: "2027-06-28"
-features:
-  - rbac
-  - audit_log
-  - networking
-  - ssh_ca
-  - ha
 limits:
   hosts: 20
-  compute_units: 1000
-  networks: 5
+  cpus: 1000

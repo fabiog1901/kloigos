@@ -1,7 +1,7 @@
-# Kloigos Enterprise License Tool
+# Kloigos License Tool
 
-`tools/license.py` is a standalone CLI for working with offline Kloigos enterprise
-license JWTs. It can:
+`tools/license.py` is a standalone CLI for working with offline Kloigos license
+JWTs. It can:
 
 - sign a license payload YAML file
 - decode a JWT without verifying it
@@ -36,19 +36,14 @@ license_id: lic-example-001
 customer: Example Customer LLC
 issued_at: "2026-06-28"
 expires_at: "2027-06-28"
-features:
-  - rbac
-  - audit_log
-  - networking
-  - ssh_ca
-  - ha
 limits:
   hosts: 20
-  compute_units: 1000
-  networks: 5
+  cpus: 1000
 ```
 
 `issued_at` and `expires_at` must be `yyyy-mm-dd` strings.
+All Kloigos features are community features. License limits only describe how
+many servers and CPUs a deployment may manage while remaining compliant.
 
 ## Sign A License
 
@@ -79,27 +74,22 @@ poetry run python tools/license.py validate tools/license.jwt tools/license_publ
 
 On success, the command prints:
 
-```json
-{
-  "valid": true,
-  "license": {
-    "license_id": "lic-example-001"
-  }
-}
+```text
+License is valid
 ```
 
 On failure, it exits non-zero and prints an error such as:
 
 ```text
-invalid: Enterprise license signature is invalid.
+invalid: Kloigos license signature is invalid.
 ```
 
 ## Install In Kloigos
 
-Install the generated JWT through the cpkit settings API/UI by setting:
+Install the generated JWT through the settings API/UI by setting:
 
 ```text
-enterprise.license = <contents of tools/license.jwt>
+license.jwt = <contents of tools/license.jwt>
 ```
 
 Kloigos reads this setting and exposes validated display information through:

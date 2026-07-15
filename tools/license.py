@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sign or decode Kloigos enterprise license JWTs."""
+"""Sign, decode, or validate Kloigos license JWTs."""
 
 import argparse
 import datetime as dt
@@ -18,7 +18,6 @@ REQUIRED_FIELDS = {
     "customer",
     "issued_at",
     "expires_at",
-    "features",
     "limits",
 }
 
@@ -123,16 +122,16 @@ def validate_token(jwt_path: Path, public_key_path: Path) -> int:
 
 def validate_license(token: str, public_key: str) -> None:
     if not token:
-        raise LicenseValidationError("Enterprise license is empty.")
+        raise LicenseValidationError("Kloigos license is empty.")
 
     try:
         header = jwt.get_unverified_header(token)
     except DecodeError as exc:
-        raise LicenseValidationError("Enterprise license is not a valid JWT.") from exc
+        raise LicenseValidationError("Kloigos license is not a valid JWT.") from exc
 
     key_id = header.get("kid")
     if not key_id:
-        raise LicenseValidationError("Enterprise license signing key is missing.")
+        raise LicenseValidationError("Kloigos license signing key is missing.")
 
     try:
         payload = jwt.decode(
@@ -147,33 +146,24 @@ def validate_license(token: str, public_key: str) -> None:
             },
         )
     except JwtInvalidSignatureError as exc:
-        raise LicenseValidationError(
-            "Enterprise license signature is invalid."
-        ) from exc
+        raise LicenseValidationError("Kloigos license signature is invalid.") from exc
     except Exception as exc:
-        raise LicenseValidationError(
-            "Enterprise license could not be decoded."
-        ) from exc
+        raise LicenseValidationError("Kloigos license could not be decoded.") from exc
 
     missing = sorted(REQUIRED_FIELDS - set(payload))
     if missing:
         raise LicenseValidationError(
-            f"Enterprise license payload is missing required fields: {missing}"
+            f"Kloigos license payload is missing required fields: {missing}"
         )
 
     parse_license_date(payload["issued_at"], "issued_at")
     expires_at = parse_license_date(payload["expires_at"], "expires_at")
     if expires_at <= dt.datetime.now(dt.UTC):
-        raise LicenseValidationError("Enterprise license has expired.")
-
-    if not isinstance(payload["features"], list):
-        raise LicenseValidationError(
-            "Enterprise license payload field 'features' must be a list."
-        )
+        raise LicenseValidationError("Kloigos license has expired.")
 
     if not isinstance(payload["limits"], dict):
         raise LicenseValidationError(
-            "Enterprise license payload field 'limits' must be a mapping/object."
+            "Kloigos license payload field 'limits' must be a mapping/object."
         )
 
 
@@ -195,9 +185,6 @@ def load_payload(path: Path) -> dict[str, Any]:
         raise SystemExit(
             "License payload field 'expires_at' must be after 'issued_at'."
         )
-
-    if not isinstance(payload["features"], list):
-        raise SystemExit("License payload field 'features' must be a list.")
 
     if not isinstance(payload["limits"], dict):
         raise SystemExit("License payload field 'limits' must be a mapping/object.")

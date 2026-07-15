@@ -213,6 +213,35 @@ class PostgresRepo(CPKitRepo):
                 (start_after_seconds,),
             )
 
+    def schedule_license_compliance_check(self, start_after_seconds: int) -> None:
+        with self.pool.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO cpkit.mq (msg_type, start_after)
+                VALUES (
+                    'LICENSE_COMPLIANCE_CHECK',
+                    now() + (%s * INTERVAL '1s') + (random() * INTERVAL '10s')
+                )
+                """,
+                (start_after_seconds,),
+            )
+
+    def get_license_usage(self) -> dict[str, int]:
+        with self.pool.connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT
+                    count(DISTINCT s.hostname)::int AS servers,
+                    coalesce(sum(c.cpu_count), 0)::int AS cpus
+                FROM servers s
+                LEFT JOIN compute_units c ON c.hostname = s.hostname
+                WHERE s.status <> 'DECOMMISSIONED'
+                """)
+            row = cur.fetchone()
+            if row is None:
+                return {"servers": 0, "cpus": 0}
+            return {"servers": int(row[0] or 0), "cpus": int(row[1] or 0)}
+
     def get_servers(
         self,
         hostname: str | None = None,

@@ -1,53 +1,4 @@
-"""Offline enterprise license validation and feature gating.
-
-A networking service would receive or construct LicenseService the same way other services do, then call:
-
-if not self.license_service.has_feature("networking"):
-    # hide/disable the behavior, return community fallback, etc.
-
-For example:
-
-class NetworkingService:
-    def __init__(self, repo):
-        self.repo = repo
-        self.license_service = LicenseService(repo)
-
-    def configure_networking(self):
-        if not self.license_service.has_feature("networking"):
-            return {"enabled": False}
-
-        return {"enabled": True}
-
-has_feature() is for branching.
-
-require() is for hard-gating. It raises FeatureNotLicensedError if the feature is not enabled:
-
-def create_overlay_network(self, req):
-    self.license_service.require("networking")
-    ...
-
-So API code could catch that and return 403, or service code can stop immediately.
-
-limits() is for future numeric caps in the license, like:
-
-"limits": {
-  "hosts": 20,
-  "networks": 5
-}
-
-Usage:
-
-limits = self.license_service.limits()
-max_networks = limits.get("networks")
-
-if max_networks is not None and current_network_count >= max_networks:
-    raise FeatureNotLicensedError("Licensed network limit reached.")
-
-So in short:
-- has_feature("networking"): “May I show/use this feature?”
-- require("networking"): “Stop unless this feature is licensed.”
-- limits(): “What licensed caps apply?”
-"""
+"""Offline license validation and non-blocking compliance reporting."""
 
 import datetime as dt
 import logging
@@ -55,27 +6,35 @@ import threading
 from typing import Any
 
 import jwt
+from cpkit.audit import log_event
 from jwt import DecodeError
 from jwt import ExpiredSignatureError as JwtExpiredSignatureError
 from jwt import InvalidSignatureError as JwtInvalidSignatureError
 from pydantic import ValidationError
 
 from ...models import (
+    Event,
     ExpiredLicenseError,
-    FeatureNotLicensedError,
     InvalidSignatureError,
     InvalidTokenError,
+    LicenseCompliance,
+    LicenseLimits,
     LicenseStatusResponse,
+    LicenseUsage,
     MissingLicenseError,
     UnknownSigningKeyError,
     ValidatedLicense,
 )
 from ...repos import Repo
 
-LICENSE_SETTING_KEY = "enterprise.license"
-LICENSE_CACHE_SECONDS = 300
+logger = logging.getLogger(__name__)
 
-# Ed25519 public keys trusted for offline enterprise license verification.
+LICENSE_SETTING_KEY = "license.jwt"
+LICENSE_CACHE_SECONDS = 300
+FREE_SERVER_LIMIT = 10
+FREE_CPU_LIMIT = 500
+
+# Ed25519 public keys trusted for offline Kloigos license verification.
 # Add PEM-encoded public keys here as Clojos LLC rotates signing keys.
 TRUSTED_LICENSE_KEYS: dict[str, str] = {
     "kloigos-2026-0": """-----BEGIN PUBLIC KEY-----
@@ -90,97 +49,169 @@ MCowBQYDK2VwAyEAveX8xwBGd37M/Y4eSgsmTJ8S9DfPtKtbnGdsk5dsxJM=
 
 
 class LicenseService:
-    """Validate offline enterprise licenses and expose feature gates."""
+    """Validate offline licenses and report usage compliance without blocking Kloigos."""
 
     _cache_lock = threading.Lock()
-    _cached_status: LicenseStatusResponse | None = None
+    _cached_license: ValidatedLicense | None = None
+    _cached_valid = False
+    _cached_reason: str | None = None
     _cache_expires_at: dt.datetime | None = None
 
     def __init__(self, repo: Repo):
         self.repo = repo
 
     def status(self) -> LicenseStatusResponse:
-        """Return cached enterprise license status, refreshing after five minutes."""
+        """Return license validation and current usage compliance status."""
+        valid, reason, license_data = self._license_state()
+        usage = self._usage()
+        limits = self._limits(license_data if valid else None)
+        compliance = self._compliance(usage, limits, valid)
+        return LicenseStatusResponse(
+            licensed=bool(valid and license_data),
+            valid=valid,
+            reason=reason,
+            license=license_data if valid else None,
+            compliance=compliance,
+        )
+
+    def check_compliance(self, actor_id: str = "system") -> LicenseStatusResponse:
+        """Log non-compliance to journald and the audit event log."""
+        status = self.status()
+        if status.compliance.compliant:
+            logger.info(
+                "Kloigos license compliance check passed: servers=%s/%s cpus=%s/%s",
+                status.compliance.usage.servers,
+                status.compliance.limits.servers,
+                status.compliance.usage.cpus,
+                status.compliance.limits.cpus,
+            )
+            return status
+
+        details = status.model_dump(mode="json")
+        logger.warning(
+            "Kloigos license compliance warning: %s", status.compliance.message
+        )
+        log_event(
+            self.repo,
+            actor_id,
+            Event.LICENSE_NON_COMPLIANT,
+            details,
+        )
+        return status
+
+    def _license_state(self) -> tuple[bool, str | None, ValidatedLicense | None]:
         now = dt.datetime.now(dt.UTC)
         with self._cache_lock:
-            if (
-                self._cached_status is not None
-                and self._cache_expires_at is not None
-                and self._cache_expires_at > now
-            ):
-                return self._cached_status
+            if self._cache_expires_at is not None and self._cache_expires_at > now:
+                return self._cached_valid, self._cached_reason, self._cached_license
 
         setting = self.repo.get_setting(LICENSE_SETTING_KEY)
         token = setting.value if setting else None
         try:
             license_data = self._validate_token(token)
-            status = LicenseStatusResponse(
-                edition="enterprise",
-                valid=True,
-                license=license_data,
-            )
+            valid = True
+            reason = None
         except MissingLicenseError:
-            logging.info("Enterprise license is not installed.")
-            status = LicenseStatusResponse(
-                edition="community",
-                valid=False,
-                reason="MissingLicense",
-            )
+            logger.info("Kloigos license is not installed.")
+            license_data = None
+            valid = False
+            reason = "MissingLicense"
         except (
             InvalidTokenError,
             UnknownSigningKeyError,
             InvalidSignatureError,
             ExpiredLicenseError,
         ) as exc:
-            logging.warning("Enterprise license validation failed: %s", exc)
-            status = LicenseStatusResponse(
-                edition="community",
-                valid=False,
-                reason=exc.__class__.__name__.removesuffix("Error"),
-            )
+            logger.warning("Kloigos license validation failed: %s", exc)
+            license_data = None
+            valid = False
+            reason = exc.__class__.__name__.removesuffix("Error")
 
         with self._cache_lock:
-            self._cached_status = status
+            self._cached_license = license_data
+            self._cached_valid = valid
+            self._cached_reason = reason
             self._cache_expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(
                 seconds=LICENSE_CACHE_SECONDS
             )
-        return status
+        return valid, reason, license_data
 
-    def has_feature(self, feature: str) -> bool:
-        """Return whether the installed enterprise license enables a feature."""
-        status = self.status()
-        return bool(
-            status.valid and status.license and feature in status.license.features
+    def _usage(self) -> LicenseUsage:
+        usage = self.repo.get_license_usage()
+        return LicenseUsage(
+            servers=int(usage.get("servers") or 0),
+            cpus=int(usage.get("cpus") or 0),
         )
 
-    def require(self, feature: str) -> None:
-        """Raise FeatureNotLicensedError unless a feature is enabled."""
-        if not self.has_feature(feature):
-            logging.warning("Enterprise feature is not licensed: %s", feature)
-            raise FeatureNotLicensedError(
-                f"Feature '{feature}' is not enabled by the enterprise license."
+    def _limits(self, license_data: ValidatedLicense | None) -> LicenseLimits:
+        limits = license_data.limits if license_data else {}
+        return LicenseLimits(
+            servers=self._positive_int(limits.get("servers"), FREE_SERVER_LIMIT),
+            cpus=self._positive_int(
+                limits.get("cpus", limits.get("compute_units")),
+                FREE_CPU_LIMIT,
+            ),
+        )
+
+    def _compliance(
+        self,
+        usage: LicenseUsage,
+        limits: LicenseLimits,
+        valid_license: bool,
+    ) -> LicenseCompliance:
+        over_servers = usage.servers > limits.servers
+        over_cpus = usage.cpus > limits.cpus
+        compliant = not over_servers and not over_cpus
+        license_required = not valid_license and (
+            usage.servers > FREE_SERVER_LIMIT or usage.cpus > FREE_CPU_LIMIT
+        )
+
+        if compliant:
+            message = (
+                f"Kloigos is compliant: {usage.servers}/{limits.servers} servers "
+                f"and {usage.cpus}/{limits.cpus} CPUs are under management."
+            )
+        elif license_required:
+            message = (
+                "A Kloigos license is required because usage exceeds the community "
+                f"limit: {usage.servers}/{FREE_SERVER_LIMIT} servers and "
+                f"{usage.cpus}/{FREE_CPU_LIMIT} CPUs are under management."
+            )
+        else:
+            message = (
+                "Kloigos usage exceeds the installed license limits: "
+                f"{usage.servers}/{limits.servers} servers and "
+                f"{usage.cpus}/{limits.cpus} CPUs are under management."
             )
 
-    def limits(self) -> dict[str, Any]:
-        """Return configured enterprise license limits, or an empty mapping."""
-        status = self.status()
-        if not status.valid or status.license is None:
-            return {}
-        return status.license.limits
+        return LicenseCompliance(
+            compliant=compliant,
+            license_required=license_required,
+            message=message,
+            usage=usage,
+            limits=limits,
+        )
+
+    def _positive_int(self, value: Any, default: int) -> int:
+        try:
+            parsed = int(value)
+        except TypeError, ValueError:
+            return default
+        return parsed if parsed > 0 else default
 
     def _validate_token(self, token: str | None) -> ValidatedLicense:
         if not token:
-            raise MissingLicenseError("Enterprise license is not installed.")
+            raise MissingLicenseError("Kloigos license is not installed.")
 
         try:
             header = jwt.get_unverified_header(token)
         except DecodeError as exc:
-            raise InvalidTokenError("Enterprise license is not a valid JWT.") from exc
+            raise InvalidTokenError("Kloigos license is not a valid JWT.") from exc
 
         key_id = header.get("kid")
         if not key_id or key_id not in TRUSTED_LICENSE_KEYS:
             raise UnknownSigningKeyError(
-                f"Enterprise license signing key '{key_id}' is not trusted."
+                f"Kloigos license signing key '{key_id}' is not trusted."
             )
 
         try:
@@ -197,12 +228,12 @@ class LicenseService:
             )
         except JwtInvalidSignatureError as exc:
             raise InvalidSignatureError(
-                "Enterprise license signature is invalid."
+                "Kloigos license signature is invalid."
             ) from exc
         except JwtExpiredSignatureError as exc:
-            raise ExpiredLicenseError("Enterprise license has expired.") from exc
+            raise ExpiredLicenseError("Kloigos license has expired.") from exc
         except Exception as exc:
-            raise InvalidTokenError("Enterprise license could not be decoded.") from exc
+            raise InvalidTokenError("Kloigos license could not be decoded.") from exc
 
         try:
             license_data = ValidatedLicense(
@@ -218,16 +249,15 @@ class LicenseService:
                     dt.time.min,
                     tzinfo=dt.UTC,
                 ),
-                features=list(payload.get("features") or []),
                 limits=dict(payload.get("limits") or {}),
                 key_id=key_id,
             )
         except (KeyError, TypeError, ValueError, ValidationError) as exc:
             raise InvalidTokenError(
-                "Enterprise license payload is missing required fields."
+                "Kloigos license payload is missing required fields."
             ) from exc
 
         if license_data.expires_at <= dt.datetime.now(dt.UTC):
-            raise ExpiredLicenseError("Enterprise license has expired.")
+            raise ExpiredLicenseError("Kloigos license has expired.")
 
         return license_data

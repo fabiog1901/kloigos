@@ -16,5 +16,5 @@ router = APIRouter(tags=["license"])
 async def get_license_status(
     service: LicenseService = Depends(get_license_service),
 ) -> LicenseStatusResponse:
-    """Return the cached enterprise license status."""
+    """Return license validation and current usage compliance status."""
     return service.status()
