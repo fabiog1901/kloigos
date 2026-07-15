@@ -53,3 +53,10 @@ metadata, tags, and current Compute Unit placement.
 
 This separation allows workloads to scale or move while preserving their user, IP address, storage
 identity, and metadata. Only placement changes.
+
+---
+
+### License
+
+Kloigos is an open-source project licensed under the **Apache License 2.0**. All features are part of
+the open-source distribution.
