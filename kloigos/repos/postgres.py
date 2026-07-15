@@ -1,7 +1,7 @@
 import json
 
 from cpkit import CPKitRepo
-from psycopg.rows import class_row
+from cpkit.db import execute_stmt, fetch_all, fetch_one, fetch_scalar
 from psycopg_pool import ConnectionPool
 
 from ..models import (
@@ -33,73 +33,70 @@ class PostgresRepo(CPKitRepo):
         status: ServerStatus,
     ) -> None:
 
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO servers (
-                    hostname, private_ip, public_ip, server_admin_user, region, zone, runtime_profile, status,
-                    cpu_count, mem_gb, disk_count, disk_size_gb, tags
-                )
-                VALUES (
-                    %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s
-                )
-                ON CONFLICT DO NOTHING
-                """,
-                (
-                    sir.hostname,
-                    sir.private_ip,
-                    sir.public_ip,
-                    sir.server_admin_user,
-                    sir.region,
-                    sir.zone,
-                    sir.runtime_profile,
-                    status,
-                    sir.cpu_count,
-                    sir.mem_gb,
-                    sir.disk_count,
-                    sir.disk_size_gb,
-                    sir.tags,
-                ),
+        execute_stmt(
+            """
+            INSERT INTO servers (
+                hostname, private_ip, public_ip, server_admin_user, region, zone, runtime_profile, status,
+                cpu_count, mem_gb, disk_count, disk_size_gb, tags
             )
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s
+            )
+            ON CONFLICT DO NOTHING
+            """,
+            (
+                sir.hostname,
+                sir.private_ip,
+                sir.public_ip,
+                sir.server_admin_user,
+                sir.region,
+                sir.zone,
+                sir.runtime_profile,
+                status,
+                sir.cpu_count,
+                sir.mem_gb,
+                sir.disk_count,
+                sir.disk_size_gb,
+                sir.tags,
+            ),
+        )
 
     def server_update_status(self, hostname: str, status: ServerStatus) -> None:
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                UPDATE servers
-                SET
-                    status = %s,
-                    health_status = CASE
-                        WHEN %s = 'READY' THEN 'HEALTHY'
-                        WHEN %s IN ('DECOMMISSIONED', 'DECOMMISSION_FAIL') THEN 'UNKNOWN'
-                        ELSE health_status
-                    END,
-                    last_health_check_at = CASE
-                        WHEN %s = 'READY' THEN now()
-                        ELSE last_health_check_at
-                    END,
-                    last_health_error = CASE
-                        WHEN %s = 'READY' THEN NULL
-                        ELSE last_health_error
-                    END,
-                    last_healthy_at = CASE
-                        WHEN %s = 'READY' THEN now()
-                        ELSE last_healthy_at
-                    END
-                WHERE hostname = %s
-                """,
-                (
-                    status,
-                    status,
-                    status,
-                    status,
-                    status,
-                    status,
-                    hostname,
-                ),
-            )
+        execute_stmt(
+            """
+            UPDATE servers
+            SET
+                status = %s,
+                health_status = CASE
+                    WHEN %s = 'READY' THEN 'HEALTHY'
+                    WHEN %s IN ('DECOMMISSIONED', 'DECOMMISSION_FAIL') THEN 'UNKNOWN'
+                    ELSE health_status
+                END,
+                last_health_check_at = CASE
+                    WHEN %s = 'READY' THEN now()
+                    ELSE last_health_check_at
+                END,
+                last_health_error = CASE
+                    WHEN %s = 'READY' THEN NULL
+                    ELSE last_health_error
+                END,
+                last_healthy_at = CASE
+                    WHEN %s = 'READY' THEN now()
+                    ELSE last_healthy_at
+                END
+            WHERE hostname = %s
+            """,
+            (
+                status,
+                status,
+                status,
+                status,
+                status,
+                status,
+                hostname,
+            ),
+        )
 
     def update_server_health(
         self,
@@ -107,27 +104,26 @@ class PostgresRepo(CPKitRepo):
         health_status: ServerHealthStatus,
         error: str | None = None,
     ) -> None:
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                UPDATE servers
-                SET
-                    health_status = %s,
-                    last_health_check_at = now(),
-                    last_health_error = %s,
-                    last_healthy_at = CASE
-                        WHEN %s = 'HEALTHY' THEN now()
-                        ELSE last_healthy_at
-                    END
-                WHERE hostname = %s
-                """,
-                (
-                    health_status,
-                    error,
-                    health_status,
-                    hostname,
-                ),
-            )
+        execute_stmt(
+            """
+            UPDATE servers
+            SET
+                health_status = %s,
+                last_health_check_at = now(),
+                last_health_error = %s,
+                last_healthy_at = CASE
+                    WHEN %s = 'HEALTHY' THEN now()
+                    ELSE last_healthy_at
+                END
+            WHERE hostname = %s
+            """,
+            (
+                health_status,
+                error,
+                health_status,
+                hostname,
+            ),
+        )
 
     def open_or_touch_alert(
         self,
@@ -139,32 +135,31 @@ class PostgresRepo(CPKitRepo):
         message: str,
         details: dict | None = None,
     ) -> None:
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO alerts (
-                    alert_type, severity, status, resource_type, resource_id,
-                    message, details
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (alert_type, resource_type, resource_id)
-                WHERE status = 'OPEN'
-                DO UPDATE SET
-                    severity = EXCLUDED.severity,
-                    last_seen_at = now(),
-                    message = EXCLUDED.message,
-                    details = EXCLUDED.details
-                """,
-                (
-                    alert_type,
-                    severity,
-                    AlertStatus.OPEN,
-                    resource_type,
-                    resource_id,
-                    message,
-                    json.dumps(details) if details is not None else None,
-                ),
+        execute_stmt(
+            """
+            INSERT INTO alerts (
+                alert_type, severity, status, resource_type, resource_id,
+                message, details
             )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (alert_type, resource_type, resource_id)
+            WHERE status = 'OPEN'
+            DO UPDATE SET
+                severity = EXCLUDED.severity,
+                last_seen_at = now(),
+                message = EXCLUDED.message,
+                details = EXCLUDED.details
+            """,
+            (
+                alert_type,
+                severity,
+                AlertStatus.OPEN,
+                resource_type,
+                resource_id,
+                message,
+                json.dumps(details) if details is not None else None,
+            ),
+        )
 
     def resolve_alert(
         self,
@@ -175,73 +170,69 @@ class PostgresRepo(CPKitRepo):
         message: str,
         details: dict | None = None,
     ) -> None:
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                UPDATE alerts
-                SET
-                    status = %s,
-                    resolved_at = now(),
-                    last_seen_at = now(),
-                    message = %s,
-                    details = coalesce(%s, details)
-                WHERE alert_type = %s
-                  AND resource_type = %s
-                  AND resource_id = %s
-                  AND status = %s
-                """,
-                (
-                    AlertStatus.RESOLVED,
-                    message,
-                    json.dumps(details) if details is not None else None,
-                    alert_type,
-                    resource_type,
-                    resource_id,
-                    AlertStatus.OPEN,
-                ),
-            )
+        execute_stmt(
+            """
+            UPDATE alerts
+            SET
+                status = %s,
+                resolved_at = now(),
+                last_seen_at = now(),
+                message = %s,
+                details = coalesce(%s, details)
+            WHERE alert_type = %s
+              AND resource_type = %s
+              AND resource_id = %s
+              AND status = %s
+            """,
+            (
+                AlertStatus.RESOLVED,
+                message,
+                json.dumps(details) if details is not None else None,
+                alert_type,
+                resource_type,
+                resource_id,
+                AlertStatus.OPEN,
+            ),
+        )
 
     def schedule_server_health_check(self, start_after_seconds: int) -> None:
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO cpkit.mq (msg_type, start_after)
-                VALUES (
-                    'SERVER_HEALTH_CHECK',
-                    now() + (%s * INTERVAL '1s') + (random() * INTERVAL '10s')
-                )
-                """,
-                (start_after_seconds,),
+        execute_stmt(
+            """
+            INSERT INTO cpkit.mq (msg_type, start_after)
+            VALUES (
+                'SERVER_HEALTH_CHECK',
+                now() + (%s * INTERVAL '1s') + (random() * INTERVAL '10s')
             )
+            """,
+            (start_after_seconds,),
+        )
 
     def schedule_license_compliance_check(self, start_after_seconds: int) -> None:
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO cpkit.mq (msg_type, start_after)
-                VALUES (
-                    'LICENSE_COMPLIANCE_CHECK',
-                    now() + (%s * INTERVAL '1s') + (random() * INTERVAL '10s')
-                )
-                """,
-                (start_after_seconds,),
+        execute_stmt(
+            """
+            INSERT INTO cpkit.mq (msg_type, start_after)
+            VALUES (
+                'LICENSE_COMPLIANCE_CHECK',
+                now() + (%s * INTERVAL '1s') + (random() * INTERVAL '10s')
             )
+            """,
+            (start_after_seconds,),
+        )
 
     def get_license_usage(self) -> LicenseUsage:
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT
-                    count(DISTINCT s.hostname)::int AS servers,
-                    coalesce(sum(c.cpu_count), 0)::int AS cpus
-                FROM servers s
-                LEFT JOIN compute_units c ON c.hostname = s.hostname
-                WHERE s.status <> 'DECOMMISSIONED'
-                """)
-            row = cur.fetchone()
-            if row is None:
-                return LicenseUsage(servers=0, cpus=0)
-            return LicenseUsage(servers=int(row[0] or 0), cpus=int(row[1] or 0))
+        usage = fetch_one(
+            """
+            SELECT
+                count(DISTINCT s.hostname)::int AS servers,
+                coalesce(sum(c.cpu_count), 0)::int AS cpus
+            FROM servers s
+            LEFT JOIN compute_units c ON c.hostname = s.hostname
+            WHERE s.status <> 'DECOMMISSIONED'
+            """,
+            (),
+            LicenseUsage,
+        )
+        return usage or LicenseUsage(servers=0, cpus=0)
 
     def get_servers(
         self,
@@ -261,49 +252,40 @@ class PostgresRepo(CPKitRepo):
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
 
-        with self.pool.connection() as conn:
-            cur = conn.cursor(row_factory=class_row(ServerInDB))
-            return cur.execute(sql, params).fetchall()
+        return fetch_all(sql, tuple(params), ServerInDB)
 
     def delete_server(self, hostname: str) -> None:
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                DELETE
-                FROM servers
-                WHERE hostname = %s
-                """,
-                (hostname,),
-            )
+        execute_stmt(
+            """
+            DELETE
+            FROM servers
+            WHERE hostname = %s
+            """,
+            (hostname,),
+        )
 
     #
     # ALLOCATION
     #
     def insert_allocation(self, allocation: AllocationInDB) -> None:
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO allocations (
-                    allocation_id, login_user, ip_address, compute_id,
-                    current_host, status, tags
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    allocation.allocation_id,
-                    allocation.login_user,
-                    allocation.ip_address,
-                    allocation.compute_id,
-                    allocation.current_host,
-                    allocation.status,
-                    (
-                        json.dumps(allocation.tags)
-                        if allocation.tags is not None
-                        else None
-                    ),
-                ),
+        execute_stmt(
+            """
+            INSERT INTO allocations (
+                allocation_id, login_user, ip_address, compute_id,
+                current_host, status, tags
             )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                allocation.allocation_id,
+                allocation.login_user,
+                allocation.ip_address,
+                allocation.compute_id,
+                allocation.current_host,
+                allocation.status,
+                json.dumps(allocation.tags) if allocation.tags is not None else None,
+            ),
+        )
 
     def update_allocation(
         self,
@@ -314,48 +296,46 @@ class PostgresRepo(CPKitRepo):
         current_host: str | None = None,
         tags: dict | None = None,
     ) -> None:
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                UPDATE allocations
-                SET
-                    status = coalesce(%s, status),
-                    compute_id = coalesce(%s, compute_id),
-                    current_host = coalesce(%s, current_host),
-                    tags = coalesce(%s, tags),
-                    updated_at = now()
-                WHERE allocation_id = %s
-                """,
-                (
-                    status,
-                    compute_id,
-                    current_host,
-                    json.dumps(tags) if tags is not None else None,
-                    allocation_id,
-                ),
-            )
+        execute_stmt(
+            """
+            UPDATE allocations
+            SET
+                status = coalesce(%s, status),
+                compute_id = coalesce(%s, compute_id),
+                current_host = coalesce(%s, current_host),
+                tags = coalesce(%s, tags),
+                updated_at = now()
+            WHERE allocation_id = %s
+            """,
+            (
+                status,
+                compute_id,
+                current_host,
+                json.dumps(tags) if tags is not None else None,
+                allocation_id,
+            ),
+        )
 
     def clear_allocation_placement(
         self,
         allocation_id: str,
         status: AllocationStatus | None = None,
     ) -> None:
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                UPDATE allocations
-                SET
-                    status = coalesce(%s, status),
-                    compute_id = NULL,
-                    current_host = NULL,
-                    updated_at = now()
-                WHERE allocation_id = %s
-                """,
-                (
-                    status,
-                    allocation_id,
-                ),
-            )
+        execute_stmt(
+            """
+            UPDATE allocations
+            SET
+                status = coalesce(%s, status),
+                compute_id = NULL,
+                current_host = NULL,
+                updated_at = now()
+            WHERE allocation_id = %s
+            """,
+            (
+                status,
+                allocation_id,
+            ),
+        )
 
     def get_allocations(
         self,
@@ -398,9 +378,7 @@ class PostgresRepo(CPKitRepo):
             sql += " WHERE " + " AND ".join(conditions)
         sql += " ORDER BY a.created_at DESC, a.allocation_id"
 
-        with self.pool.connection() as conn:
-            cur = conn.cursor(row_factory=class_row(AllocationInDB))
-            return cur.execute(sql, params).fetchall()
+        return fetch_all(sql, tuple(params), AllocationInDB)
 
     #
     # IP POOL
@@ -412,34 +390,32 @@ class PostgresRepo(CPKitRepo):
         allocation_id: str | None = None,
         current_host: str | None = None,
     ) -> None:
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO ip_pool (
-                    ip_address, status, allocation_id, current_host
-                )
-                VALUES (%s, %s, %s, %s)
-                """,
-                (
-                    ip_address,
-                    status,
-                    allocation_id,
-                    current_host,
-                ),
+        execute_stmt(
+            """
+            INSERT INTO ip_pool (
+                ip_address, status, allocation_id, current_host
             )
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                ip_address,
+                status,
+                allocation_id,
+                current_host,
+            ),
+        )
 
     def delete_ip_pool_address(self, ip_address: str) -> bool:
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                DELETE
-                FROM ip_pool
-                WHERE ip_address = %s
-                """,
-                (ip_address,),
-            )
-            return cur.rowcount > 0
+        deleted = fetch_scalar(
+            """
+            DELETE
+            FROM ip_pool
+            WHERE ip_address = %s
+            RETURNING 1
+            """,
+            (ip_address,),
+        )
+        return bool(deleted)
 
     def update_ip_pool_address(
         self,
@@ -449,67 +425,64 @@ class PostgresRepo(CPKitRepo):
         allocation_id: str | None = None,
         current_host: str | None = None,
     ) -> None:
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                UPDATE ip_pool
-                SET
-                    status = coalesce(%s, status),
-                    allocation_id = coalesce(%s, allocation_id),
-                    current_host = coalesce(%s, current_host),
-                    updated_at = now()
-                WHERE ip_address = %s
-                """,
-                (
-                    status,
-                    allocation_id,
-                    current_host,
-                    ip_address,
-                ),
-            )
+        execute_stmt(
+            """
+            UPDATE ip_pool
+            SET
+                status = coalesce(%s, status),
+                allocation_id = coalesce(%s, allocation_id),
+                current_host = coalesce(%s, current_host),
+                updated_at = now()
+            WHERE ip_address = %s
+            """,
+            (
+                status,
+                allocation_id,
+                current_host,
+                ip_address,
+            ),
+        )
 
     def release_ip_pool_address(
         self,
         ip_address: str,
         status: IpAddressStatus = IpAddressStatus.FREE,
     ) -> None:
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                UPDATE ip_pool
-                SET
-                    status = %s,
-                    allocation_id = NULL,
-                    current_host = NULL,
-                    updated_at = now()
-                WHERE ip_address = %s
-                """,
-                (
-                    status,
-                    ip_address,
-                ),
-            )
+        execute_stmt(
+            """
+            UPDATE ip_pool
+            SET
+                status = %s,
+                allocation_id = NULL,
+                current_host = NULL,
+                updated_at = now()
+            WHERE ip_address = %s
+            """,
+            (
+                status,
+                ip_address,
+            ),
+        )
 
     def clear_ip_pool_host(
         self,
         ip_address: str,
         status: IpAddressStatus | None = None,
     ) -> None:
-        with self.pool.connection() as conn:
-            conn.execute(
-                """
-                UPDATE ip_pool
-                SET
-                    status = coalesce(%s, status),
-                    current_host = NULL,
-                    updated_at = now()
-                WHERE ip_address = %s
-                """,
-                (
-                    status,
-                    ip_address,
-                ),
-            )
+        execute_stmt(
+            """
+            UPDATE ip_pool
+            SET
+                status = coalesce(%s, status),
+                current_host = NULL,
+                updated_at = now()
+            WHERE ip_address = %s
+            """,
+            (
+                status,
+                ip_address,
+            ),
+        )
 
     def get_ip_pool_addresses(
         self,
@@ -542,9 +515,7 @@ class PostgresRepo(CPKitRepo):
             sql += " WHERE " + " AND ".join(conditions)
         sql += " ORDER BY ip_address"
 
-        with self.pool.connection() as conn:
-            cur = conn.cursor(row_factory=class_row(IpPoolAddressInDB))
-            return cur.execute(sql, params).fetchall()
+        return fetch_all(sql, tuple(params), IpPoolAddressInDB)
 
     def lock_ip_pool_address(
         self,
@@ -585,41 +556,37 @@ class PostgresRepo(CPKitRepo):
                 ip_pool.updated_at
         """
 
-        with self.pool.connection() as conn:
-            cur = conn.cursor(row_factory=class_row(IpPoolAddressInDB))
-            return cur.execute(sql, params).fetchone()
+        return fetch_one(sql, tuple(params), IpPoolAddressInDB)
 
     #
     # COMPUTE UNIT
     #
     def insert_new_compute_unit(self, cudb: ComputeUnitInDB):
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                INSERT INTO compute_units (
-                    hostname, ordinal, cpu_range, cpu_count, 
-                    cpu_set,
-                    status, allocation_id, started_at, tags
-                ) 
-                VALUES (
-                    %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s
-                )
-                ON CONFLICT DO NOTHING
-                """,
-                (
-                    cudb.hostname,
-                    cudb.ordinal,
-                    cudb.cpu_range,
-                    cudb.cpu_count,
-                    cudb.cpu_set,
-                    cudb.status,
-                    cudb.allocation_id,
-                    cudb.started_at,
-                    cudb.tags,
-                ),
+        execute_stmt(
+            """
+            INSERT INTO compute_units (
+                hostname, ordinal, cpu_range, cpu_count,
+                cpu_set,
+                status, allocation_id, started_at, tags
             )
+            VALUES (
+                %s, %s, %s, %s,
+                %s, %s, %s, %s, %s
+            )
+            ON CONFLICT DO NOTHING
+            """,
+            (
+                cudb.hostname,
+                cudb.ordinal,
+                cudb.cpu_range,
+                cudb.cpu_count,
+                cudb.cpu_set,
+                cudb.status,
+                cudb.allocation_id,
+                cudb.started_at,
+                cudb.tags,
+            ),
+        )
 
     def update_compute_unit(
         self,
@@ -629,41 +596,36 @@ class PostgresRepo(CPKitRepo):
         clear_allocation_id: bool = False,
         tags: dict | None = None,
     ) -> None:
-        # mark the compute_unit to allocating
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                UPDATE compute_units
-                SET 
-                    status = coalesce(%s, status),
-                    allocation_id = CASE
-                        WHEN %s THEN NULL
-                        ELSE coalesce(%s, allocation_id)
-                    END,
-                    tags = coalesce(%s, tags)
-                WHERE compute_id = %s
-                """,
-                (
-                    status,
-                    clear_allocation_id,
-                    allocation_id,
-                    json.dumps(tags) if tags is not None else None,
-                    compute_unit,
-                ),
-            )
+        execute_stmt(
+            """
+            UPDATE compute_units
+            SET
+                status = coalesce(%s, status),
+                allocation_id = CASE
+                    WHEN %s THEN NULL
+                    ELSE coalesce(%s, allocation_id)
+                END,
+                tags = coalesce(%s, tags)
+            WHERE compute_id = %s
+            """,
+            (
+                status,
+                clear_allocation_id,
+                allocation_id,
+                json.dumps(tags) if tags is not None else None,
+                compute_unit,
+            ),
+        )
 
     def delete_compute_units(self, hostname: str) -> None:
-        with self.pool.connection() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                DELETE
-                FROM compute_units
-                WHERE hostname = %s
-                """,
-                (hostname,),
-            )
+        execute_stmt(
+            """
+            DELETE
+            FROM compute_units
+            WHERE hostname = %s
+            """,
+            (hostname,),
+        )
 
     def lock_compute_unit(
         self,
@@ -752,15 +714,7 @@ class PostgresRepo(CPKitRepo):
             compute_units.tags 
         """
 
-        with self.pool.connection() as conn:
-
-            with conn.cursor(
-                row_factory=class_row(ComputeUnitOverview),
-            ) as cur:
-
-                rs = cur.execute(sql, params).fetchone()  # type: ignore
-
-                return rs
+        return fetch_one(sql, tuple(params), ComputeUnitOverview)
 
     def get_compute_units(
         self,
@@ -833,12 +787,4 @@ class PostgresRepo(CPKitRepo):
         if limit:
             sql += f" LIMIT {limit}"
 
-        with self.pool.connection() as conn:
-
-            with conn.cursor(
-                row_factory=class_row(ComputeUnitOverview),
-            ) as cur:
-
-                rs = cur.execute(sql, params).fetchall()  # type: ignore
-
-                return rs
+        return fetch_all(sql, tuple(params), ComputeUnitOverview)
