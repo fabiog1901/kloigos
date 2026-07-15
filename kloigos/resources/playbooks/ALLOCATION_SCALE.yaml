@@ -25,6 +25,7 @@
 #   login_user
 #   source_cpu_range
 #   source_cpu_set
+#   same_host
 #   target_compute_id
 #   target_hostname
 #   target_ansible_host
@@ -292,6 +293,7 @@
     ssh_opts: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
   tasks:
     - name: Initial rsync home from source to controller
+      when: not (same_host | bool)
       shell: |
         set -euo pipefail
         rsync -a --delete \
@@ -302,6 +304,7 @@
         executable: /bin/bash
 
     - name: Initial rsync opt from source to controller
+      when: not (same_host | bool)
       shell: |
         set -euo pipefail
         rsync -a --delete \
@@ -321,11 +324,25 @@
       args:
         executable: /bin/bash
 
-    - name: Initial rsync controller to target
+    - name: Initial rsync controller home to target
+      when: not (same_host | bool)
       shell: |
         set -euo pipefail
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ {{ target_server_admin_user }}@{{ target_ansible_host }}:/home/{{ login_user }}/
+      args:
+        executable: /bin/bash
+
+    - name: Initial rsync controller opt to target
+      when: not (same_host | bool)
+      shell: |
+        set -euo pipefail
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ {{ target_server_admin_user }}@{{ target_ansible_host }}:/opt/{{ login_user }}/
+      args:
+        executable: /bin/bash
+
+    - name: Initial rsync controller mnt to target
+      shell: |
+        set -euo pipefail
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ {{ target_server_admin_user }}@{{ target_ansible_host }}:{{ target_storage_mount_path }}/
       args:
         executable: /bin/bash
@@ -353,20 +370,48 @@
     scratch_root: "/tmp/kloigos-scale/{{ allocation_id }}"
     ssh_opts: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
   tasks:
-    - name: Final rsync source to controller
+    - name: Final rsync home from source to controller
+      when: not (same_host | bool)
       shell: |
         set -euo pipefail
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ source_server_admin_user }}@{{ source_ansible_host }}:/home/{{ login_user }}/ {{ scratch_root }}/home/
+      args:
+        executable: /bin/bash
+
+    - name: Final rsync opt from source to controller
+      when: not (same_host | bool)
+      shell: |
+        set -euo pipefail
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ source_server_admin_user }}@{{ source_ansible_host }}:/opt/{{ login_user }}/ {{ scratch_root }}/opt/
+      args:
+        executable: /bin/bash
+
+    - name: Final rsync mnt from source to controller
+      shell: |
+        set -euo pipefail
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ source_server_admin_user }}@{{ source_ansible_host }}:/mnt/{{ login_user }}/ {{ scratch_root }}/mnt/
       args:
         executable: /bin/bash
 
-    - name: Final rsync controller to target
+    - name: Final rsync controller home to target
+      when: not (same_host | bool)
       shell: |
         set -euo pipefail
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/home/ {{ target_server_admin_user }}@{{ target_ansible_host }}:/home/{{ login_user }}/
+      args:
+        executable: /bin/bash
+
+    - name: Final rsync controller opt to target
+      when: not (same_host | bool)
+      shell: |
+        set -euo pipefail
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/opt/ {{ target_server_admin_user }}@{{ target_ansible_host }}:/opt/{{ login_user }}/
+      args:
+        executable: /bin/bash
+
+    - name: Final rsync controller mnt to target
+      shell: |
+        set -euo pipefail
         rsync -a --delete -e "ssh {{ ssh_opts }}" --rsync-path="sudo rsync" {{ scratch_root }}/mnt/ {{ target_server_admin_user }}@{{ target_ansible_host }}:{{ target_storage_mount_path }}/
       args:
         executable: /bin/bash
@@ -377,6 +422,7 @@
   become: yes
   tasks:
     - name: Remove floating IP alias from source host
+      when: not (same_host | bool)
       shell: |
         set -euo pipefail
         IFACE="$(ip -o route show default | awk '{for (i=1; i<=NF; i++) if ($i == "dev") print $(i+1)}' | head -1)"
@@ -385,6 +431,7 @@
         executable: /bin/bash
 
     - name: Remove source allocation nftables rules
+      when: not (same_host | bool)
       shell: |
         set -euo pipefail
         SOURCE_UID="$(id -u {{ login_user }})"
@@ -398,6 +445,7 @@
         executable: /bin/bash
 
     - name: Clear source compute unit data after final rsync
+      when: not (same_host | bool)
       shell: |
         set -euo pipefail
         rm -rf /home/{{ login_user }}/*
@@ -415,8 +463,20 @@
       args:
         executable: /bin/bash
 
+    - name: Detach old source storage bind mount for same-host scale
+      when: same_host | bool
+      shell: |
+        set -euo pipefail
+        sed -i '\#{{ source_storage_mount_path }} /mnt/{{ login_user }} none bind 0 0#d' /etc/fstab
+        umount /mnt/{{ login_user }} || true
+        rmdir /mnt/{{ login_user }} || true
+      args:
+        executable: /bin/bash
+
     - name: Remove source allocation AppArmor systemd attachment
-      when: ansible_facts["os_family"] | lower == "debian"
+      when:
+        - ansible_facts["os_family"] | lower == "debian"
+        - not (same_host | bool)
       shell: |
         SOURCE_UID="$(id -u {{ login_user }} 2>/dev/null || true)"
         if [ -n "$SOURCE_UID" ]; then
@@ -429,7 +489,9 @@
         systemctl reload ssh || systemctl reload sshd || true
 
     - name: Unload and remove source allocation AppArmor profile
-      when: ansible_facts["os_family"] | lower == "debian"
+      when:
+        - ansible_facts["os_family"] | lower == "debian"
+        - not (same_host | bool)
       shell: |
         apparmor_parser -R /etc/apparmor.d/kloigos-{{ login_user }} 2>/dev/null || true
         rm -f /etc/apparmor.d/kloigos-{{ login_user }}

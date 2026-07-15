@@ -320,6 +320,7 @@ def run_allocation_scale(
                 "source_storage_mount_path": _storage_mount_path(source),
                 "source_cpu_range": source.cpu_range,
                 "source_cpu_set": source.cpu_set,
+                "same_host": source.hostname == target.hostname,
                 "target_compute_id": target.compute_id,
                 "target_hostname": target.hostname,
                 "target_ansible_host": _ansible_host(
