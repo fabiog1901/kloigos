@@ -181,6 +181,7 @@
             /etc/passwd r,
             /etc/group r,
             /etc/nsswitch.conf r,
+            /etc/mime.types r,
             /etc/apt/** r,
             /var/lib/apt/** r,
             /var/cache/apt/** r,
@@ -361,3 +362,6 @@
           systemctl --user start myservice
 
         dest: /home/{{ login_user }}/WELCOME.txt
+        owner: "{{ login_user }}"
+        group: "{{ login_user }}"
+        mode: "0444"
