@@ -126,6 +126,63 @@ security mechanisms. Users can start processes directly from an interactive shel
 
 Kloigos is not intended to replace every virtual machine or every Kubernetes cluster.
 
+### Compared With Virtual Machines
+
+Virtual machines are excellent when strong isolation, independent operating systems, mature
+hypervisor operations, or hostile multi-tenancy are required. Kloigos makes a different tradeoff: it
+does not use a hypervisor and does not create a separate operating system per workload.
+
+This matters for environments that chose bare metal specifically for performance, simplicity, or
+cost reasons. Some workloads, especially stateful and CPU-intensive systems such as databases, are
+deployed on bare metal precisely because teams want the full host available to the application
+without a virtualization layer in the path.
+
+The tradeoff is clear: Kloigos keeps bare-metal performance and a single host operating system, but
+it does not provide VM-grade isolation or separate guest kernels.
+
+### Compared With Kubernetes
+
+Kubernetes is a powerful orchestration platform with a deep ecosystem. It is the right choice for
+many container-native fleets, especially when teams depend on image pipelines, service discovery,
+sidecars, operators, autoscaling, or service meshes.
+
+Kloigos targets simpler operational needs. It does not require users to package applications as
+containers or adopt Kubernetes' deployment model. A user can SSH into a Compute Unit, place files in
+their allocation directories, and run software directly on the host OS using `systemd --user` or
+ordinary Linux process management.
+
+For administrators, this keeps troubleshooting close to standard Linux: processes, filesystems,
+networking, logs, and resource controls all live on the managed host. The tradeoff is that Kloigos
+does not provide the Kubernetes ecosystem or its large-scale container orchestration model.
+
+### Compared With Incus and LXD
+
+Incus and LXD are probably the closest relatives in spirit: they provide lightweight, VM-like Linux
+environments with strong isolation characteristics. They are excellent tools, and Kloigos should not
+be read as a replacement for them.
+
+Kloigos differs mostly in product shape. A Kloigos Compute Unit is not a system container with its
+own operating system environment to maintain. All Compute Units share the host OS, and the platform
+administrator maintains, patches, audits, and hardens that one operating system.
+
+For the end user, Kloigos behaves more like a bare-metal PaaS than an independent Linux environment:
+log in with SSH, run application software, use the curated runtime profile provided by the host, and
+manage services with familiar Linux tools. The end user does not manage the operating system or
+install system packages with administrative privileges.
+
+The tradeoff is again explicit: Kloigos is operationally lighter for this PaaS-style model, but it is
+not as strongly isolated as VM or system-container approaches.
+
+### Design Intent
+
+Kloigos was built for teams already comfortable with bare-metal Linux who need a cleaner operational
+model than manually partitioning CPUs with tools such as `numactl`, assigning Unix users by hand,
+and maintaining ad hoc networking and storage conventions.
+
+Its goal is not to displace VMs, Kubernetes, Incus, or LXD. It is for the space where operational
+convenience, predictable resource allocation, and native Linux performance matter more than maximum
+tenant isolation or a full container orchestration ecosystem.
+
 It is a good fit for:
 
 - infrastructure teams with large bare-metal Linux servers

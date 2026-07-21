@@ -71,7 +71,7 @@ extra:
 nav:
   - Home: 
     - index.md
-  - use-case.md
+  - product-positioning.md
   - Docs:
     - docs/getting-started.md
     - docs/server-preparation.md
