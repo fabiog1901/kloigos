@@ -39,14 +39,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_alerts_open_resource
 ON alerts (alert_type, resource_type, resource_id)
 WHERE status = 'OPEN';
 
-INSERT INTO cpkit.mq (msg_type, start_after)
-SELECT 'SERVER_HEALTH_CHECK', now() + INTERVAL '60s' + (random() * INTERVAL '10s')
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM cpkit.mq
-    WHERE msg_type = 'SERVER_HEALTH_CHECK'
-);
-
 CREATE TABLE IF NOT EXISTS compute_units (
     compute_id TEXT NOT NULL GENERATED ALWAYS AS (hostname || '-cu' || lpad(ordinal::TEXT, 2, '0')) STORED,
     hostname TEXT NOT NULL,

@@ -221,18 +221,6 @@ class PostgresRepo(CPKitRepo):
             ),
         )
 
-    def schedule_server_health_check(self, start_after_seconds: int) -> None:
-        execute_stmt(
-            """
-            INSERT INTO cpkit.mq (msg_type, start_after)
-            VALUES (
-                'SERVER_HEALTH_CHECK',
-                now() + (%s * INTERVAL '1s') + (random() * INTERVAL '10s')
-            )
-            """,
-            (start_after_seconds,),
-        )
-
     def get_servers(
         self,
         hostname: str | None = None,

@@ -1,7 +1,12 @@
 from importlib.resources import files
 from pathlib import Path
 
-from cpkit import create_cpkit_app, create_cpkit_bundle, template_webapp_directory
+from cpkit import (
+    RecurringMessage,
+    create_cpkit_app,
+    create_cpkit_bundle,
+    template_webapp_directory,
+)
 
 from . import KLOIGOS_DB_URL
 from .api import admin, allocation, compute_unit
@@ -58,6 +63,15 @@ app = create_cpkit_app(
         admin.router,
         allocation.router,
         compute_unit.router,
+    ),
+    recurring_messages=(
+        RecurringMessage(
+            msg_type=QueueCommand.SERVER_HEALTH_CHECK.value,
+            interval_seconds=60,
+            jitter_seconds=10,
+            payload={},
+            created_by="system",
+        ),
     ),
     static_directory=template_webapp_directory(),
     app_static_directory=_package_path("webapp"),

@@ -17,7 +17,6 @@ from ..models import (
 
 logger = logging.getLogger(__name__)
 
-CHECK_INTERVAL_SECONDS = 60
 SSH_CONNECT_TIMEOUT_SECONDS = 5
 SSH_COMMAND_TIMEOUT_SECONDS = 15
 
@@ -34,15 +33,8 @@ def run_server_health_check(
     _command: Any,
     _requested_by: str,
 ) -> None:
-    """Run one health check cycle and enqueue the next cycle."""
+    """Run one health check cycle."""
     repo = get_repo()
-    try:
-        _check_servers_once(repo)
-    finally:
-        repo.schedule_server_health_check(CHECK_INTERVAL_SECONDS)
-
-
-def _check_servers_once(repo) -> None:
     servers = [
         server for server in repo.get_servers() if server.status == ServerStatus.READY
     ]
