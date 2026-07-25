@@ -1,6 +1,7 @@
 import base64
 import binascii
 import datetime as dt
+import ipaddress
 from enum import StrEnum, auto
 from typing import Any
 
@@ -29,6 +30,10 @@ class ComputeUnitStateError(Exception):
 
 
 class ComputeUnitOperationError(Exception):
+    pass
+
+
+class SecurityGroupNotFoundError(Exception):
     pass
 
 
@@ -86,6 +91,13 @@ class Event(AutoNameStrEnum):
     ALLOCATION_SCALE_FAILED = auto()
     IP_POOL_INSERT = auto()
     IP_POOL_DELETE = auto()
+    SECURITY_GROUP_CREATED = auto()
+    SECURITY_GROUP_UPDATED = auto()
+    SECURITY_GROUP_DELETED = auto()
+    SECURITY_GROUP_RULE_ADDED = auto()
+    SECURITY_GROUP_RULE_DELETED = auto()
+    SECURITY_GROUP_ATTACHED = auto()
+    SECURITY_GROUP_DETACHED = auto()
 
 
 class Playbook(AutoNameStrEnum):
@@ -167,6 +179,24 @@ class AlertSeverity(AutoNameStrEnum):
 class AlertStatus(AutoNameStrEnum):
     OPEN = auto()
     RESOLVED = auto()
+
+
+class SecurityGroupDirection(AutoNameStrEnum):
+    INGRESS = "ingress"
+    EGRESS = "egress"
+
+
+class SecurityGroupProtocol(AutoNameStrEnum):
+    TCP = "tcp"
+    UDP = "udp"
+    ICMP = "icmp"
+    ICMPV6 = "icmpv6"
+    ALL = "all"
+
+
+class SecurityGroupIpVersion(AutoNameStrEnum):
+    IPV4 = "ipv4"
+    IPV6 = "ipv6"
 
 
 RUNTIME_PROFILES = {"minimal", "standard", "build"}
@@ -333,6 +363,116 @@ class IpPoolAddressInDB(BaseModel):
 
 class IpPoolInsertRequest(BaseModel):
     ip_addresses: list[str] = Field(min_length=1)
+
+
+class SecurityGroupCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=128)
+    description: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        name = value.strip()
+        if not name:
+            raise ValueError("security group name cannot be empty.")
+        return name
+
+
+class SecurityGroupUpdateRequest(SecurityGroupCreateRequest):
+    pass
+
+
+class SecurityGroupInDB(BaseModel):
+    security_group_id: str
+    name: str
+    description: str | None = None
+    created_at: dt.datetime
+    updated_at: dt.datetime
+
+
+class SecurityGroupRuleCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    direction: SecurityGroupDirection
+    protocol: SecurityGroupProtocol
+    port_from: int | None = Field(default=None, ge=1, le=65535)
+    port_to: int | None = Field(default=None, ge=1, le=65535)
+    cidr: str
+    ip_version: SecurityGroupIpVersion
+    description: str | None = None
+
+    @field_validator("cidr")
+    @classmethod
+    def normalize_cidr(cls, value: str) -> str:
+        try:
+            return str(ipaddress.ip_network(value.strip(), strict=False))
+        except ValueError as exc:
+            raise ValueError("cidr must be a valid IPv4 or IPv6 CIDR range.") from exc
+
+    @model_validator(mode="after")
+    def validate_rule(self):
+        network = ipaddress.ip_network(self.cidr, strict=False)
+        if self.ip_version is SecurityGroupIpVersion.IPV4 and network.version != 4:
+            raise ValueError("ip_version is ipv4 but cidr is not an IPv4 range.")
+        if self.ip_version is SecurityGroupIpVersion.IPV6 and network.version != 6:
+            raise ValueError("ip_version is ipv6 but cidr is not an IPv6 range.")
+
+        if (
+            self.protocol is SecurityGroupProtocol.ICMPV6
+            and self.ip_version is not SecurityGroupIpVersion.IPV6
+        ):
+            raise ValueError("icmpv6 rules must use ip_version ipv6.")
+        if (
+            self.protocol is SecurityGroupProtocol.ICMP
+            and self.ip_version is not SecurityGroupIpVersion.IPV4
+        ):
+            raise ValueError("icmp rules must use ip_version ipv4.")
+
+        has_port = self.port_from is not None or self.port_to is not None
+        if (
+            self.protocol
+            in {
+                SecurityGroupProtocol.ICMP,
+                SecurityGroupProtocol.ICMPV6,
+                SecurityGroupProtocol.ALL,
+            }
+            and has_port
+        ):
+            raise ValueError(f"{self.protocol.value} rules must not include ports.")
+
+        if self.protocol in {SecurityGroupProtocol.TCP, SecurityGroupProtocol.UDP}:
+            if self.port_from is None and self.port_to is not None:
+                raise ValueError("port_from is required when port_to is set.")
+            if self.port_from is not None and self.port_to is None:
+                self.port_to = self.port_from
+            if (
+                self.port_from is not None
+                and self.port_to is not None
+                and self.port_from > self.port_to
+            ):
+                raise ValueError("port_from must be less than or equal to port_to.")
+
+        return self
+
+
+class SecurityGroupRuleInDB(SecurityGroupRuleCreateRequest):
+    rule_id: str
+    security_group_id: str
+    created_at: dt.datetime
+
+
+class SecurityGroupAttachmentInDB(BaseModel):
+    allocation_id: str
+    security_group_id: str
+    attached_at: dt.datetime
+
+
+class SecurityGroupDetail(SecurityGroupInDB):
+    ingress_rules: list[SecurityGroupRuleInDB] = Field(default_factory=list)
+    egress_rules: list[SecurityGroupRuleInDB] = Field(default_factory=list)
+    attached_allocations: list[str] = Field(default_factory=list)
 
 
 class BaseServer(BaseModel):

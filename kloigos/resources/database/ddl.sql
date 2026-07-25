@@ -102,3 +102,59 @@ ALTER TABLE ip_pool DROP CONSTRAINT IF EXISTS ip_pool_allocation;
 
 ALTER TABLE ip_pool
 ADD CONSTRAINT ip_pool_allocation FOREIGN KEY (allocation_id) REFERENCES allocations(allocation_id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+CREATE TABLE IF NOT EXISTS security_groups (
+    security_group_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_security_groups PRIMARY KEY (security_group_id),
+    CONSTRAINT uq_security_groups_name UNIQUE (name)
+);
+
+CREATE TABLE IF NOT EXISTS security_group_rules (
+    rule_id TEXT NOT NULL,
+    security_group_id TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    protocol TEXT NOT NULL,
+    port_from INT4 NULL,
+    port_to INT4 NULL,
+    cidr TEXT NOT NULL,
+    ip_version TEXT NOT NULL,
+    description TEXT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_security_group_rules PRIMARY KEY (rule_id),
+    CONSTRAINT security_group_rules_group FOREIGN KEY (security_group_id) REFERENCES security_groups(security_group_id) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT ck_security_group_rules_direction CHECK (direction IN ('ingress', 'egress')),
+    CONSTRAINT ck_security_group_rules_protocol CHECK (protocol IN ('tcp', 'udp', 'icmp', 'icmpv6', 'all')),
+    CONSTRAINT ck_security_group_rules_ip_version CHECK (ip_version IN ('ipv4', 'ipv6')),
+    CONSTRAINT ck_security_group_rules_ports CHECK (
+        (port_from IS NULL AND port_to IS NULL)
+        OR (
+            port_from BETWEEN 1 AND 65535
+            AND port_to BETWEEN 1 AND 65535
+            AND port_from <= port_to
+        )
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_security_group_rules_effective
+ON security_group_rules (
+    security_group_id,
+    direction,
+    protocol,
+    coalesce(port_from, 0),
+    coalesce(port_to, 0),
+    cidr,
+    ip_version
+);
+
+CREATE TABLE IF NOT EXISTS allocation_security_groups (
+    allocation_id TEXT NOT NULL,
+    security_group_id TEXT NOT NULL,
+    attached_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_allocation_security_groups PRIMARY KEY (allocation_id, security_group_id),
+    CONSTRAINT allocation_security_groups_allocation FOREIGN KEY (allocation_id) REFERENCES allocations(allocation_id) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT allocation_security_groups_group FOREIGN KEY (security_group_id) REFERENCES security_groups(security_group_id) ON UPDATE CASCADE ON DELETE RESTRICT
+);

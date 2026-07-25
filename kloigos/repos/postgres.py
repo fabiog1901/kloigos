@@ -15,6 +15,12 @@ from ..models import (
     ComputeUnitStatus,
     IpAddressStatus,
     IpPoolAddressInDB,
+    SecurityGroupAttachmentInDB,
+    SecurityGroupCreateRequest,
+    SecurityGroupInDB,
+    SecurityGroupRuleCreateRequest,
+    SecurityGroupRuleInDB,
+    SecurityGroupUpdateRequest,
     ServerHealthStatus,
     ServerInDB,
     ServerInitRequest,
@@ -427,6 +433,221 @@ class PostgresRepo(CPKitRepo):
             RETURNING 1
             """,
             (ip_address,),
+        )
+        return bool(deleted)
+
+    #
+    # NETWORK SECURITY GROUPS
+    #
+    def create_security_group(
+        self,
+        security_group_id: str,
+        req: SecurityGroupCreateRequest,
+    ) -> SecurityGroupInDB:
+        return fetch_one(
+            """
+            INSERT INTO security_groups (
+                security_group_id, name, description
+            )
+            VALUES (%s, %s, %s)
+            RETURNING security_group_id, name, description, created_at, updated_at
+            """,
+            (security_group_id, req.name, req.description),
+            SecurityGroupInDB,
+        )
+
+    def get_security_groups(
+        self,
+        security_group_id: str | None = None,
+        name: str | None = None,
+    ) -> list[SecurityGroupInDB]:
+        conditions = []
+        params = []
+
+        if security_group_id is not None:
+            conditions.append("security_group_id = %s")
+            params.append(security_group_id)
+
+        if name is not None:
+            conditions.append("name = %s")
+            params.append(name)
+
+        sql = """
+            SELECT security_group_id, name, description, created_at, updated_at
+            FROM security_groups
+        """
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += " ORDER BY name, security_group_id"
+
+        return fetch_all(sql, tuple(params), SecurityGroupInDB)
+
+    def update_security_group(
+        self,
+        security_group_id: str,
+        req: SecurityGroupUpdateRequest,
+    ) -> SecurityGroupInDB | None:
+        return fetch_one(
+            """
+            UPDATE security_groups
+            SET
+                name = %s,
+                description = %s,
+                updated_at = now()
+            WHERE security_group_id = %s
+            RETURNING security_group_id, name, description, created_at, updated_at
+            """,
+            (req.name, req.description, security_group_id),
+            SecurityGroupInDB,
+        )
+
+    def delete_security_group(self, security_group_id: str) -> bool:
+        deleted = fetch_scalar(
+            """
+            DELETE
+            FROM security_groups
+            WHERE security_group_id = %s
+            RETURNING 1
+            """,
+            (security_group_id,),
+        )
+        return bool(deleted)
+
+    def create_security_group_rule(
+        self,
+        rule_id: str,
+        security_group_id: str,
+        req: SecurityGroupRuleCreateRequest,
+    ) -> SecurityGroupRuleInDB:
+        return fetch_one(
+            """
+            INSERT INTO security_group_rules (
+                rule_id, security_group_id, direction, protocol,
+                port_from, port_to, cidr, ip_version, description
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING
+                rule_id, security_group_id, direction, protocol,
+                port_from, port_to, cidr, ip_version, description, created_at
+            """,
+            (
+                rule_id,
+                security_group_id,
+                req.direction,
+                req.protocol,
+                req.port_from,
+                req.port_to,
+                req.cidr,
+                req.ip_version,
+                req.description,
+            ),
+            SecurityGroupRuleInDB,
+        )
+
+    def get_security_group_rules(
+        self,
+        security_group_id: str | None = None,
+        rule_id: str | None = None,
+    ) -> list[SecurityGroupRuleInDB]:
+        conditions = []
+        params = []
+
+        if security_group_id is not None:
+            conditions.append("security_group_id = %s")
+            params.append(security_group_id)
+
+        if rule_id is not None:
+            conditions.append("rule_id = %s")
+            params.append(rule_id)
+
+        sql = """
+            SELECT
+                rule_id, security_group_id, direction, protocol,
+                port_from, port_to, cidr, ip_version, description, created_at
+            FROM security_group_rules
+        """
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += " ORDER BY direction, protocol, cidr, port_from NULLS FIRST, rule_id"
+
+        return fetch_all(sql, tuple(params), SecurityGroupRuleInDB)
+
+    def delete_security_group_rule(
+        self,
+        security_group_id: str,
+        rule_id: str,
+    ) -> bool:
+        deleted = fetch_scalar(
+            """
+            DELETE
+            FROM security_group_rules
+            WHERE security_group_id = %s
+              AND rule_id = %s
+            RETURNING 1
+            """,
+            (security_group_id, rule_id),
+        )
+        return bool(deleted)
+
+    def get_security_group_attachments(
+        self,
+        allocation_id: str | None = None,
+        security_group_id: str | None = None,
+    ) -> list[SecurityGroupAttachmentInDB]:
+        conditions = []
+        params = []
+
+        if allocation_id is not None:
+            conditions.append("allocation_id = %s")
+            params.append(allocation_id)
+
+        if security_group_id is not None:
+            conditions.append("security_group_id = %s")
+            params.append(security_group_id)
+
+        sql = """
+            SELECT allocation_id, security_group_id, attached_at
+            FROM allocation_security_groups
+        """
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += " ORDER BY allocation_id, security_group_id"
+
+        return fetch_all(sql, tuple(params), SecurityGroupAttachmentInDB)
+
+    def attach_security_group(
+        self,
+        allocation_id: str,
+        security_group_id: str,
+    ) -> SecurityGroupAttachmentInDB:
+        return fetch_one(
+            """
+            INSERT INTO allocation_security_groups (
+                allocation_id, security_group_id
+            )
+            VALUES (%s, %s)
+            ON CONFLICT (allocation_id, security_group_id)
+            DO UPDATE SET attached_at = allocation_security_groups.attached_at
+            RETURNING allocation_id, security_group_id, attached_at
+            """,
+            (allocation_id, security_group_id),
+            SecurityGroupAttachmentInDB,
+        )
+
+    def detach_security_group(
+        self,
+        allocation_id: str,
+        security_group_id: str,
+    ) -> bool:
+        deleted = fetch_scalar(
+            """
+            DELETE
+            FROM allocation_security_groups
+            WHERE allocation_id = %s
+              AND security_group_id = %s
+            RETURNING 1
+            """,
+            (allocation_id, security_group_id),
         )
         return bool(deleted)
 
