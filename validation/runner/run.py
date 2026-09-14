@@ -18,6 +18,7 @@ import yaml
 from smoke import collect_smoke_results
 from isolation_enforcement import collect_isolation_results
 from storage_network import collect_storage_network_results
+from concurrent_stress import collect_concurrent_stress_results
 
 
 SCHEMA_VERSION = 1
@@ -56,6 +57,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--deny-connect", help="host:port the allocation user must not reach.")
     parser.add_argument("--workload-dir", type=Path, help="Writable directory for the storage-network profile.")
     parser.add_argument("--iperf-server", help="iperf3 server host:port for the storage-network profile.")
+    parser.add_argument("--allocation-users", help="Comma-separated allocation users for concurrent-stress.")
+    parser.add_argument("--stress-seconds", type=int, default=15, help="Concurrent stress duration (1-60 seconds).")
     parser.add_argument("--allow-escape-attempts", action="store_true", help="Run bounded negative isolation probes.")
     parser.add_argument(
         "--allow-destructive",
@@ -208,6 +211,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ValueError("isolation-enforcement requires --allocation-user.")
         if profile_name == "storage-network" and not args.workload_dir:
             raise ValueError("storage-network requires --workload-dir.")
+        if profile_name == "concurrent-stress" and not args.allocation_users:
+            raise ValueError("concurrent-stress requires --allocation-users.")
         results = (
             normalize_results(args.results_file)
             if args.results_file is not None
@@ -217,6 +222,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             if profile_name == "isolation-enforcement"
             else collect_storage_network_results(args.workload_dir, args.iperf_server, ARTIFACT_DIRECTORY)
             if profile_name == "storage-network"
+            else collect_concurrent_stress_results([user for user in args.allocation_users.split(",") if user], args.stress_seconds, args.iperf_server, ARTIFACT_DIRECTORY)
+            if profile_name == "concurrent-stress"
             else []
         )
     except ValueError as exc:

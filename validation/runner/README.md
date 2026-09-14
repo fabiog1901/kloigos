@@ -61,3 +61,11 @@ or make the explicitly requested connection.
 64 MiB temporary fio file, removes it afterwards, and preserves fio JSON under artifacts. Supply
 `--iperf-server host:port` to run a five-second iperf3 measurement; connectivity and measured
 throughput are reported without a hardware-independent performance threshold.
+
+## Concurrent stress
+
+`concurrent-stress` requires `--allow-destructive --allocation-users user1,user2` and runs
+simultaneous, bounded (default 15 seconds; maximum 60) CPU, memory, process, and disk workers as
+those users. It preserves logs as artifacts, checks distinct cgroup CPU sets, and verifies systemd
+remains responsive. Network contention is reported as skipped until a future multi-endpoint iperf3
+orchestrator is added.
