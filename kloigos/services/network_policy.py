@@ -32,7 +32,7 @@ class NetworkPolicyService:
         allocations = [
             allocation
             for allocation in self.repo.get_allocations(current_host=hostname)
-            if allocation.status != AllocationStatus.DEALLOCATED
+            if allocation.status == AllocationStatus.ALLOCATED
             and allocation.ip_address
             and allocation.current_host
         ]
@@ -103,6 +103,7 @@ def render_nftables_policy(policy: HostNetworkPolicy) -> str:
         "table inet kloigos {",
         "  chain kloigos_input {",
         "    type filter hook input priority filter; policy accept;",
+        "    ct state established,related accept",
     ]
 
     for allocation in policy.allocations:
@@ -114,6 +115,7 @@ def render_nftables_policy(policy: HostNetworkPolicy) -> str:
             "",
             "  chain kloigos_output {",
             "    type filter hook output priority filter; policy accept;",
+            "    ct state established,related accept",
         ]
     )
 

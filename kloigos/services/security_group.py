@@ -7,6 +7,8 @@ from kloigos.models import (
     ComputeUnitNotFoundError,
     ComputeUnitOperationError,
     Event,
+    NetworkPolicyApplyCommand,
+    QueueCommand,
     SecurityGroupAttachmentInDB,
     SecurityGroupCreateRequest,
     SecurityGroupDetail,
@@ -127,6 +129,7 @@ class SecurityGroupService:
             Event.SECURITY_GROUP_RULE_ADDED,
             _model_details(rule),
         )
+        self._enqueue_attached_host_reconciliations(security_group_id, actor_id)
         return rule
 
     def delete_rule(
@@ -151,6 +154,7 @@ class SecurityGroupService:
                 Event.SECURITY_GROUP_RULE_DELETED,
                 _model_details(rules[0]),
             )
+            self._enqueue_attached_host_reconciliations(security_group_id, actor_id)
         return deleted
 
     def list_allocation_security_groups(
@@ -189,6 +193,7 @@ class SecurityGroupService:
                 "security_group_name": security_group.name,
             },
         )
+        self._enqueue_host_reconciliation(allocation.current_host, actor_id)
         return attachment
 
     def detach_from_allocation(
@@ -211,6 +216,8 @@ class SecurityGroupService:
                     "security_group_id": security_group_id,
                 },
             )
+            allocation = self._get_allocation(allocation_id)
+            self._enqueue_host_reconciliation(allocation.current_host, actor_id)
         return deleted
 
     def _get_security_group(self, security_group_id: str) -> SecurityGroupInDB:
@@ -260,6 +267,36 @@ class SecurityGroupService:
                 raise ComputeUnitOperationError(
                     "An identical security group rule already exists."
                 )
+
+    def _enqueue_attached_host_reconciliations(
+        self,
+        security_group_id: str,
+        actor_id: str,
+    ) -> None:
+        hostnames = {
+            allocation.current_host
+            for attachment in self.repo.get_security_group_attachments(
+                security_group_id=security_group_id
+            )
+            for allocation in self.repo.get_allocations(
+                allocation_id=attachment.allocation_id
+            )
+            if allocation.current_host
+        }
+        for hostname in sorted(hostnames):
+            self._enqueue_host_reconciliation(hostname, actor_id)
+
+    def _enqueue_host_reconciliation(
+        self,
+        hostname: str | None,
+        actor_id: str,
+    ) -> None:
+        if hostname:
+            self.repo.enqueue_command(
+                QueueCommand.NETWORK_POLICY_APPLY,
+                NetworkPolicyApplyCommand(hostname=hostname),
+                actor_id,
+            )
 
     def _security_group_detail(
         self,

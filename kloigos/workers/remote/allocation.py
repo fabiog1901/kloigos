@@ -20,6 +20,8 @@ from ...models import (
     IpAddressStatus,
     NoFreeComputeUnitError,
     Playbook,
+    NetworkPolicyApplyCommand,
+    QueueCommand,
 )
 
 
@@ -167,6 +169,12 @@ def run_compute_unit_allocate(
         )
 
     log_event(repo, actor_id, final_event, details)
+    if job_ok:
+        repo.enqueue_command(
+            QueueCommand.NETWORK_POLICY_APPLY,
+            NetworkPolicyApplyCommand(hostname=cu.hostname),
+            actor_id,
+        )
 
 
 def run_compute_unit_deallocate(
@@ -248,6 +256,12 @@ def run_compute_unit_deallocate(
             final_status,
         )
     log_event(repo, actor_id, final_event, details)
+    if job_ok:
+        repo.enqueue_command(
+            QueueCommand.NETWORK_POLICY_APPLY,
+            NetworkPolicyApplyCommand(hostname=cu.hostname),
+            actor_id,
+        )
 
 
 def run_allocation_scale(
@@ -394,3 +408,10 @@ def run_allocation_scale(
         event = Event.ALLOCATION_SCALE_FAILED
 
     log_event(repo, actor_id, event, details)
+    if job_ok:
+        for hostname in sorted({source.hostname, target.hostname}):
+            repo.enqueue_command(
+                QueueCommand.NETWORK_POLICY_APPLY,
+                NetworkPolicyApplyCommand(hostname=hostname),
+                actor_id,
+            )

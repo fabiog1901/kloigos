@@ -14,6 +14,7 @@ from .models import (
     AllocationCreateCommand,
     AllocationDeallocateCommand,
     AllocationScaleCommand,
+    NetworkPolicyApplyCommand,
     QueueCommand,
     ServerDecommRequest,
     ServerHealthCheckCommand,
@@ -28,6 +29,7 @@ from .workers.remote import (
     run_server_decommission,
     run_server_init,
 )
+from .workers.remote.network_policy import run_network_policy_apply
 
 
 def _package_path(relative_path: str) -> Path:
@@ -42,6 +44,7 @@ cpkit_bundle = create_cpkit_bundle(
         QueueCommand.SERVER_INIT: ServerInitRequest,
         QueueCommand.SERVER_DECOMM: ServerDecommRequest,
         QueueCommand.SERVER_HEALTH_CHECK: ServerHealthCheckCommand,
+        QueueCommand.NETWORK_POLICY_APPLY: NetworkPolicyApplyCommand,
     },
     command_handlers={
         QueueCommand.ALLOCATION_CREATE: run_compute_unit_allocate,
@@ -50,6 +53,7 @@ cpkit_bundle = create_cpkit_bundle(
         QueueCommand.SERVER_INIT: run_server_init,
         QueueCommand.SERVER_DECOMM: run_server_decommission,
         QueueCommand.SERVER_HEALTH_CHECK: run_server_health_check,
+        QueueCommand.NETWORK_POLICY_APPLY: run_network_policy_apply,
     },
 )
 

@@ -98,6 +98,8 @@ class Event(AutoNameStrEnum):
     SECURITY_GROUP_RULE_DELETED = auto()
     SECURITY_GROUP_ATTACHED = auto()
     SECURITY_GROUP_DETACHED = auto()
+    NETWORK_POLICY_APPLY_DONE = auto()
+    NETWORK_POLICY_APPLY_FAILED = auto()
 
 
 class Playbook(AutoNameStrEnum):
@@ -108,6 +110,7 @@ class Playbook(AutoNameStrEnum):
     SERVER_DECOMM = auto()
     SSH_CREDENTIAL_PREPARE = auto()
     SSH_CREDENTIAL_CLEANUP = auto()
+    NETWORK_POLICY_APPLY = auto()
 
 
 class QueueCommand(AutoNameStrEnum):
@@ -117,6 +120,7 @@ class QueueCommand(AutoNameStrEnum):
     SERVER_INIT = auto()
     SERVER_DECOMM = auto()
     SERVER_HEALTH_CHECK = auto()
+    NETWORK_POLICY_APPLY = auto()
 
 
 class ComputeUnitStatus(AutoNameStrEnum):
@@ -313,6 +317,10 @@ class AllocationCreateResponse(BaseModel):
 
 class ServerHealthCheckCommand(BaseModel):
     pass
+
+
+class NetworkPolicyApplyCommand(BaseModel):
+    hostname: str
 
 
 class AllocationDeallocateCommand(BaseModel):

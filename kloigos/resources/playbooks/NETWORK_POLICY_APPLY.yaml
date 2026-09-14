@@ -1,0 +1,47 @@
+---
+# Reconciles the complete generated security-group policy for one Kloigos host.
+- name: GATHER NETWORK POLICY HOST
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: no
+  tasks:
+    - name: Build ansible inventory dynamically
+      add_host:
+        name: "{{ hostname }}"
+        ansible_host: "{{ ansible_host }}"
+        ansible_user: "{{ server_admin_user }}"
+        groups: network_policy_hosts
+
+- name: APPLY NETWORK SECURITY GROUP POLICY
+  hosts: network_policy_hosts
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Ensure nftables include directory exists
+      file:
+        path: /etc/nftables.d
+        state: directory
+        mode: "0755"
+
+    - name: Write generated nftables policy candidate
+      copy:
+        content: "{{ network_policy_nftables }}"
+        dest: /etc/nftables.d/kloigos-security-groups.nft.new
+        mode: "0600"
+
+    - name: Install and activate generated nftables policy
+      shell: |
+        set -euo pipefail
+        POLICY_DIR=/etc/nftables.d
+        POLICY_FILE="$POLICY_DIR/kloigos-security-groups.nft"
+        CANDIDATE_FILE="$POLICY_FILE.new"
+        nft -c -f "$CANDIDATE_FILE"
+        nft delete table inet kloigos 2>/dev/null || true
+        nft -f "$CANDIDATE_FILE"
+        mv "$CANDIDATE_FILE" "$POLICY_FILE"
+        touch /etc/nftables.conf
+        grep -qxF 'include "/etc/nftables.d/*.nft"' /etc/nftables.conf || echo 'include "/etc/nftables.d/*.nft"' >> /etc/nftables.conf
+        systemctl enable --now nftables
+      args:
+        executable: /bin/bash
