@@ -88,6 +88,13 @@ For full documentation, design details, and usage guides, please visit:
 
 👉 <https://fabiog1901.github.io/kloigos/>
 
+## Real-host validation
+
+The future real-host validation harness lives in [`validation/`](validation/README.md). It is
+separate from codebase tests: it validates the Linux hosts and Compute Units managed by Kloigos.
+The directory currently defines the profiles and report contract; execution support is added in
+later phases.
+
 ## Licensing
 
 Kloigos is released under the **Apache License 2.0**. All features are open source.
