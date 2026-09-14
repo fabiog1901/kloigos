@@ -17,6 +17,7 @@ import yaml
 
 from smoke import collect_smoke_results
 from isolation_enforcement import collect_isolation_results
+from storage_network import collect_storage_network_results
 
 
 SCHEMA_VERSION = 1
@@ -53,6 +54,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--filesystem-deny-path", help="Path the allocation user must not read.")
     parser.add_argument("--spoof-ip", help="Source address the allocation user must not bind.")
     parser.add_argument("--deny-connect", help="host:port the allocation user must not reach.")
+    parser.add_argument("--workload-dir", type=Path, help="Writable directory for the storage-network profile.")
+    parser.add_argument("--iperf-server", help="iperf3 server host:port for the storage-network profile.")
     parser.add_argument("--allow-escape-attempts", action="store_true", help="Run bounded negative isolation probes.")
     parser.add_argument(
         "--allow-destructive",
@@ -203,6 +206,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ValueError("Profile is destructive; rerun with --allow-destructive to select it.")
         if profile_name == "isolation-enforcement" and not args.allocation_user:
             raise ValueError("isolation-enforcement requires --allocation-user.")
+        if profile_name == "storage-network" and not args.workload_dir:
+            raise ValueError("storage-network requires --workload-dir.")
         results = (
             normalize_results(args.results_file)
             if args.results_file is not None
@@ -210,6 +215,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             if profile_name == "smoke"
             else collect_isolation_results(args.allocation_user, allow_escape_attempts=args.allow_escape_attempts, deny_path=args.filesystem_deny_path, spoof_ip=args.spoof_ip, deny_connect=args.deny_connect)
             if profile_name == "isolation-enforcement"
+            else collect_storage_network_results(args.workload_dir, args.iperf_server, ARTIFACT_DIRECTORY)
+            if profile_name == "storage-network"
             else []
         )
     except ValueError as exc:

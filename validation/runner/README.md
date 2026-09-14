@@ -54,3 +54,10 @@ profile, target, final status, result counts, report path, and artifact director
 `--filesystem-deny-path`, `--spoof-ip`, and `--deny-connect host:port`; missing witnesses are
 reported as skipped. The probes only inspect permissions, bind a socket without sending traffic,
 or make the explicitly requested connection.
+
+## Storage and network workloads
+
+`storage-network` requires `--allow-destructive --workload-dir PATH`. It writes and verifies a
+64 MiB temporary fio file, removes it afterwards, and preserves fio JSON under artifacts. Supply
+`--iperf-server host:port` to run a five-second iperf3 measurement; connectivity and measured
+throughput are reported without a hardware-independent performance threshold.

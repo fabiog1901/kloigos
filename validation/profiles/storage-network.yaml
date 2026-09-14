@@ -1,0 +1,8 @@
+schema_version: 1
+name: storage-network
+description: Bounded fio correctness and iperf3 connectivity/measurement workloads.
+destructive: true
+categories:
+  - storage
+  - network
+diagnostics: on_failure
