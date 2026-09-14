@@ -1,0 +1,3217 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Linux-native control plane for managing lightweight, VM-like execution environments">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Kloigos Product Context Snapshot - kloigos</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#kloigos-product-context-snapshot" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="kloigos" class="md-header__button md-logo" aria-label="kloigos" data-md-component="logo">
+      
+  <img src="../../assets/favicon.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            kloigos
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Kloigos Product Context Snapshot
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 2C5.13 2 2 5.13 2 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7M6 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H6zm13-8h-2l-3.2 9h1.9l.7-2h3.2l.7 2h1.9zm-2.15 5.65L18 15l1.15 3.65z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fabiog1901/kloigos" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fabiog1901/kloigos
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../.." class="md-tabs__link">
+          
+  
+  
+    
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../product-positioning/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Product Positioning
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Docs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../about/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  About
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="kloigos" class="md-nav__button md-logo" aria-label="kloigos" data-md-component="logo">
+      
+  <img src="../../assets/favicon.png" alt="logo">
+
+    </a>
+    kloigos
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fabiog1901/kloigos" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fabiog1901/kloigos
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../.." class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Home
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../product-positioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Positioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Docs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/server-preparation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server preparation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/playbooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playbooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-executive-definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Executive Definition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-product-philosophy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Product Philosophy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-what-kloigos-is-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. What Kloigos Is Not
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-product-positioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Product Positioning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Product Positioning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#compared-with-virtual-machines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compared with virtual machines
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compared-with-kubernetes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compared with Kubernetes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compared-with-unix-accounts-on-servers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compared with Unix accounts on servers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-core-object-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Core Object Model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Core Object Model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#physical-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Physical Host
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#host-family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host Family
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#instance-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instance Class
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compute-unit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compute Unit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#allocation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allocation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-compute-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Compute Units
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-allocations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Allocations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Allocations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#compute-unit_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compute Unit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#allocation_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allocation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-resource-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Resource Management
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-networking-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Networking Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-ip-address-pools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. IP Address Pools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-network-security-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Network Security Groups
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-ssh-key-pair-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. SSH Key Pair Management
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-shared-and-dedicated-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Shared and Dedicated Tenancy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="13. Shared and Dedicated Tenancy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#shared-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dedicated-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dedicated-host-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Host Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-heterogeneous-hardware" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Heterogeneous Hardware
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15-host-families" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Host Families
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#16-instance-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. Instance Classes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#17-compute-size-and-instance-class-are-separate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17. Compute Size and Instance Class Are Separate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#18-scheduling-and-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        18. Scheduling and Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#19-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19. Storage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#20-curated-runtime-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        20. Curated Runtime Environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#21-security-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        21. Security Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#22-allocation-based-metering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        22. Allocation-Based Metering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#23-administrator-defined-pricing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        23. Administrator-Defined Pricing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#24-price-estimation-before-provisioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        24. Price Estimation Before Provisioning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#25-dynamic-and-versioned-pricing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        25. Dynamic and Versioned Pricing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#26-kloigos-is-not-the-payment-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        26. Kloigos Is Not the Payment System
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#27-auditable-cost-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        27. Auditable Cost Records
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#28-kubernetes-k3s-on-kloigos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        28. Kubernetes / K3s on Kloigos
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#29-validation-harness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        29. Validation Harness
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#30-validation-philosophy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        30. Validation Philosophy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="30. Validation Philosophy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PIDs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#networking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Networking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Groups
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apparmor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AppArmor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dedicated-tenancy_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pricing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pricing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#31-contention-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        31. Contention Testing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#32-deterministic-remote-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        32. Deterministic Remote Testing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#33-product-level-resource-composition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        33. Product-Level Resource Composition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#34-example-provisioning-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        34. Example Provisioning Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#35-product-narrative" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        35. Product Narrative
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#36-important-architectural-invariants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        36. Important Architectural Invariants
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="36. Important Architectural Invariants">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#allocation-identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allocation Identity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#linux-native-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linux-Native Execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-kernel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared Kernel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dedicated-tenancy_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hardware-abstraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hardware Abstraction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#networking_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Networking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#network-enforcement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network Enforcement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssh-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SSH Keys
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pricing_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pricing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#historical-pricing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Historical Pricing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#financial-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Financial Boundary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nested-orchestration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nested Orchestration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#37-documentation-guidance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        37. Documentation Guidance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#38-guidance-to-codex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        38. Guidance to Codex
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="38. Guidance to Codex">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#preserve-the-conceptual-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Preserve the conceptual model
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prefer-deterministic-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prefer deterministic implementation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flag-contradictions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flag contradictions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#treat-described-product-capabilities-as-part-of-kloigos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Treat described product capabilities as part of Kloigos
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#39-concise-product-description" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        39. Concise Product Description
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#40-strategic-direction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        40. Strategic Direction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#end-of-snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End of Snapshot
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="kloigos-product-context-snapshot">Kloigos Product Context Snapshot</h1>
+<p><strong>Generated:</strong> 2026-09-14\
+<strong>Audience:</strong> Codex, maintainers, documentation authors, product and
+architecture contributors\
+<strong>Purpose:</strong> Canonical product-level context for interpreting,
+implementing, and documenting Kloigos.</p>
+<blockquote>
+<p><strong>Important:</strong> This snapshot describes the intended/current Kloigos
+product as a coherent whole. Features described here should be treated
+as existing product capabilities for purposes of product positioning
+and documentation, even if some implementation work is still being
+completed in the repository. Do not weaken or omit the product model
+merely because an individual implementation task is unfinished.</p>
+</blockquote>
+<hr />
+<h2 id="1-executive-definition">1. Executive Definition</h2>
+<p>Kloigos is a <strong>Linux-native bare-metal compute platform</strong> that turns a
+heterogeneous fleet of physical Linux servers into a programmable
+internal compute cloud.</p>
+<p>It provides cloud-like infrastructure primitives while using standard
+Linux mechanisms rather than virtual machines or containers as its
+fundamental infrastructure abstraction.</p>
+<p>Kloigos allows organizations to request isolated compute capacity from a
+shared fleet while the platform manages:</p>
+<ul>
+<li>compute resources</li>
+<li>durable workload identity</li>
+<li>networking and IP allocation</li>
+<li>storage</li>
+<li>security policy</li>
+<li>SSH access</li>
+<li>tenancy</li>
+<li>heterogeneous hardware placement</li>
+<li>instance classes</li>
+<li>scheduling</li>
+<li>metering and pricing</li>
+<li>lifecycle management</li>
+<li>validation and enforcement</li>
+</ul>
+<p>A concise definition is:</p>
+<blockquote>
+<p><strong>Kloigos turns a heterogeneous bare-metal Linux fleet into a
+programmable internal compute cloud using standard Linux primitives.</strong></p>
+</blockquote>
+<p>Kloigos is broader than an application PaaS. Documentation that defines
+Kloigos primarily as a PaaS or application platform should be updated to
+reflect this infrastructure-platform model.</p>
+<hr />
+<h2 id="2-product-philosophy">2. Product Philosophy</h2>
+<p>Kloigos is based on a simple idea:</p>
+<blockquote>
+<p>Modern Linux already contains many of the primitives needed to safely
+partition and manage powerful physical servers.</p>
+</blockquote>
+<p>Instead of introducing a hypervisor, guest operating systems, or
+mandatory containerization, Kloigos composes existing Linux capabilities
+into a controlled infrastructure platform.</p>
+<p>Core Linux technologies include:</p>
+<ul>
+<li>systemd</li>
+<li>cgroups v2</li>
+<li>Linux users and groups</li>
+<li>filesystem ownership and permissions</li>
+<li>LVM</li>
+<li>standard Linux networking</li>
+<li>nftables</li>
+<li>AppArmor where supported</li>
+<li>journald and Linux audit facilities</li>
+<li>standard SSH/OpenSSH</li>
+<li>Ansible for deterministic host operations</li>
+</ul>
+<p>The architectural preference is:</p>
+<blockquote>
+<p><strong>Use standard Linux primitives where they provide the required
+capability instead of creating unnecessary proprietary abstractions.</strong></p>
+</blockquote>
+<p>The control plane owns desired state.</p>
+<p>The physical Linux hosts enforce that state.</p>
+<hr />
+<h2 id="3-what-kloigos-is-not">3. What Kloigos Is Not</h2>
+<p>Kloigos is not:</p>
+<ul>
+<li>a hypervisor</li>
+<li>a virtual-machine platform</li>
+<li>a system-container platform</li>
+<li>a container orchestrator</li>
+<li>a Kubernetes replacement</li>
+<li>a Kubernetes distribution</li>
+<li>an overlay-network platform</li>
+<li>a mandatory application packaging system</li>
+<li>a general-purpose secret manager</li>
+<li>a payment processor</li>
+<li>a general accounting platform</li>
+</ul>
+<p>Applications running on Kloigos do not need to be containerized.</p>
+<p>A Compute Unit does not contain its own operating system or kernel.</p>
+<p>Compute Units on the same physical server share the host Linux kernel.</p>
+<p>Therefore, Kloigos does not claim VM-grade isolation between Compute
+Units.</p>
+<p>For security domains requiring kernel-level separation between mutually
+hostile tenants, virtual machines or separate physical hosts may remain
+more appropriate.</p>
+<p>Kloigos addresses this risk operationally through controls including
+<strong>Dedicated Tenancy</strong>, where an entire physical host is reserved for a
+single organization.</p>
+<hr />
+<h2 id="4-product-positioning">4. Product Positioning</h2>
+<p>Kloigos occupies a useful middle layer between unmanaged bare-metal
+Linux, virtualization, and container orchestration.</p>
+<h3 id="compared-with-virtual-machines">Compared with virtual machines</h3>
+<p>Kloigos avoids:</p>
+<ul>
+<li>guest operating systems</li>
+<li>hypervisor overhead</li>
+<li>VM image management</li>
+<li>duplicated operating-system maintenance</li>
+<li>unnecessary virtualization for trusted internal workloads</li>
+</ul>
+<p>It provides native Linux execution and substantially lighter operational
+overhead.</p>
+<p>The tradeoff is that Compute Units on a shared host use the same kernel.</p>
+<h3 id="compared-with-kubernetes">Compared with Kubernetes</h3>
+<p>Kloigos does not require:</p>
+<ul>
+<li>containers</li>
+<li>container images</li>
+<li>Kubernetes manifests</li>
+<li>Kubernetes networking</li>
+<li>Kubernetes operators</li>
+<li>Kubernetes as the infrastructure control plane</li>
+</ul>
+<p>Users can receive an Allocation, connect over SSH, and run ordinary
+Linux software.</p>
+<p>Kubernetes can itself run <strong>inside Kloigos Compute Units</strong>, allowing
+Kloigos to act as the bare-metal resource layer underneath Kubernetes
+when container orchestration is useful.</p>
+<h3 id="compared-with-unix-accounts-on-servers">Compared with Unix accounts on servers</h3>
+<p>Kloigos provides much more than user-account isolation.</p>
+<p>It adds controlled infrastructure primitives including:</p>
+<ul>
+<li>deterministic CPU allocation</li>
+<li>memory limits</li>
+<li>process/task limits</li>
+<li>storage</li>
+<li>dedicated IP addresses</li>
+<li>security groups</li>
+<li>SSH key management</li>
+<li>shared and dedicated tenancy</li>
+<li>hardware-aware scheduling</li>
+<li>Instance Classes</li>
+<li>lifecycle management</li>
+<li>organization ownership</li>
+<li>allocation-based metering</li>
+<li>administrator-defined pricing</li>
+<li>auditable infrastructure state</li>
+</ul>
+<p>A useful positioning statement is:</p>
+<blockquote>
+<p><strong>Kloigos provides the missing middle: lighter than VMs, simpler than
+Kubernetes, and far more structured than simply creating Unix accounts
+on Linux servers.</strong></p>
+</blockquote>
+<hr />
+<h2 id="5-core-object-model">5. Core Object Model</h2>
+<p>Several Kloigos concepts must remain distinct.</p>
+<div class="highlight"><pre><span></span><code>Physical Host
+    ↓
+Host Family
+    ↓
+Instance Class eligibility
+    ↓
+Compute Unit
+    ↓
+Allocation
+</code></pre></div>
+<p>They represent different concerns.</p>
+<h3 id="physical-host">Physical Host</h3>
+<p>An actual Linux server managed by Kloigos.</p>
+<h3 id="host-family">Host Family</h3>
+<p>An administrator-facing classification describing similar physical
+hardware.</p>
+<h3 id="instance-class">Instance Class</h3>
+<p>A stable user-facing hardware/product class such as:</p>
+<ul>
+<li>general-purpose</li>
+<li>compute-optimized</li>
+<li>memory-optimized</li>
+<li>storage-optimized</li>
+<li>gpu</li>
+<li>economical</li>
+</ul>
+<h3 id="compute-unit">Compute Unit</h3>
+<p>A defined quantity of compute capacity on a physical host.</p>
+<h3 id="allocation">Allocation</h3>
+<p>The durable workload identity consuming a Compute Unit.</p>
+<p>The distinction between Compute Unit and Allocation is especially
+important.</p>
+<hr />
+<h2 id="6-compute-units">6. Compute Units</h2>
+<p>A <strong>Compute Unit (CU)</strong> represents compute capacity carved from a
+physical Linux host.</p>
+<p>A CU may define:</p>
+<ul>
+<li>CPU allocation</li>
+<li>CPU affinity/cpuset</li>
+<li>memory limits</li>
+<li>NUMA placement</li>
+<li>task/PID limits</li>
+<li>local storage assignment</li>
+<li>disk controls</li>
+<li>network identity/enforcement</li>
+<li>other resource constraints</li>
+</ul>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>Physical Linux Host
+│
+├── Compute Unit A
+│   ├── CPU allocation
+│   ├── memory boundary
+│   ├── storage
+│   └── networking
+│
+├── Compute Unit B
+│
+└── Compute Unit C
+</code></pre></div>
+<p>A Compute Unit is <strong>not a virtual machine</strong>.</p>
+<p>It has:</p>
+<ul>
+<li>no guest OS</li>
+<li>no independent kernel</li>
+<li>no virtual hardware requirement</li>
+</ul>
+<p>It uses the host Linux kernel and standard Linux resource controls.</p>
+<hr />
+<h2 id="7-allocations">7. Allocations</h2>
+<p>Kloigos intentionally separates <strong>capacity from identity</strong>.</p>
+<h3 id="compute-unit_1">Compute Unit</h3>
+<p>Represents the available/assigned compute capacity.</p>
+<h3 id="allocation_1">Allocation</h3>
+<p>Represents the durable workload identity.</p>
+<p>An Allocation includes or references concepts such as:</p>
+<ul>
+<li>Allocation ID</li>
+<li>owning organization</li>
+<li>Unix login identity</li>
+<li>assigned IP address</li>
+<li>storage identity</li>
+<li>SSH keys</li>
+<li>security groups</li>
+<li>Instance Class</li>
+<li>tenancy mode</li>
+<li>metadata/tags</li>
+<li>current Compute Unit placement</li>
+<li>metering history</li>
+</ul>
+<p>The architectural rule is:</p>
+<blockquote>
+<p><strong>Compute Unit = capacity and placement. Allocation = durable workload
+identity.</strong></p>
+</blockquote>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Allocation A
+     │
+     ├── CU-17 / Host A
+     │
+     └── later
+          CU-42 / Host B
+</code></pre></div>
+<p>The workload remains Allocation A even if its placement changes.</p>
+<p>Features representing workload identity should normally follow the
+Allocation.</p>
+<hr />
+<h2 id="8-resource-management">8. Resource Management</h2>
+<p>Kloigos primarily uses <strong>systemd and cgroups v2</strong> to enforce Compute
+Unit resource boundaries.</p>
+<p>Relevant controls include:</p>
+<ul>
+<li>CPU</li>
+<li>CPU affinity/cpuset</li>
+<li>memory</li>
+<li>PIDs/tasks</li>
+<li>storage and I/O controls where supported</li>
+<li>nested cgroup delegation where explicitly enabled</li>
+</ul>
+<p>Linux users and filesystem permissions provide identity and filesystem
+isolation.</p>
+<p>AppArmor provides additional host-enforced policy where available.</p>
+<p>Kloigos does not consider configuration alone sufficient evidence that
+isolation works.</p>
+<p>The system's validation philosophy is:</p>
+<blockquote>
+<p><strong>Validate configured state, then deliberately attempt to violate
+it.</strong></p>
+</blockquote>
+<hr />
+<h2 id="9-networking-model">9. Networking Model</h2>
+<p>Every Allocation receives its own IP address.</p>
+<p>Kloigos networking does not depend on Docker-style overlays, container
+bridge networks, or VM virtual networking merely to provide workload
+addresses.</p>
+<p>Instead, addresses are configured using normal Linux networking on the
+physical host.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>Physical Host NIC
+    │
+    ├── Host IP
+    ├── Allocation A IP
+    ├── Allocation B IP
+    └── Allocation C IP
+</code></pre></div>
+<p>These are real addresses from administrator-provided network space.</p>
+<p>Kloigos uses <strong>nftables</strong> and standard Linux networking primitives to
+associate and enforce the use of an address by the intended Compute
+Unit/Allocation.</p>
+<p>The platform prevents one Allocation from arbitrarily using or
+impersonating another Allocation's address.</p>
+<p>This networking model is intentionally Linux-native rather than
+overlay-based.</p>
+<hr />
+<h2 id="10-ip-address-pools">10. IP Address Pools</h2>
+<p>IP addresses are a first-class infrastructure resource.</p>
+<p>Kloigos administrators configure one or more pools of addresses that
+Kloigos is permitted to allocate.</p>
+<p>Kloigos does not invent its own overlay address space.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>Administrator
+     ↓
+IP Pools
+     ↓
+Kloigos IP Allocation
+     ↓
+Allocation
+     ↓
+Physical Host NIC
+     ↓
+nftables enforcement
+</code></pre></div>
+<p>Pools may represent distinctions such as:</p>
+<ul>
+<li>subnet</li>
+<li>VLAN</li>
+<li>datacenter</li>
+<li>environment</li>
+<li>network class</li>
+<li>routability</li>
+</ul>
+<p>Kloigos tracks:</p>
+<ul>
+<li>available addresses</li>
+<li>reserved addresses</li>
+<li>allocated addresses</li>
+<li>released addresses</li>
+<li>ownership/history</li>
+</ul>
+<p>IP availability participates in provisioning and scheduling.</p>
+<p>If CPU, memory, storage, and host capacity are available but no suitable
+IP address exists, the Allocation cannot be provisioned.</p>
+<p>Duplicate IP assignment must never occur.</p>
+<p>The IP is primarily associated with the <strong>Allocation identity</strong>, not
+merely the temporary Compute Unit placement.</p>
+<p>Where the physical network topology permits it, the address follows the
+Allocation when it moves.</p>
+<hr />
+<h2 id="11-network-security-groups">11. Network Security Groups</h2>
+<p>Kloigos provides <strong>Network Security Groups</strong> similar conceptually to AWS
+EC2 security groups.</p>
+<p>Security Groups are control-plane policies describing which network
+traffic is permitted for an Allocation.</p>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">security_group</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">database</span>
+
+<span class="w">  </span><span class="nt">ingress</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tcp</span>
+<span class="w">      </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5432</span>
+<span class="w">      </span><span class="nt">source</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">security_group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application</span>
+
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tcp</span>
+<span class="w">      </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">22</span>
+<span class="w">      </span><span class="nt">source</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">cidr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.20.0.0/16</span>
+</code></pre></div>
+<p>Security Groups may define:</p>
+<ul>
+<li>allowed protocols</li>
+<li>allowed ports</li>
+<li>source CIDRs</li>
+<li>destination rules</li>
+<li>references to other Security Groups</li>
+</ul>
+<p>The model is:</p>
+<blockquote>
+<p><strong>Control-plane policy, host-enforced.</strong></p>
+</blockquote>
+<p>Kloigos compiles the desired policy into host-level <strong>nftables</strong>
+enforcement.</p>
+<p>The workload does not need to cooperate with the policy and must not be
+able to weaken another Allocation's rules.</p>
+<p>Security Group identity follows the Allocation even when its physical
+placement changes.</p>
+<hr />
+<h2 id="12-ssh-key-pair-management">12. SSH Key Pair Management</h2>
+<p>SSH keys are first-class Kloigos resources.</p>
+<p>Users can:</p>
+<ul>
+<li>import an existing SSH public key</li>
+<li>ask Kloigos to generate a new key pair</li>
+<li>select one or more keys when provisioning an Allocation</li>
+<li>add keys to an existing Allocation</li>
+<li>remove or revoke keys</li>
+<li>rotate access credentials</li>
+</ul>
+<p>The fundamental security rule is:</p>
+<blockquote>
+<p><strong>Kloigos stores public keys. Kloigos does not persist private keys.</strong></p>
+</blockquote>
+<p>For imported keys, the private key never enters Kloigos.</p>
+<p>For generated key pairs:</p>
+<div class="highlight"><pre><span></span><code>Kloigos generates key pair
+        ↓
+Stores public key
+        ↓
+Returns private key exactly once
+        ↓
+Does not retain recoverable private key
+</code></pre></div>
+<p>If the private key is lost, it cannot be downloaded again.</p>
+<p>Users create/import another key.</p>
+<p>Multiple SSH keys can be associated with one Allocation so teams do not
+need to share private keys.</p>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">allocation</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">ssh_keys</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alice-laptop</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bob-workstation</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ci-automation</span>
+</code></pre></div>
+<p>Kloigos installs the selected public keys into the Allocation Unix
+user's:</p>
+<div class="highlight"><pre><span></span><code>~/.ssh/authorized_keys
+</code></pre></div>
+<p>with correct OpenSSH ownership and permissions.</p>
+<p>SSH access follows the <strong>Allocation identity</strong> rather than physical
+placement.</p>
+<hr />
+<h2 id="13-shared-and-dedicated-tenancy">13. Shared and Dedicated Tenancy</h2>
+<p>Kloigos supports both <strong>Shared Tenancy</strong> and <strong>Dedicated Tenancy</strong>.</p>
+<h3 id="shared-tenancy">Shared Tenancy</h3>
+<p>Compute Units belonging to multiple organizations may coexist on the
+same physical Linux host.</p>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code>Shared Host
+├── CU-001 → Organization A
+├── CU-002 → Organization A
+├── CU-003 → Organization B
+└── CU-004 → Organization C
+</code></pre></div>
+<h3 id="dedicated-tenancy">Dedicated Tenancy</h3>
+<p>A physical host assigned to dedicated tenancy for Organization A may
+contain only Compute Units/Allocations belonging to Organization A.</p>
+<p>Invariant:</p>
+<div class="highlight"><pre><span></span><code>If host.tenancy_mode == dedicated:
+    every Allocation on the host
+    MUST belong to host.dedicated_organization_id
+</code></pre></div>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code>Dedicated Host → Organization A
+├── CU-001 → Organization A
+├── CU-002 → Organization A
+└── CU-003 → Organization A
+</code></pre></div>
+<p>Placement of an Organization B Allocation on that host must be rejected.</p>
+<p>Dedicated Tenancy reduces cross-organization shared-kernel exposure by
+ensuring the physical host is exclusive to one organization.</p>
+<p>It does not create separate kernels between Compute Units belonging to
+that organization.</p>
+<h3 id="dedicated-host-lifecycle">Dedicated Host Lifecycle</h3>
+<p>A host must not immediately transition from one organization's dedicated
+use to another organization's use without sanitization.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>DEDICATED(A)
+     ↓
+DRAINING
+     ↓
+SANITIZING
+     ↓
+AVAILABLE
+     ↓
+DEDICATED(B)
+</code></pre></div>
+<p>Sanitization may include cleanup of:</p>
+<ul>
+<li>Unix users</li>
+<li>SSH configuration</li>
+<li>credentials</li>
+<li>storage/LVM state</li>
+<li>files/directories</li>
+<li>IP/network state</li>
+<li>nftables state</li>
+<li>cgroups/systemd state</li>
+<li>AppArmor state</li>
+<li>temporary data</li>
+<li>tenant-specific artifacts</li>
+</ul>
+<p>A reboot may be part of the sanitization policy where required.</p>
+<hr />
+<h2 id="14-heterogeneous-hardware">14. Heterogeneous Hardware</h2>
+<p>Kloigos is designed to operate across heterogeneous physical-server
+fleets.</p>
+<p>An enterprise may have dozens of different hardware families, including
+combinations of:</p>
+<ul>
+<li>AMD CPUs</li>
+<li>Intel CPUs</li>
+<li>different CPU generations</li>
+<li>high-frequency CPU systems</li>
+<li>high-core-count systems</li>
+<li>memory-dense systems</li>
+<li>NVMe/storage-dense systems</li>
+<li>GPU systems</li>
+<li>AI accelerator systems</li>
+<li>older economical hardware</li>
+<li>different server manufacturers and models</li>
+</ul>
+<p>This physical complexity should not leak directly into the normal user
+provisioning API.</p>
+<hr />
+<h2 id="15-host-families">15. Host Families</h2>
+<p>A <strong>Host Family</strong> is an administrator-facing description of a group of
+sufficiently similar physical systems.</p>
+<p>Examples:</p>
+<div class="highlight"><pre><span></span><code>dell-r7625-epyc-9654
+hpe-dl380-xeon-8592
+gpu-h100-8x
+nvme-storage-gen2
+legacy-intel-gen4
+</code></pre></div>
+<p>Host records also contain factual hardware capabilities such as:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">host</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">cpu</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">vendor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AMD</span>
+<span class="w">    </span><span class="nt">model</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EPYC</span>
+<span class="w">    </span><span class="nt">cores</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192</span>
+
+<span class="w">  </span><span class="nt">memory</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">total_gib</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1536</span>
+
+<span class="w">  </span><span class="nt">storage</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nvme</span>
+<span class="w">    </span><span class="nt">capacity_tib</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
+
+<span class="w">  </span><span class="nt">accelerators</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">vendor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nvidia</span>
+<span class="w">      </span><span class="nt">model</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">H100</span>
+<span class="w">      </span><span class="nt">count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+</code></pre></div>
+<p>Host Families and physical capability metadata describe <strong>what
+infrastructure actually exists</strong>.</p>
+<p>They are not the primary workload-facing product abstraction.</p>
+<hr />
+<h2 id="16-instance-classes">16. Instance Classes</h2>
+<p>Users normally request one of a small number of stable <strong>Instance
+Classes</strong>.</p>
+<p>Examples:</p>
+<div class="highlight"><pre><span></span><code>general-purpose
+compute-optimized
+memory-optimized
+storage-optimized
+gpu
+economical
+</code></pre></div>
+<p>An enterprise may expose only five or six Instance Classes while
+operating 20, 30, 40, or more Host Families.</p>
+<p>Administrators map Host Families to Instance Classes.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>                         USER API
+
+              ┌──────────────────────────┐
+              │     Instance Classes     │
+              │                          │
+              │  general-purpose         │
+              │  compute-optimized       │
+              │  memory-optimized        │
+              │  storage-optimized       │
+              │  gpu                     │
+              │  economical              │
+              └────────────┬─────────────┘
+                           │
+                  Administrator Mapping
+                           │
+              ┌────────────▼─────────────┐
+              │       Host Families      │
+              │                          │
+              │ AMD families             │
+              │ Intel families           │
+              │ NVMe systems             │
+              │ GPU systems              │
+              │ legacy systems           │
+              │ ...                      │
+              └────────────┬─────────────┘
+                           │
+                    Physical Hosts
+</code></pre></div>
+<p>The principle is:</p>
+<blockquote>
+<p><strong>Users request workload characteristics. Administrators decide which
+physical hardware satisfies those characteristics.</strong></p>
+</blockquote>
+<p>Instance Classes remain stable while underlying hardware evolves.</p>
+<hr />
+<h2 id="17-compute-size-and-instance-class-are-separate">17. Compute Size and Instance Class Are Separate</h2>
+<p>Instance Class answers:</p>
+<blockquote>
+<p><strong>What kind of hardware?</strong></p>
+</blockquote>
+<p>Compute Unit size answers:</p>
+<blockquote>
+<p><strong>How much capacity?</strong></p>
+</blockquote>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">allocation</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">instance_class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">compute-optimized</span>
+
+<span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64GiB</span>
+</code></pre></div>
+<p>Other dimensions compose independently:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">allocation</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">instance_class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">storage-optimized</span>
+
+<span class="w">  </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="w">  </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128GiB</span>
+
+<span class="w">  </span><span class="nt">tenancy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dedicated</span>
+
+<span class="w">  </span><span class="nt">storage</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2TiB</span>
+
+<span class="w">  </span><span class="nt">security_groups</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">database</span>
+
+<span class="w">  </span><span class="nt">ssh_keys</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">operations</span>
+</code></pre></div>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>Instance Class
+    → What kind of hardware?
+
+Compute size
+    → How much capacity?
+
+Tenancy
+    → Who may share the physical host?
+
+Security Groups
+    → Who may communicate with it?
+
+SSH Keys
+    → Who may authenticate?
+
+Allocation
+    → What is the durable workload identity?
+</code></pre></div>
+<hr />
+<h2 id="18-scheduling-and-placement">18. Scheduling and Placement</h2>
+<p>The scheduler combines all relevant constraints.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>Allocation Request
+        │
+        ├── Instance Class
+        ├── CPU
+        ├── Memory
+        ├── Storage
+        ├── Accelerator requirements
+        ├── Tenancy
+        ├── Network/IP requirements
+        └── Additional constraints
+                  │
+                  ▼
+        Eligible Host Families
+                  │
+                  ▼
+        Eligible Physical Hosts
+                  │
+                  ▼
+        Capacity / NUMA / Tenancy /
+        Network / IP evaluation
+                  │
+                  ▼
+              Placement
+</code></pre></div>
+<p>Placement must satisfy all hard constraints atomically.</p>
+<p>The scheduler must not create invalid intermediate states, particularly
+around Dedicated Tenancy and scarce resources such as IP addresses or
+GPUs.</p>
+<hr />
+<h2 id="19-storage">19. Storage</h2>
+<p>Kloigos uses Linux-native storage mechanisms, including LVM, to provide
+storage to Allocations.</p>
+<p>Storage management should preserve:</p>
+<ul>
+<li>Allocation ownership</li>
+<li>filesystem isolation</li>
+<li>appropriate permissions</li>
+<li>logical volume identity</li>
+<li>capacity limits</li>
+<li>lifecycle correctness</li>
+</ul>
+<p>Storage identity should be treated separately from transient physical
+Compute Unit placement where the architecture permits it.</p>
+<p>Validation must distinguish:</p>
+<ul>
+<li>storage correctness/isolation</li>
+<li>storage performance</li>
+</ul>
+<p>Tools such as <code>fio</code> can be used for throughput, IOPS, and latency
+testing.</p>
+<hr />
+<h2 id="20-curated-runtime-environment">20. Curated Runtime Environment</h2>
+<p>Kloigos workloads do not need to be containerized.</p>
+<p>Users can run normal Linux software such as:</p>
+<ul>
+<li>self-contained binaries</li>
+<li>Java applications</li>
+<li>Python virtual environments</li>
+<li>Node.js applications</li>
+<li>Go binaries</li>
+<li>Rust binaries</li>
+<li><code>systemd --user</code> services</li>
+<li>traditional long-running daemons where permitted</li>
+</ul>
+<p>Hosts may provide administrator-managed runtime profiles such as:</p>
+<div class="highlight"><pre><span></span><code>minimal
+standard
+build
+</code></pre></div>
+<p>Possible shared tools include:</p>
+<ul>
+<li>Java</li>
+<li>Python</li>
+<li>Node.js</li>
+<li>Go</li>
+<li>Rust</li>
+<li>GCC</li>
+<li>Clang</li>
+<li>CMake</li>
+<li>Git</li>
+<li>pipx</li>
+<li>uv</li>
+</ul>
+<p>The host operating system remains managed centrally rather than
+duplicated per Allocation.</p>
+<hr />
+<h2 id="21-security-model">21. Security Model</h2>
+<p>Kloigos follows an EC2-like operational model in which users can receive
+SSH access to their isolated Linux execution environment and manage
+their own processes.</p>
+<p>Security therefore cannot depend solely on a particular process-launch
+mechanism.</p>
+<p>Platform-level controls include:</p>
+<ul>
+<li>Unix user identity</li>
+<li>cgroups/systemd resource boundaries</li>
+<li>filesystem ownership and permissions</li>
+<li>storage isolation</li>
+<li>dedicated workload IP addresses</li>
+<li>nftables</li>
+<li>Network Security Groups</li>
+<li>AppArmor where supported</li>
+<li>capability/audit information</li>
+<li>Dedicated Tenancy</li>
+</ul>
+<p>Systemd service sandboxing may provide additional defense for managed
+services, but it is not the primary security boundary because users can
+run arbitrary permitted shell processes.</p>
+<p>The platform must clearly communicate that Shared Tenancy uses a common
+Linux kernel.</p>
+<hr />
+<h2 id="22-allocation-based-metering">22. Allocation-Based Metering</h2>
+<p>Kloigos provides allocation-based infrastructure metering.</p>
+<p>The fundamental billing rule is:</p>
+<blockquote>
+<p><strong>Charge for allocated capacity, not observed utilization.</strong></p>
+</blockquote>
+<p>If an organization reserves:</p>
+<div class="highlight"><pre><span></span><code>16 CPUs
+64 GiB RAM
+for 10 hours
+</code></pre></div>
+<p>then those allocated resources are the basis for metering regardless of
+whether average CPU utilization was:</p>
+<div class="highlight"><pre><span></span><code>5%
+</code></pre></div>
+<p>or:</p>
+<div class="highlight"><pre><span></span><code>100%
+</code></pre></div>
+<p>The reason is that Kloigos reserved that capacity and removed it from
+the available pool.</p>
+<p>Metering follows the <strong>Allocation</strong>, not the transient physical Compute
+Unit placement.</p>
+<p>Migration must not restart, lose, or duplicate metering.</p>
+<hr />
+<h2 id="23-administrator-defined-pricing">23. Administrator-Defined Pricing</h2>
+<p>Kloigos administrators define prices.</p>
+<p>Kloigos does not impose a commercial pricing model.</p>
+<p>Pricing may depend on dimensions including:</p>
+<ul>
+<li>Instance Class</li>
+<li>CPU allocation</li>
+<li>memory allocation</li>
+<li>storage</li>
+<li>storage class</li>
+<li>GPUs/accelerators</li>
+<li>accelerator model/count</li>
+<li>Dedicated Tenancy</li>
+<li>other future features</li>
+</ul>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">pricing</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">instance_class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gpu</span>
+
+<span class="w">  </span><span class="nt">cpu</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">per_core_hour</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.08</span>
+
+<span class="w">  </span><span class="nt">memory</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">per_gib_hour</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.01</span>
+
+<span class="w">  </span><span class="nt">accelerator</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">nvidia-h100</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">per_device_hour</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.50</span>
+
+<span class="w">  </span><span class="nt">storage</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">nvme</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">per_gib_month</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.10</span>
+
+<span class="w">  </span><span class="nt">tenancy</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">dedicated</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">multiplier</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.25</span>
+</code></pre></div>
+<p>These values are administrator policy.</p>
+<hr />
+<h2 id="24-price-estimation-before-provisioning">24. Price Estimation Before Provisioning</h2>
+<p>Before creating an Allocation, users can see its expected/current cost.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Instance Class: compute-optimized
+CPU:            16
+Memory:         64 GiB
+Storage:        500 GiB
+Tenancy:        shared
+
+Estimated Price
+────────────────────────
+Hourly:          $X.XX
+Daily:           $XX.XX
+Monthly:         $XXX.XX
+</code></pre></div>
+<p>The estimate uses the same pricing engine as actual metering.</p>
+<p>This allows users to understand the economic consequence of a
+provisioning decision before committing resources.</p>
+<hr />
+<h2 id="25-dynamic-and-versioned-pricing">25. Dynamic and Versioned Pricing</h2>
+<p>Prices can change while an Allocation continues running.</p>
+<p>Pricing schedules are therefore effective-dated and versioned.</p>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code>January
+Price Schedule v1
+$5.00
+
+February
+Price Schedule v2
+$4.50
+
+March
+Price Schedule v3
+$5.50
+</code></pre></div>
+<p>A three-month Allocation spanning all three schedules is rated using the
+appropriate price during each interval.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>Allocation
+────────────────────────────────────────&gt;
+
+Jan 1            Feb 1             Mar 1
+  │                │                 │
+
+Price v1         Price v2          Price v3
+$5.00            $4.50             $5.50
+
+└── Segment 1 ──┘└── Segment 2 ──┘└── Segment 3 ──┘
+</code></pre></div>
+<p>Changes that affect cost create new metering segments, including:</p>
+<ul>
+<li>pricing changes</li>
+<li>Allocation resize</li>
+<li>Instance Class changes</li>
+<li>tenancy changes</li>
+<li>other billable-resource changes</li>
+</ul>
+<p>Historical pricing schedules are immutable once used.</p>
+<p>Historical costs must remain reproducible.</p>
+<hr />
+<h2 id="26-kloigos-is-not-the-payment-system">26. Kloigos Is Not the Payment System</h2>
+<p>Kloigos calculates infrastructure consumption and cost.</p>
+<p>It does <strong>not</strong> perform the financial settlement.</p>
+<p>The boundary is:</p>
+<div class="highlight"><pre><span></span><code>Kloigos
+    ↓
+Allocation Metering
+    ↓
+Pricing / Rating
+    ↓
+Auditable Cost Records
+    ↓
+External System
+    ↓
+Accounting / Chargeback / Invoice / Payment
+</code></pre></div>
+<p>Kloigos does not need to implement:</p>
+<ul>
+<li>payment processing</li>
+<li>credit cards</li>
+<li>bank transfers</li>
+<li>invoicing</li>
+<li>tax collection</li>
+<li>accounts receivable</li>
+<li>financial settlement</li>
+</ul>
+<p>It provides authoritative records that external FinOps, accounting,
+billing, or cost-center systems can consume.</p>
+<p>This supports both:</p>
+<ul>
+<li><strong>showback</strong> --- informing an organization what its consumption cost</li>
+<li><strong>chargeback</strong> --- providing records used by another system to
+    financially allocate that cost</li>
+</ul>
+<hr />
+<h2 id="27-auditable-cost-records">27. Auditable Cost Records</h2>
+<p>Kloigos must be able to answer:</p>
+<div class="highlight"><pre><span></span><code>Who owned this Allocation?
+
+When was it active?
+
+Which resources were allocated?
+
+Which Instance Class applied?
+
+Which tenancy mode applied?
+
+Which pricing schedules applied?
+
+When did resource or price changes occur?
+
+How was each segment calculated?
+
+What was the resulting total?
+</code></pre></div>
+<p>Historical records must remain meaningful even after:</p>
+<ul>
+<li>the Allocation is deleted</li>
+<li>its Compute Units disappear</li>
+<li>physical servers are retired</li>
+<li>Host Family mappings change</li>
+<li>Instance Classes evolve</li>
+<li>current prices change</li>
+</ul>
+<hr />
+<h2 id="28-kubernetes-k3s-on-kloigos">28. Kubernetes / K3s on Kloigos</h2>
+<p>Kloigos can run Kubernetes as a workload rather than making Kubernetes
+the infrastructure layer.</p>
+<p>The preferred initial Kubernetes distribution is <strong>K3s</strong>.</p>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code>Physical Server
+│
+├── CU1 → K3s control plane
+├── CU2 → K3s worker
+├── CU3 → K3s worker
+└── CU4 → native stateful workload
+</code></pre></div>
+<p>This demonstrates that one physical server can simultaneously support:</p>
+<ul>
+<li>containerized/stateless workloads through Kubernetes</li>
+<li>native/stateful/performance-sensitive Linux workloads directly
+    through Kloigos</li>
+</ul>
+<p>The cgroup hierarchy should preserve Kloigos as the outer authority:</p>
+<div class="highlight"><pre><span></span><code>Host
+└── Kloigos
+    ├── CU2: 4 CPU / 16 GiB
+    │   └── K3s
+    │       ├── Pod A
+    │       ├── Pod B
+    │       └── Pod C
+    │
+    └── CU4: 12 CPU / 64 GiB
+        └── Native database
+</code></pre></div>
+<p>The invariant is:</p>
+<blockquote>
+<p><strong>A nested orchestrator may subdivide resources Kloigos gives it, but
+it must never administer resources outside its Compute Unit.</strong></p>
+</blockquote>
+<p>Systemd/cgroup delegation (<code>Delegate=yes</code>) and cgroup v2 are central to
+this model.</p>
+<p>K3s networking/runtime requirements must not weaken normal Kloigos
+isolation.</p>
+<hr />
+<h2 id="29-validation-harness">29. Validation Harness</h2>
+<p>Kloigos includes a deterministic validation system for proving that
+resource and security boundaries actually hold on real Linux servers.</p>
+<p>Ansible is used for orchestration, but assertions belong in the Kloigos
+validation logic rather than being improvised by Ansible or Codex.</p>
+<p>The architectural principle is:</p>
+<blockquote>
+<p><strong>Ansible orchestrates. The validation runner decides PASS or FAIL.</strong></p>
+</blockquote>
+<p>The harness validates areas including:</p>
+<ul>
+<li>cgroups</li>
+<li>CPU</li>
+<li>memory</li>
+<li>PIDs/tasks</li>
+<li>storage</li>
+<li>disk I/O</li>
+<li>networking</li>
+<li>IP ownership</li>
+<li>Security Groups</li>
+<li>SSH access</li>
+<li>filesystem/Unix identity</li>
+<li>AppArmor</li>
+<li>Shared/Dedicated Tenancy</li>
+<li>Host Family/Instance Class placement</li>
+<li>pricing/metering</li>
+<li>contention</li>
+<li>nested K3s resource boundaries</li>
+</ul>
+<hr />
+<h2 id="30-validation-philosophy">30. Validation Philosophy</h2>
+<p>The fundamental test pattern is:</p>
+<div class="highlight"><pre><span></span><code>Configuration Test
+        +
+Enforcement / Escape Test
+        +
+Contention Test
+</code></pre></div>
+<p>Or:</p>
+<blockquote>
+<p><strong>Validate the configured state, then deliberately attempt to violate
+it.</strong></p>
+</blockquote>
+<p>Examples:</p>
+<h3 id="memory">Memory</h3>
+<p>Do not only inspect <code>memory.max</code>.</p>
+<p>Attempt to exceed the limit and prove the kernel constrains the
+workload.</p>
+<h3 id="cpu">CPU</h3>
+<p>Do not only inspect cpuset configuration.</p>
+<p>Saturate CPUs and prove the process executes only on allowed CPUs.</p>
+<p>Attempt to escape the allowed CPU set.</p>
+<h3 id="pids">PIDs</h3>
+<p>Approach/exceed <code>pids.max</code> and verify additional forks fail without
+harming sibling Allocations.</p>
+<h3 id="networking">Networking</h3>
+<p>Do not only inspect nftables.</p>
+<p>Attempt both permitted and prohibited connections.</p>
+<p>Attempt IP impersonation.</p>
+<h3 id="security-groups">Security Groups</h3>
+<p>Verify permitted traffic succeeds and prohibited traffic actually fails.</p>
+<h3 id="apparmor">AppArmor</h3>
+<p>Verify the profile exists, then attempt prohibited behavior and confirm
+denial/audit evidence.</p>
+<h3 id="dedicated-tenancy_1">Dedicated Tenancy</h3>
+<p>Attempt incompatible cross-organization placement and ensure it is
+rejected atomically.</p>
+<h3 id="pricing">Pricing</h3>
+<p>Run otherwise identical Allocations at different actual CPU utilization
+and prove their cost remains identical when allocated capacity and
+duration are identical.</p>
+<hr />
+<h2 id="31-contention-testing">31. Contention Testing</h2>
+<p>Kloigos must prove that boundaries continue to hold when multiple
+workloads stress different resources simultaneously.</p>
+<p>Example:</p>
+<div class="highlight"><pre><span></span><code>CU-A → CPU saturation
+CU-B → memory pressure
+CU-C → disk I/O saturation
+CU-D → network load + near pids.max
+</code></pre></div>
+<p>The validation harness verifies:</p>
+<ul>
+<li>each CU remains within its limits</li>
+<li>sibling workloads remain isolated</li>
+<li>the host remains healthy</li>
+<li>policy enforcement remains intact</li>
+</ul>
+<p>This is critical because resource isolation that works only under idle
+conditions is insufficient.</p>
+<hr />
+<h2 id="32-deterministic-remote-testing">32. Deterministic Remote Testing</h2>
+<p>Kloigos development requires testing on real remote Linux servers.</p>
+<p>The preferred workflow is:</p>
+<div class="highlight"><pre><span></span><code>Developer request
+        ↓
+Codex modifies Kloigos
+        ↓
+Ansible deploys to test hosts
+        ↓
+Validation Harness executes
+        ↓
+Structured PASS / FAIL
+        ↓
+Codex diagnoses failures
+        ↓
+Modify and rerun
+</code></pre></div>
+<p>Codex should not invent success criteria during execution.</p>
+<p>The repository and validation harness encode deterministic assertions.</p>
+<p>This is particularly important because many Kloigos behaviors cannot be
+meaningfully validated through ordinary CI alone.</p>
+<hr />
+<h2 id="33-product-level-resource-composition">33. Product-Level Resource Composition</h2>
+<p>A Kloigos Allocation can be thought of as a composition of independent
+infrastructure dimensions.</p>
+<div class="highlight"><pre><span></span><code>Organization
+     │
+     ▼
+Allocation
+     │
+     ├── Instance Class
+     │      What kind of hardware?
+     │
+     ├── Compute Size
+     │      How much CPU/memory?
+     │
+     ├── Storage
+     │      How much/what storage?
+     │
+     ├── Tenancy
+     │      Who may share the physical host?
+     │
+     ├── IP Address
+     │      What network identity?
+     │
+     ├── Security Groups
+     │      Who may communicate with it?
+     │
+     ├── SSH Keys
+     │      Who may authenticate?
+     │
+     └── Pricing/Metering
+            What does the reserved capacity cost?
+</code></pre></div>
+<p>These are composable primitives rather than one monolithic "server
+type."</p>
+<hr />
+<h2 id="34-example-provisioning-model">34. Example Provisioning Model</h2>
+<p>Conceptually, a complete request might resemble:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">allocation</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">organization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">payments-team</span>
+
+<span class="w">  </span><span class="nt">instance_class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">compute-optimized</span>
+
+<span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">cpu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">16</span>
+<span class="w">    </span><span class="nt">memory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">64GiB</span>
+
+<span class="w">  </span><span class="nt">storage</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500GiB</span>
+
+<span class="w">  </span><span class="nt">tenancy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dedicated</span>
+
+<span class="w">  </span><span class="nt">network</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">ip_pool</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
+
+<span class="w">  </span><span class="nt">security_groups</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">backend</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">operations-ssh</span>
+
+<span class="w">  </span><span class="nt">ssh_keys</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alice-laptop</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">operations</span>
+</code></pre></div>
+<p>Before provisioning, Kloigos can calculate the current estimated cost.</p>
+<p>The scheduler then resolves:</p>
+<ul>
+<li>eligible Host Families</li>
+<li>physical hosts</li>
+<li>resource capacity</li>
+<li>tenancy compatibility</li>
+<li>NUMA constraints</li>
+<li>storage availability</li>
+<li>IP availability</li>
+<li>other hard constraints</li>
+</ul>
+<p>and creates the Allocation on a valid Compute Unit.</p>
+<hr />
+<h2 id="35-product-narrative">35. Product Narrative</h2>
+<p>The strongest product narrative is not:</p>
+<blockquote>
+<p>"Kloigos is another application platform."</p>
+</blockquote>
+<p>Nor is it:</p>
+<blockquote>
+<p>"Kloigos replaces Kubernetes."</p>
+</blockquote>
+<p>Instead:</p>
+<blockquote>
+<p><strong>Kloigos turns Linux bare metal into consumable cloud-like
+infrastructure without requiring virtualization or making Kubernetes
+the infrastructure layer.</strong></p>
+</blockquote>
+<p>An infrastructure organization can take:</p>
+<div class="highlight"><pre><span></span><code>Old economical servers
+High-core AMD servers
+High-frequency Intel servers
+Memory-dense servers
+NVMe storage systems
+GPU/AI systems
+Different vendors and generations
+</code></pre></div>
+<p>and expose them through:</p>
+<div class="highlight"><pre><span></span><code>A small stable catalog of Instance Classes
+        +
+Compute Unit sizing
+        +
+Dedicated or Shared Tenancy
+        +
+IP allocation
+        +
+Security Groups
+        +
+SSH access
+        +
+Storage
+        +
+Metering and pricing
+</code></pre></div>
+<p>This produces a coherent internal compute service over heterogeneous
+Linux infrastructure.</p>
+<hr />
+<h2 id="36-important-architectural-invariants">36. Important Architectural Invariants</h2>
+<p>The following invariants should be preserved across implementation and
+documentation.</p>
+<h3 id="allocation-identity">Allocation Identity</h3>
+<blockquote>
+<p>Allocation identity is durable and distinct from transient Compute
+Unit placement.</p>
+</blockquote>
+<h3 id="linux-native-execution">Linux-Native Execution</h3>
+<blockquote>
+<p>A Compute Unit is not a VM and does not have its own kernel or guest
+OS.</p>
+</blockquote>
+<h3 id="shared-kernel">Shared Kernel</h3>
+<blockquote>
+<p>Compute Units on a shared physical host use the host Linux kernel.</p>
+</blockquote>
+<h3 id="dedicated-tenancy_2">Dedicated Tenancy</h3>
+<blockquote>
+<p>A dedicated host may contain Allocations from exactly one
+organization.</p>
+</blockquote>
+<h3 id="hardware-abstraction">Hardware Abstraction</h3>
+<blockquote>
+<p>Users normally request Instance Classes; administrators manage Host
+Families and physical hardware mappings.</p>
+</blockquote>
+<h3 id="networking_1">Networking</h3>
+<blockquote>
+<p>Allocation addresses come from administrator-provided IP pools and use
+standard Linux networking rather than a Kloigos overlay network.</p>
+</blockquote>
+<h3 id="network-enforcement">Network Enforcement</h3>
+<blockquote>
+<p>Security policy is defined by the control plane and enforced by the
+host, primarily through nftables.</p>
+</blockquote>
+<h3 id="ssh-keys">SSH Keys</h3>
+<blockquote>
+<p>Kloigos persists public keys, not recoverable private keys.</p>
+</blockquote>
+<h3 id="metering">Metering</h3>
+<blockquote>
+<p>Kloigos meters allocated capacity, not actual workload utilization.</p>
+</blockquote>
+<h3 id="pricing_1">Pricing</h3>
+<blockquote>
+<p>Administrators define prices; Kloigos applies them deterministically.</p>
+</blockquote>
+<h3 id="historical-pricing">Historical Pricing</h3>
+<blockquote>
+<p>Price changes are prospective and must not rewrite historical cost.</p>
+</blockquote>
+<h3 id="financial-boundary">Financial Boundary</h3>
+<blockquote>
+<p>Kloigos calculates auditable infrastructure cost; external systems
+handle financial settlement.</p>
+</blockquote>
+<h3 id="nested-orchestration">Nested Orchestration</h3>
+<blockquote>
+<p>A nested orchestrator may subdivide resources inside its CU but may
+never administer resources outside it.</p>
+</blockquote>
+<h3 id="validation">Validation</h3>
+<blockquote>
+<p>Configuration must be accompanied by enforcement/escape testing and
+contention testing.</p>
+</blockquote>
+<hr />
+<h2 id="37-documentation-guidance">37. Documentation Guidance</h2>
+<p>Documentation should consistently reflect the product model described in
+this snapshot.</p>
+<p>In particular:</p>
+<ol>
+<li>Do not describe Kloigos primarily as a PaaS if that implies its
+    scope is limited to application deployment.</li>
+<li>Do not imply Compute Units are VMs or containers.</li>
+<li>Do not imply Kloigos uses an overlay network for normal Allocation
+    networking.</li>
+<li>Do not describe physical Host Families as the normal user-facing
+    provisioning abstraction.</li>
+<li>Do not conflate Compute Units with Allocations.</li>
+<li>Do not describe actual CPU utilization as the basis of Kloigos
+    metering.</li>
+<li>Do not imply Kloigos processes payments.</li>
+<li>Do not imply Kubernetes is required to use Kloigos.</li>
+<li>Do not imply Dedicated Tenancy creates separate kernels.</li>
+<li>Do not imply generated SSH private keys remain recoverable from
+    Kloigos.</li>
+</ol>
+<p>Documentation should explain the product in terms of composable
+cloud-like infrastructure primitives implemented using Linux-native
+mechanisms.</p>
+<hr />
+<h2 id="38-guidance-to-codex">38. Guidance to Codex</h2>
+<p>When working on the Kloigos repository, treat this snapshot as product
+and architecture context.</p>
+<h3 id="preserve-the-conceptual-model">Preserve the conceptual model</h3>
+<p>Do not introduce implementation shortcuts that unintentionally collapse
+distinctions such as:</p>
+<div class="highlight"><pre><span></span><code>Allocation vs Compute Unit
+Instance Class vs Host Family
+allocated capacity vs actual utilization
+public SSH key vs private key
+Kloigos metering vs external payment
+shared tenancy vs dedicated tenancy
+</code></pre></div>
+<h3 id="prefer-deterministic-implementation">Prefer deterministic implementation</h3>
+<p>Where possible:</p>
+<ul>
+<li>encode policy explicitly</li>
+<li>encode validation criteria in the repository</li>
+<li>use Ansible for deterministic remote orchestration</li>
+<li>use Linux primitives directly</li>
+<li>produce machine-readable PASS/FAIL results</li>
+<li>avoid relying on an AI agent to decide whether infrastructure
+    behavior is correct</li>
+</ul>
+<h3 id="flag-contradictions">Flag contradictions</h3>
+<p>If repository documentation or implementation contradicts this snapshot,
+do not silently reinterpret the product.</p>
+<p>Identify the contradiction explicitly.</p>
+<p>Determine whether:</p>
+<ul>
+<li>the documentation is obsolete</li>
+<li>implementation is incomplete</li>
+<li>implementation reflects an intentional newer design</li>
+<li>this snapshot needs revision</li>
+</ul>
+<h3 id="treat-described-product-capabilities-as-part-of-kloigos">Treat described product capabilities as part of Kloigos</h3>
+<p>For product positioning and documentation work, assume the capabilities
+in this snapshot exist as part of Kloigos even if a particular feature
+branch, issue, or implementation is still in progress.</p>
+<p>Implementation status is separate from product-definition status.</p>
+<hr />
+<h2 id="39-concise-product-description">39. Concise Product Description</h2>
+<p>When a short description is needed:</p>
+<blockquote>
+<p><strong>Kloigos is a Linux-native bare-metal compute platform that turns
+heterogeneous physical Linux infrastructure into a programmable
+internal compute cloud using standard Linux primitives.</strong></p>
+</blockquote>
+<p>A slightly longer version:</p>
+<blockquote>
+<p><strong>Kloigos lets infrastructure teams expose heterogeneous bare-metal
+Linux servers as a consistent catalog of isolated Compute Units. It
+provides cloud-like capabilities including resource allocation,
+durable workload identity, dedicated IPs, Security Groups, SSH key
+management, Shared and Dedicated Tenancy, hardware-aware Instance
+Classes, storage, and allocation-based metering---without requiring
+virtual machines or making containers and Kubernetes the fundamental
+infrastructure abstraction.</strong></p>
+</blockquote>
+<hr />
+<h2 id="40-strategic-direction">40. Strategic Direction</h2>
+<p>Kloigos should continue evolving toward a consistent internal compute
+API over heterogeneous enterprise Linux infrastructure.</p>
+<p>The long-term value is not merely the ability to partition one large
+server.</p>
+<p>It is the ability to take an entire physical fleet:</p>
+<div class="highlight"><pre><span></span><code>20–40+ hardware families
+Hundreds or thousands of Linux servers
+Multiple datacenters and networks
+Different performance/cost characteristics
+</code></pre></div>
+<p>and expose it as:</p>
+<div class="highlight"><pre><span></span><code>A small understandable compute catalog
+        ↓
+Predictable Allocations
+        ↓
+Linux-native isolation
+        ↓
+Cloud-like networking/security/access
+        ↓
+Auditable resource consumption and cost
+</code></pre></div>
+<p>The resulting platform provides many of the infrastructure-management
+benefits associated with public-cloud compute while retaining direct
+Linux execution and bare-metal operational simplicity.</p>
+<hr />
+<h2 id="end-of-snapshot">End of Snapshot</h2>
+<p>This document represents the current coherent product context for
+Kloigos as of <strong>2026-09-14</strong>.</p>
+<p>Detailed implementation specifications should remain in the repository
+and associated design documents. This snapshot exists to keep product
+positioning, architecture, terminology, and implementation reasoning
+aligned across ChatGPT, Codex, maintainers, and documentation work.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/fabiog1901/kloigos" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/fabiog1901/kloigos/discussions" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M384 144c0 97.2-86 176-192 176-26.7 0-52.1-5-75.2-14l-81.6 43.2c-9.3 4.9-20.7 3.2-28.2-4.2s-9.2-18.9-4.2-28.2l35.6-67.2C14.3 220.2 0 183.6 0 144 0 46.8 86-32 192-32s192 78.8 192 176m0 368c-94.1 0-172.4-62.1-188.8-144 120-1.5 224.3-86.9 235.8-202.7 83.3 19.2 145 88.3 145 170.7 0 39.6-14.3 76.2-38.4 105.6l35.6 67.2c4.9 9.3 3.2 20.7-4.2 28.2s-18.9 9.2-28.2 4.2L459.2 498c-23.1 9-48.5 14-75.2 14"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.footnote.tooltips", "content.tabs.link", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.progress", "navigation.path", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
