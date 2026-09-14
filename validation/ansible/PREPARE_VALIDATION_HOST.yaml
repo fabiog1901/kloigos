@@ -1,0 +1,85 @@
+---
+# Prepare explicitly selected Linux hosts for future Kloigos real-host validation.
+# This playbook installs dependencies and verifies their availability only. It does
+# not run a profile, create load, or modify Kloigos-managed allocations.
+- name: Prepare Kloigos validation hosts
+  hosts: validation_hosts
+  gather_facts: true
+  become: true
+  vars:
+    validation_package_map:
+      debian:
+        - stress-ng
+        - fio
+        - iperf3
+        - iproute2
+        - nftables
+        - procps
+        - util-linux
+        - lsof
+        - psmisc
+        - jq
+        - apparmor-utils
+      redhat:
+        - stress-ng
+        - fio
+        - iperf3
+        - iproute
+        - nftables
+        - procps-ng
+        - util-linux
+        - lsof
+        - psmisc
+        - jq
+    validation_required_commands:
+      - stress-ng
+      - fio
+      - iperf3
+      - ip
+      - ss
+      - nft
+      - ps
+      - findmnt
+      - lsblk
+      - systemctl
+      - jq
+
+  tasks:
+    - name: Validate supported operating-system family
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family | lower in validation_package_map
+        fail_msg: >-
+          Validation-host preparation supports Debian and RedHat families; found
+          '{{ ansible_facts.os_family }}'.
+
+    - name: Install validation dependencies
+      ansible.builtin.package:
+        name: "{{ validation_package_map[ansible_facts.os_family | lower] }}"
+        state: present
+
+    - name: Create validation workspace
+      ansible.builtin.file:
+        path: /var/lib/kloigos-validation
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Verify required validation commands
+      ansible.builtin.command:
+        argv:
+          - /bin/sh
+          - -c
+          - "command -v {{ item }}"
+      changed_when: false
+      loop: "{{ validation_required_commands }}"
+
+    - name: Verify AppArmor inspection command on Debian-family hosts
+      ansible.builtin.command:
+        argv:
+          - /bin/sh
+          - -c
+          - command -v aa-status
+      changed_when: false
+      when: ansible_facts.os_family | lower == "debian"
