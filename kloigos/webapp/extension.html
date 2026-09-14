@@ -1025,6 +1025,7 @@
               <option value="minimal">minimal</option>
               <option value="standard">standard</option>
               <option value="build">build</option>
+              <option value="container">container</option>
             </select>
           </label>
         </div>
@@ -1063,6 +1064,10 @@
                 </div>
                 <button class="btn danger" :disabled="modal.serverInit.compute_units.length <= 1" @click="removeServerInitComputeUnit(index)">Remove</button>
               </div>
+              <label>
+                <span class="field-label">File Descriptor Limit</span>
+                <input class="input" type="number" min="1" x-model="unit.nofile" placeholder="Profile default" />
+              </label>
               <div class="kloigos-cpu-grid">
                 <template x-for="cpu in serverInitCpuOptions()" :key="cpu">
                   <button

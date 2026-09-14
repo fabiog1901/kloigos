@@ -121,6 +121,7 @@ def run_compute_unit_allocate(
                 "cpu_range": cu.cpu_range,
                 "cpu_set": cu.cpu_set,
                 "cpu_count": cu.cpu_count,
+                "nofile": cu.nofile,
                 "ssh_public_key": payload.ssh_public_key,
             },
         )
@@ -209,6 +210,7 @@ def run_compute_unit_deallocate(
                 "allocation_ip_address": allocation.ip_address,
                 "compute_unit_storage_mount_path": _storage_mount_path(cu),
                 "cpu_set": cu.cpu_set,
+                "nofile": cu.nofile,
             },
         )
         job_ok = result.status == "successful"
@@ -348,6 +350,7 @@ def run_allocation_scale(
                 "target_cpu_range": target.cpu_range,
                 "target_cpu_set": target.cpu_set,
                 "target_cpu_count": target.cpu_count,
+                "target_nofile": target.nofile,
             },
         )
         job_ok = result.status == "successful"

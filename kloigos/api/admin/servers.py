@@ -60,7 +60,8 @@ async def init_server(
       "compute_units": [
         {
           "ordinal": 1,
-          "cpu_range": "0-1"
+          "cpu_range": "0-1",
+          "nofile": 65536
         }
       ]
     }

@@ -38,6 +38,7 @@ class PostgresRepo(CPKitRepo):
             {
                 "ordinal": unit.ordinal,
                 "cpu_range": unit.cpu_range,
+                "nofile": unit.nofile,
             }
             for unit in sir.compute_units
         ]
@@ -372,6 +373,7 @@ class PostgresRepo(CPKitRepo):
                 c.cpu_count,
                 c.cpu_range,
                 c.cpu_set,
+                c.nofile,
                 CASE
                     WHEN s.mem_gb IS NOT NULL
                          AND s.cpu_count IS NOT NULL
@@ -800,12 +802,12 @@ class PostgresRepo(CPKitRepo):
             """
             INSERT INTO compute_units (
                 hostname, ordinal, cpu_range, cpu_count,
-                cpu_set,
+                cpu_set, nofile,
                 status, allocation_id, started_at, tags
             )
             VALUES (
                 %s, %s, %s, %s,
-                %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s
             )
             ON CONFLICT DO NOTHING
             """,
@@ -815,6 +817,7 @@ class PostgresRepo(CPKitRepo):
                 cudb.cpu_range,
                 cudb.cpu_count,
                 cudb.cpu_set,
+                cudb.nofile,
                 cudb.status,
                 cudb.allocation_id,
                 cudb.started_at,
@@ -911,6 +914,7 @@ class PostgresRepo(CPKitRepo):
                     s.zone,
                     c.cpu_set,
                     c.cpu_count,
+                    c.nofile,
                     c.status,
                     c.allocation_id,
                     c.started_at,
@@ -942,6 +946,7 @@ class PostgresRepo(CPKitRepo):
             available_cu.zone,
             compute_units.cpu_set,
             compute_units.cpu_count,
+            compute_units.nofile,
             compute_units.status,
             compute_units.allocation_id AS allocation_id,
             compute_units.started_at,
@@ -1006,6 +1011,7 @@ class PostgresRepo(CPKitRepo):
                 s.zone,
                 c.cpu_set,
                 c.cpu_count,
+                c.nofile,
                 c.status,
                 c.allocation_id AS allocation_id,
                 c.started_at,

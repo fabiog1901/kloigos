@@ -237,6 +237,20 @@
       args:
         executable: /bin/bash
 
+    - name: Ensure allocation file descriptor override directory exists
+      file:
+        path: /etc/systemd/system/user@{{ login_uid.stdout }}.service.d
+        state: directory
+        mode: "0755"
+
+    - name: Set allocation file descriptor limit
+      copy:
+        dest: /etc/systemd/system/user@{{ login_uid.stdout }}.service.d/50-kloigos.conf
+        mode: "0644"
+        content: |
+          [Service]
+          LimitNOFILE={{ nofile }}
+
     - name: Force SSH sessions through allocation AppArmor profile
       when: ansible_facts["os_family"] | lower == "debian"
       copy:

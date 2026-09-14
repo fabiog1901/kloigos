@@ -197,7 +197,7 @@ window.cpkitWebappExtension = {
         disk_count: null,
         disk_size_gb: null,
         tagPairs: [{ key: "", value: "" }],
-        compute_units: [{ ordinal: 1, cpu_range: "0-3", cpus: [0, 1, 2, 3] }],
+        compute_units: [{ ordinal: 1, cpu_range: "0-3", cpus: [0, 1, 2, 3], nofile: "" }],
       },
       ipPoolAdd: { open: false, ipAddresses: [{ value: "" }] },
       ipPoolDeleteConfirm: { open: false, ip_address: "" },
@@ -1766,7 +1766,7 @@ window.cpkitWebappExtension = {
       this.modal.serverInit.disk_count = null;
       this.modal.serverInit.disk_size_gb = null;
       this.modal.serverInit.tagPairs = [{ key: "", value: "" }];
-      this.modal.serverInit.compute_units = [{ ordinal: 1, cpu_range: "0-3", cpus: [0, 1, 2, 3] }];
+      this.modal.serverInit.compute_units = [{ ordinal: 1, cpu_range: "0-3", cpus: [0, 1, 2, 3], nofile: "" }];
     },
 
     serverInitTagPairsFromServer(server) {
@@ -1788,6 +1788,7 @@ window.cpkitWebappExtension = {
             ordinal: Number(unit?.ordinal) || index + 1,
             cpu_range: cpuRange,
             cpus: this.parseServerInitCpuRange(cpuRange),
+            nofile: unit?.nofile ?? "",
           };
         })
         .filter((unit) => unit.cpu_range && unit.cpus.length > 0);
@@ -1803,6 +1804,7 @@ window.cpkitWebappExtension = {
         ordinal: 1,
         cpu_range: cpus.length === 1 ? String(cpus[0]) : `${cpus[0]}-${cpus[cpus.length - 1]}`,
         cpus,
+        nofile: "",
       }];
     },
 
@@ -1960,6 +1962,7 @@ window.cpkitWebappExtension = {
         ordinal,
         cpu_range: "",
         cpus: [],
+        nofile: "",
       });
     },
 
@@ -1995,6 +1998,7 @@ window.cpkitWebappExtension = {
         compute_units: this.modal.serverInit.compute_units.map((unit, index) => ({
           ordinal: index + 1,
           cpu_range: this.serverInitCpuRange(unit, index),
+          nofile: numberOrNull(unit.nofile),
         })),
       };
 

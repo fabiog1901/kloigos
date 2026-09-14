@@ -73,6 +73,15 @@
         apparmor_parser -R /etc/apparmor.d/kloigos-{{ login_user }} 2>/dev/null || true
         rm -f /etc/apparmor.d/kloigos-{{ login_user }}
 
+    - name: Remove allocation file descriptor limit
+      shell: |
+        set -euo pipefail
+        rm -f /etc/systemd/system/user@{{ login_uid.stdout }}.service.d/50-kloigos.conf
+        rmdir /etc/systemd/system/user@{{ login_uid.stdout }}.service.d 2>/dev/null || true
+        systemctl daemon-reload
+      args:
+        executable: /bin/bash
+
     - name: remove allocation IP alias
       shell: |
         set -euo pipefail

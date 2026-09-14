@@ -203,7 +203,13 @@ class SecurityGroupIpVersion(AutoNameStrEnum):
     IPV6 = "ipv6"
 
 
-RUNTIME_PROFILES = {"minimal", "standard", "build"}
+RUNTIME_PROFILES = {"minimal", "standard", "build", "container"}
+DEFAULT_NOFILE_BY_RUNTIME_PROFILE = {
+    "minimal": 65536,
+    "standard": 65536,
+    "build": 65536,
+    "container": 1048576,
+}
 SSH_PUBLIC_KEY_TYPES = {
     "ssh-ed25519",
     "ssh-rsa",
@@ -247,6 +253,7 @@ class ComputeUnitInDB(BaseModel):
     cpu_range: str
     cpu_count: int
     cpu_set: str
+    nofile: int
     status: str
     allocation_id: str | None = None
     started_at: dt.datetime | None = None
@@ -258,6 +265,7 @@ class InitComputeUnit(BaseModel):
     cpu_range: str
     cpu_set: str
     cpu_count: int
+    nofile: int
 
     def as_playbook_vars(self) -> dict:
         return {
@@ -265,6 +273,7 @@ class InitComputeUnit(BaseModel):
             "cpu_range": self.cpu_range,
             "cpu_set": self.cpu_set,
             "cpu_count": self.cpu_count,
+            "nofile": self.nofile,
         }
 
     def as_compute_unit(self, hostname: str) -> ComputeUnitInDB:
@@ -275,6 +284,7 @@ class InitComputeUnit(BaseModel):
             cpu_range=self.cpu_range,
             cpu_count=self.cpu_count,
             cpu_set=self.cpu_set,
+            nofile=self.nofile,
             status=ComputeUnitStatus.FREE,
         )
 
@@ -351,6 +361,7 @@ class AllocationInDB(BaseModel):
     cpu_count: int | None = None
     cpu_range: str | None = None
     cpu_set: str | None = None
+    nofile: int | None = None
     memory_gb: float | None = None
     disk_size_gb: int | None = None
     region: str | None = None
@@ -569,6 +580,7 @@ class AlertInDB(BaseModel):
 class ServerComputeUnitInitSpec(BaseModel):
     ordinal: int = Field(gt=0)
     cpu_range: str
+    nofile: int | None = None
 
 
 class ServerInitRequest(BaseServer):

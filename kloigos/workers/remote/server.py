@@ -6,6 +6,7 @@ from cpkit.playbooks import run_playbook
 
 from ...models import (
     Event,
+    DEFAULT_NOFILE_BY_RUNTIME_PROFILE,
     InitComputeUnit,
     Playbook,
     ServerDecommRequest,
@@ -34,6 +35,11 @@ def _init_compute_units(sir: ServerInitRequest) -> list[InitComputeUnit]:
                 cpu_range=cu.cpu_range,
                 cpu_set=cpu_set,
                 cpu_count=len(cpu_set.split(",")),
+                nofile=(
+                    cu.nofile
+                    if cu.nofile is not None
+                    else DEFAULT_NOFILE_BY_RUNTIME_PROFILE[sir.runtime_profile]
+                ),
             )
         )
     return units

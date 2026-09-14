@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS compute_units (
     cpu_range TEXT NOT NULL,
     cpu_count INT2 NOT NULL,
     cpu_set TEXT NOT NULL,
+    nofile INT4 NOT NULL DEFAULT 65536,
     STATUS TEXT NOT NULL,
     allocation_id TEXT NULL,
     started_at TIMESTAMPTZ NULL,

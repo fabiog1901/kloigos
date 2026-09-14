@@ -65,6 +65,19 @@
           - wget
           - jq
           - unzip
+        container:
+          - default-jre-headless
+          - python3
+          - python3-pip
+          - python3-venv
+          - pipx
+          - nodejs
+          - npm
+          - git
+          - curl
+          - wget
+          - jq
+          - unzip
         build:
           - default-jre-headless
           - python3
@@ -91,6 +104,19 @@
       redhat:
         minimal: []
         standard:
+          - java-21-openjdk-headless
+          - python3
+          - python3-pip
+          - pipx
+          - nodejs
+          - npm
+          - git
+          - curl
+          - wget
+          - jq
+          - unzip
+          - tar
+        container:
           - java-21-openjdk-headless
           - python3
           - python3-pip

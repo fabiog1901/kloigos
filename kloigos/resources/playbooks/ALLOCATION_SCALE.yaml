@@ -284,6 +284,20 @@
 
         dest: /etc/systemd/system/user-{{ target_login_uid.stdout }}.slice.d/50-kloigos.conf
 
+    - name: Ensure target allocation file descriptor override directory exists
+      file:
+        path: /etc/systemd/system/user@{{ target_login_uid.stdout }}.service.d
+        state: directory
+        mode: "0755"
+
+    - name: Set target allocation file descriptor limit
+      copy:
+        dest: /etc/systemd/system/user@{{ target_login_uid.stdout }}.service.d/50-kloigos.conf
+        mode: "0644"
+        content: |
+          [Service]
+          LimitNOFILE={{ target_nofile }}
+
 - name: INITIAL RSYNC SOURCE TO CONTROLLER
   hosts: localhost
   connection: local
@@ -496,6 +510,19 @@
       shell: |
         apparmor_parser -R /etc/apparmor.d/kloigos-{{ login_user }} 2>/dev/null || true
         rm -f /etc/apparmor.d/kloigos-{{ login_user }}
+
+    - name: Remove source allocation file descriptor limit
+      when: not (same_host | bool)
+      shell: |
+        set -euo pipefail
+        SOURCE_UID="$(id -u {{ login_user }} 2>/dev/null || true)"
+        if [ -n "$SOURCE_UID" ]; then
+          rm -f /etc/systemd/system/user@"$SOURCE_UID".service.d/50-kloigos.conf
+          rmdir /etc/systemd/system/user@"$SOURCE_UID".service.d 2>/dev/null || true
+          systemctl daemon-reload
+        fi
+      args:
+        executable: /bin/bash
 
 - name: MOVE FLOATING IP TO TARGET
   hosts: scale_target
