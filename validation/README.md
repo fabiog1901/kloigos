@@ -11,15 +11,15 @@ framework and it must only run against hosts explicitly selected for validation.
 ## Current scope
 
 This foundation establishes the directory layout, declarative profile convention, stable report
-contract, and idempotent Ansible preparation for explicitly selected validation hosts. It
-intentionally includes no runner, profile execution, or workload generation.
+contract, idempotent Ansible preparation for explicitly selected validation hosts, and a local
+runner MVP. It intentionally includes no host-check adapters or workload generation.
 
 - `profiles/` contains declarative validation profiles.
 - `report.schema.json` defines the versioned machine-readable result format.
 - `examples/` contains a valid illustrative report.
 - `reports/` and `artifacts/` are local, ignored destinations for generated output.
 - `ansible/` contains validation-host preparation.
-- `runner/` is reserved for the Kloigos-specific runner.
+- `runner/` contains the Kloigos-specific reporting runner.
 
 ## Safety model
 
@@ -40,13 +40,11 @@ human-readable summary. The JSON report is the authoritative automation interfac
 - `diagnostics`, when present, points to collected evidence rather than embedding secrets or
   arbitrarily large output.
 
-The terminal summary must include the profile, target, final status, pass/fail/skip/error counts,
-and paths to the JSON report and any artifacts. Exit-status rules and report generation are owned
-by the runner implementation phase.
+The terminal summary includes the profile, target, final status, pass/fail/skip/error counts, and
+paths to the JSON report and artifacts. The runner's documented exit-status contract is available
+in `runner/README.md`.
 
 ## Phased ownership
 
-- Profile parsing, execution, exit statuses, JSON emission, and terminal summaries are implemented
-  in the runner MVP phase.
 - Smoke, enforcement, workload, contention, diagnostics, and CI profiles are implemented in their
   respective later phases.

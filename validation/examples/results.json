@@ -1,0 +1,19 @@
+[
+  {
+    "id": "cgroups.compute-unit-layout",
+    "status": "passed",
+    "summary": "Compute Unit cgroup layout matches the requested configuration.",
+    "assertions": [
+      {
+        "id": "cgroups.compute-unit-layout.expected-path",
+        "status": "passed",
+        "summary": "The expected cgroup path is present."
+      }
+    ]
+  },
+  {
+    "id": "apparmor.profile",
+    "status": "skipped",
+    "summary": "AppArmor inspection is unavailable on this target platform."
+  }
+]
