@@ -16,6 +16,7 @@ from typing import Any
 import yaml
 
 from smoke import collect_smoke_results
+from isolation_enforcement import collect_isolation_results
 
 
 SCHEMA_VERSION = 1
@@ -48,6 +49,11 @@ def _parser() -> argparse.ArgumentParser:
         help="JSON array of normalized check-result objects supplied by an adapter.",
     )
     parser.add_argument("--output", type=Path, help="Path for the generated JSON report.")
+    parser.add_argument("--allocation-user", help="Allocation user required by isolation-enforcement.")
+    parser.add_argument("--filesystem-deny-path", help="Path the allocation user must not read.")
+    parser.add_argument("--spoof-ip", help="Source address the allocation user must not bind.")
+    parser.add_argument("--deny-connect", help="host:port the allocation user must not reach.")
+    parser.add_argument("--allow-escape-attempts", action="store_true", help="Run bounded negative isolation probes.")
     parser.add_argument(
         "--allow-destructive",
         action="store_true",
@@ -195,11 +201,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         profile_name = profile["name"]
         if profile["destructive"] and not args.allow_destructive:
             raise ValueError("Profile is destructive; rerun with --allow-destructive to select it.")
+        if profile_name == "isolation-enforcement" and not args.allocation_user:
+            raise ValueError("isolation-enforcement requires --allocation-user.")
         results = (
             normalize_results(args.results_file)
             if args.results_file is not None
             else collect_smoke_results()
             if profile_name == "smoke"
+            else collect_isolation_results(args.allocation_user, allow_escape_attempts=args.allow_escape_attempts, deny_path=args.filesystem_deny_path, spoof_ip=args.spoof_ip, deny_connect=args.deny_connect)
+            if profile_name == "isolation-enforcement"
             else []
         )
     except ValueError as exc:

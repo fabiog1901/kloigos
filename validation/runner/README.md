@@ -46,3 +46,11 @@ it does not itself run destructive work.
 
 The JSON report remains the authoritative interface for automation. Terminal text reports the
 profile, target, final status, result counts, report path, and artifact directory.
+
+## Isolation enforcement
+
+`isolation-enforcement` requires `--allow-destructive --allocation-user USER`. Add
+`--allow-escape-attempts` to run bounded negative probes. Provide explicit witnesses with
+`--filesystem-deny-path`, `--spoof-ip`, and `--deny-connect host:port`; missing witnesses are
+reported as skipped. The probes only inspect permissions, bind a socket without sending traffic,
+or make the explicitly requested connection.

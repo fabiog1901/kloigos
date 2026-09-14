@@ -1,0 +1,13 @@
+schema_version: 1
+name: isolation-enforcement
+description: Positive and explicitly gated negative checks for allocation isolation boundaries.
+destructive: true
+categories:
+  - cpu-affinity
+  - memory
+  - pid-limits
+  - filesystem
+  - source-ip-spoofing
+  - network-access
+  - apparmor
+diagnostics: on_failure
