@@ -4,9 +4,9 @@
 selects a declarative profile, normalizes supplied check results, writes a JSON report conforming to
 `../report.schema.json`, and prints a concise terminal summary.
 
-The runner does not yet perform host checks by itself. Later profile phases provide the adapters
-that gather and submit results. This separation keeps the MVP safe to run while making the result
-and exit-status contract available now.
+The `smoke` profile performs read-only configured-state checks on the host where the runner runs.
+Later profile phases add enforcement, workload, and contention adapters. This separation keeps the
+runner safe while making the result and exit-status contract available now.
 
 ## Usage
 
@@ -16,10 +16,13 @@ Run a named profile from `validation/profiles/` against an explicitly named targ
 python3 validation/runner/run.py --profile smoke --target validation-host-01
 ```
 
+Run this command on the prepared validation host (for example through an explicitly initiated SSH
+session). `--target` is a report label and does not establish a remote connection.
+
 The command writes a timestamped report under `validation/reports/` by default. Use `--output` to
 choose a different report path.
 
-For adapter development, `--results-file` accepts a JSON array of normalized result objects. Each
+For adapter development or to override the built-in smoke adapter, `--results-file` accepts a JSON array of normalized result objects. Each
 object has `id`, `status`, and `summary`, with optional `started_at`, `finished_at`, and
 `assertions`. Status is one of `passed`, `failed`, `skipped`, or `error`. Unknown fields and invalid
 values are rejected and recorded as a runner error in the output report.

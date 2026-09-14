@@ -15,6 +15,8 @@ from typing import Any
 
 import yaml
 
+from smoke import collect_smoke_results
+
 
 SCHEMA_VERSION = 1
 EXIT_PASSED = 0
@@ -193,7 +195,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         profile_name = profile["name"]
         if profile["destructive"] and not args.allow_destructive:
             raise ValueError("Profile is destructive; rerun with --allow-destructive to select it.")
-        results = normalize_results(args.results_file)
+        results = (
+            normalize_results(args.results_file)
+            if args.results_file is not None
+            else collect_smoke_results()
+            if profile_name == "smoke"
+            else []
+        )
     except ValueError as exc:
         results = [{"id": "runner.input", "status": "error", "summary": str(exc)}]
 

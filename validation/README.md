@@ -11,8 +11,8 @@ framework and it must only run against hosts explicitly selected for validation.
 ## Current scope
 
 This foundation establishes the directory layout, declarative profile convention, stable report
-contract, idempotent Ansible preparation for explicitly selected validation hosts, and a local
-runner MVP. It intentionally includes no host-check adapters or workload generation.
+contract, idempotent Ansible preparation for explicitly selected validation hosts, a local runner,
+and read-only smoke checks. It intentionally includes no workload generation.
 
 - `profiles/` contains declarative validation profiles.
 - `report.schema.json` defines the versioned machine-readable result format.
@@ -46,5 +46,5 @@ in `runner/README.md`.
 
 ## Phased ownership
 
-- Smoke, enforcement, workload, contention, diagnostics, and CI profiles are implemented in their
+- Enforcement, workload, contention, diagnostics, and CI profiles are implemented in their
   respective later phases.
