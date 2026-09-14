@@ -11,6 +11,47 @@
   min-width: 980px;
 }
 
+.kloigos-security-groups-table {
+  min-width: 1120px;
+}
+
+.kloigos-rules-table {
+  min-width: 700px;
+}
+
+.kloigos-rule-section,
+.kloigos-details-section {
+  margin-top: 18px;
+}
+
+.kloigos-chip-list,
+.kloigos-attached-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.kloigos-attached-list {
+  display: grid;
+}
+
+.kloigos-attached-row,
+.kloigos-attach-form {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.42);
+  padding: 9px 10px;
+}
+
+.kloigos-attach-form .input {
+  flex: 1 1 auto;
+}
+
 .kloigos-alert-table {
   min-width: 720px;
 }

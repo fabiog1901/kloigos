@@ -15,6 +15,14 @@ window.cpkitWebappExtension = {
       icon: "network",
       countKey: "ipPool",
     },
+    {
+      view: "security_groups",
+      label: "Network Security Groups",
+      kicker: "Networking",
+      description: "Manage reusable ingress and egress rules for allocations.",
+      icon: "network",
+      countKey: "securityGroups",
+    },
   ],
   routes: {
     allocations: {
@@ -40,6 +48,13 @@ window.cpkitWebappExtension = {
       label: "IP Pool",
       subtitle: "Floating IP address pool",
       ensure: "ensureIpPoolView",
+      adminOnly: true,
+    },
+    security_groups: {
+      path: "/admin/security-groups",
+      label: "Network Security Groups",
+      subtitle: "Reusable allocation network policies",
+      ensure: "ensureSecurityGroupsView",
       adminOnly: true,
     },
   },
@@ -136,6 +151,12 @@ window.cpkitWebappExtension = {
     ipPoolAutoRefreshEnabled: true,
     _ipPoolAutoTimer: null,
     ipPoolBusyKey: null,
+    securityGroups: [],
+    securityGroupsLastUpdatedUtc: null,
+    securityGroupsLoading: { list: false, save: false, delete: false, rule: false, attachment: false },
+    securityGroupsAutoRefreshEnabled: true,
+    _securityGroupsAutoTimer: null,
+    securityGroupsBusyKey: null,
     _allocationDetailsAce: null,
     _serverDetailsAce: null,
     modal: {
@@ -180,6 +201,14 @@ window.cpkitWebappExtension = {
       },
       ipPoolAdd: { open: false, ipAddresses: [{ value: "" }] },
       ipPoolDeleteConfirm: { open: false, ip_address: "" },
+      securityGroupEdit: { open: false, security_group_id: "", name: "", description: "" },
+      securityGroupDeleteConfirm: { open: false, security_group_id: "", name: "" },
+      securityGroupDetails: { open: false, group: null },
+      securityGroupRule: {
+        open: false, security_group_id: "", direction: "ingress", protocol: "tcp",
+        ip_version: "ipv4", cidr: "0.0.0.0/0", port_from: "", port_to: "", description: "",
+      },
+      allocationSecurityGroups: { open: false, allocation: null, attached: [], available: [], selected: "" },
     },
     modalError: {
       allocate: "",
@@ -189,6 +218,10 @@ window.cpkitWebappExtension = {
       serverInit: "",
       ipPoolAdd: "",
       ipPoolDeleteConfirm: "",
+      securityGroupEdit: "",
+      securityGroupDeleteConfirm: "",
+      securityGroupRule: "",
+      allocationSecurityGroups: "",
     },
   },
   async init() {
@@ -201,6 +234,7 @@ window.cpkitWebappExtension = {
     if (this.view === "compute_units") await this.ensureComputeUnitsView();
     if (this.view === "kloigos_servers") await this.ensureKloigosServersView();
     if (this.view === "ip_pool") await this.ensureIpPoolView();
+    if (this.view === "security_groups") await this.ensureSecurityGroupsView();
     this.setManagedInterval("_allocationsAutoTimer", () => {
       if (this.allocationsAutoRefreshEnabled && this.view === "allocations") {
         this.refreshAllocations();
@@ -219,6 +253,11 @@ window.cpkitWebappExtension = {
     this.setManagedInterval("_ipPoolAutoTimer", () => {
       if (this.ipPoolAutoRefreshEnabled && this.view === "ip_pool") {
         this.refreshIpPool();
+      }
+    }, 5000);
+    this.setManagedInterval("_securityGroupsAutoTimer", () => {
+      if (this.securityGroupsAutoRefreshEnabled && this.view === "security_groups") {
+        this.refreshSecurityGroups();
       }
     }, 5000);
   },
@@ -389,6 +428,14 @@ window.cpkitWebappExtension = {
       }
     },
 
+    async ensureSecurityGroupsView() {
+      if (!this.canViewKloigosAdmin()) {
+        this.showNotice("Network Security Groups require CP_ADMIN.");
+        return;
+      }
+      if (!this.securityGroupsLoading.list) await this.refreshSecurityGroups();
+    },
+
     async refreshAllocations() {
       this.allocationsLoading.list = true;
       try {
@@ -424,6 +471,26 @@ window.cpkitWebappExtension = {
         this.showNotice(this.errorMessage(error, "Failed to load IP pool."));
       } finally {
         this.ipPoolLoading.list = false;
+      }
+    },
+
+    async refreshSecurityGroups() {
+      this.securityGroupsLoading.list = true;
+      try {
+        const groups = await this.apiFetch("/security-groups/", { method: "GET" });
+        const details = await Promise.all((Array.isArray(groups) ? groups : []).map(async (group) => {
+          try {
+            return await this.apiFetch(`/security-groups/${encodeURIComponent(group.security_group_id)}`, { method: "GET" });
+          } catch {
+            return { ...group, ingress_rules: [], egress_rules: [], attached_allocations: [] };
+          }
+        }));
+        this.securityGroups = details;
+        this.securityGroupsLastUpdatedUtc = this.utcNowString();
+      } catch (error) {
+        this.showNotice(this.errorMessage(error, "Failed to load network security groups."));
+      } finally {
+        this.securityGroupsLoading.list = false;
       }
     },
 
@@ -999,6 +1066,212 @@ window.cpkitWebappExtension = {
       }
     },
 
+    openSecurityGroupCreateModal() {
+      this.modal.securityGroupEdit = { open: true, security_group_id: "", name: "", description: "" };
+      this.modalError.securityGroupEdit = "";
+    },
+
+    openSecurityGroupEditModal(group) {
+      this.modal.securityGroupEdit = {
+        open: true,
+        security_group_id: String(group?.security_group_id || ""),
+        name: String(group?.name || ""),
+        description: String(group?.description || ""),
+      };
+      this.modalError.securityGroupEdit = "";
+    },
+
+    closeSecurityGroupEditModal() {
+      this.modal.securityGroupEdit.open = false;
+      this.modalError.securityGroupEdit = "";
+    },
+
+    async saveSecurityGroup() {
+      const modal = this.modal.securityGroupEdit;
+      const name = String(modal.name || "").trim();
+      this.securityGroupsLoading.save = true;
+      this.modalError.securityGroupEdit = "";
+      try {
+        if (!name) throw new Error("Name is required.");
+        const body = { name, description: String(modal.description || "").trim() || null };
+        if (modal.security_group_id) {
+          await this.apiFetch(`/security-groups/${encodeURIComponent(modal.security_group_id)}`, { method: "PUT", body });
+          this.showNotice("Network security group updated.");
+        } else {
+          await this.apiFetch("/security-groups/", { method: "POST", body });
+          this.showNotice("Network security group created.");
+        }
+        this.closeSecurityGroupEditModal();
+        await this.refreshSecurityGroups();
+      } catch (error) {
+        this.modalError.securityGroupEdit = this.errorMessage(error, "Failed to save network security group.");
+      } finally {
+        this.securityGroupsLoading.save = false;
+      }
+    },
+
+    async openSecurityGroupDetails(group) {
+      this.modal.securityGroupDetails.group = group || null;
+      this.modal.securityGroupDetails.open = true;
+      try {
+        this.modal.securityGroupDetails.group = await this.apiFetch(
+          `/security-groups/${encodeURIComponent(group.security_group_id)}`, { method: "GET" },
+        );
+      } catch (error) {
+        this.showNotice(this.errorMessage(error, "Failed to load network security group details."));
+      }
+    },
+
+    closeSecurityGroupDetails() {
+      this.modal.securityGroupDetails.open = false;
+      this.modal.securityGroupDetails.group = null;
+    },
+
+    openSecurityGroupDeleteConfirm(group) {
+      this.modal.securityGroupDeleteConfirm = {
+        open: true, security_group_id: String(group?.security_group_id || ""), name: String(group?.name || ""),
+      };
+      this.modalError.securityGroupDeleteConfirm = "";
+    },
+
+    closeSecurityGroupDeleteConfirm() {
+      this.modal.securityGroupDeleteConfirm.open = false;
+      this.modalError.securityGroupDeleteConfirm = "";
+    },
+
+    async deleteSecurityGroup() {
+      const modal = this.modal.securityGroupDeleteConfirm;
+      this.securityGroupsLoading.delete = true;
+      this.modalError.securityGroupDeleteConfirm = "";
+      try {
+        await this.apiFetch(`/security-groups/${encodeURIComponent(modal.security_group_id)}`, { method: "DELETE" });
+        this.closeSecurityGroupDeleteConfirm();
+        this.showNotice("Network security group deleted.");
+        await this.refreshSecurityGroups();
+      } catch (error) {
+        this.modalError.securityGroupDeleteConfirm = this.errorMessage(error, "Failed to delete network security group.");
+      } finally {
+        this.securityGroupsLoading.delete = false;
+      }
+    },
+
+    openSecurityGroupRuleModal(group, direction = "ingress") {
+      this.modal.securityGroupRule = {
+        open: true, security_group_id: String(group?.security_group_id || ""), direction,
+        protocol: "tcp", ip_version: "ipv4", cidr: "0.0.0.0/0", port_from: "", port_to: "", description: "",
+      };
+      this.modalError.securityGroupRule = "";
+    },
+
+    closeSecurityGroupRuleModal() {
+      this.modal.securityGroupRule.open = false;
+      this.modalError.securityGroupRule = "";
+    },
+
+    securityGroupRuleUsesPorts() {
+      return ["tcp", "udp"].includes(String(this.modal.securityGroupRule.protocol || ""));
+    },
+
+    async addSecurityGroupRule() {
+      const modal = this.modal.securityGroupRule;
+      this.securityGroupsLoading.rule = true;
+      this.modalError.securityGroupRule = "";
+      try {
+        const protocol = String(modal.protocol || "");
+        const portFrom = String(modal.port_from || "").trim();
+        const portTo = String(modal.port_to || "").trim();
+        if (!String(modal.cidr || "").trim()) throw new Error("CIDR is required.");
+        if (["tcp", "udp"].includes(protocol) && portTo && !portFrom) throw new Error("Port from is required when Port to is set.");
+        const payload = {
+          direction: modal.direction, protocol, ip_version: modal.ip_version,
+          cidr: String(modal.cidr).trim(), description: String(modal.description || "").trim() || null,
+          port_from: portFrom ? Number(portFrom) : null,
+          port_to: portTo ? Number(portTo) : (portFrom ? Number(portFrom) : null),
+        };
+        if (!["tcp", "udp"].includes(protocol)) {
+          payload.port_from = null;
+          payload.port_to = null;
+        }
+        await this.apiFetch(`/security-groups/${encodeURIComponent(modal.security_group_id)}/rules`, { method: "POST", body: payload });
+        this.closeSecurityGroupRuleModal();
+        this.showNotice("Security group rule added.");
+        await this.refreshSecurityGroups();
+        await this.openSecurityGroupDetails({ security_group_id: modal.security_group_id });
+      } catch (error) {
+        this.modalError.securityGroupRule = this.errorMessage(error, "Failed to add security group rule.");
+      } finally {
+        this.securityGroupsLoading.rule = false;
+      }
+    },
+
+    async deleteSecurityGroupRule(group, rule) {
+      this.securityGroupsLoading.rule = true;
+      try {
+        await this.apiFetch(`/security-groups/${encodeURIComponent(group.security_group_id)}/rules/${encodeURIComponent(rule.rule_id)}`, { method: "DELETE" });
+        this.showNotice("Security group rule deleted.");
+        await this.refreshSecurityGroups();
+        await this.openSecurityGroupDetails(group);
+      } catch (error) {
+        this.showNotice(this.errorMessage(error, "Failed to delete security group rule."));
+      } finally {
+        this.securityGroupsLoading.rule = false;
+      }
+    },
+
+    async openAllocationSecurityGroups(row) {
+      const allocation = row || {};
+      this.modal.allocationSecurityGroups = { open: true, allocation, attached: [], available: [], selected: "" };
+      this.modalError.allocationSecurityGroups = "";
+      try {
+        const [attached, allGroups] = await Promise.all([
+          this.apiFetch(`/allocations/${encodeURIComponent(allocation.allocation_id)}/security-groups`, { method: "GET" }),
+          this.apiFetch("/security-groups/", { method: "GET" }),
+        ]);
+        const attachedIds = new Set((attached || []).map((group) => group.security_group_id));
+        this.modal.allocationSecurityGroups.attached = attached || [];
+        this.modal.allocationSecurityGroups.available = (allGroups || []).filter((group) => !attachedIds.has(group.security_group_id));
+      } catch (error) {
+        this.modalError.allocationSecurityGroups = this.errorMessage(error, "Failed to load allocation security groups.");
+      }
+    },
+
+    closeAllocationSecurityGroups() {
+      this.modal.allocationSecurityGroups.open = false;
+      this.modalError.allocationSecurityGroups = "";
+    },
+
+    async attachSecurityGroupToAllocation() {
+      const modal = this.modal.allocationSecurityGroups;
+      this.securityGroupsLoading.attachment = true;
+      this.modalError.allocationSecurityGroups = "";
+      try {
+        if (!modal.selected) throw new Error("Select a network security group.");
+        await this.apiFetch(`/allocations/${encodeURIComponent(modal.allocation.allocation_id)}/security-groups/${encodeURIComponent(modal.selected)}`, { method: "POST" });
+        this.showNotice("Network security group attached.");
+        await this.openAllocationSecurityGroups(modal.allocation);
+        await this.refreshSecurityGroups();
+      } catch (error) {
+        this.modalError.allocationSecurityGroups = this.errorMessage(error, "Failed to attach network security group.");
+      } finally {
+        this.securityGroupsLoading.attachment = false;
+      }
+    },
+
+    async detachSecurityGroupFromAllocation(group) {
+      const modal = this.modal.allocationSecurityGroups;
+      this.securityGroupsLoading.attachment = true;
+      try {
+        await this.apiFetch(`/allocations/${encodeURIComponent(modal.allocation.allocation_id)}/security-groups/${encodeURIComponent(group.security_group_id)}`, { method: "DELETE" });
+        this.showNotice("Network security group detached.");
+        await this.openAllocationSecurityGroups(modal.allocation);
+        await this.refreshSecurityGroups();
+      } catch (error) {
+        this.modalError.allocationSecurityGroups = this.errorMessage(error, "Failed to detach network security group.");
+      } finally {
+        this.securityGroupsLoading.attachment = false;
+      }
+    },
+
     computeRowText(row) {
       const tags = row.tags && typeof row.tags === "object"
         ? Object.entries(row.tags).map(([key, value]) => `${key}:${Array.isArray(value) ? value.join(",") : value}`)
@@ -1267,10 +1540,20 @@ window.cpkitWebappExtension = {
       }
     },
 
-    openAllocationDetails(row) {
-      this.modal.allocationDetails.row = row || null;
+    async openAllocationDetails(row) {
+      this.modal.allocationDetails.row = { ...(row || {}), security_groups: [] };
       this.modal.allocationDetails.open = true;
       this.renderAllocationDetailsYaml();
+      try {
+        const groups = await this.apiFetch(
+          `/allocations/${encodeURIComponent(row?.allocation_id || "")}/security-groups`, { method: "GET" },
+        );
+        if (!this.modal.allocationDetails.open) return;
+        this.modal.allocationDetails.row.security_groups = groups || [];
+        this.renderAllocationDetailsYaml();
+      } catch (error) {
+        this.showNotice(this.errorMessage(error, "Failed to load allocation security groups."));
+      }
     },
 
     closeAllocationDetails() {

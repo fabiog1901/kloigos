@@ -160,6 +160,18 @@
               <td x-text="formatDateTime(row.updated_at)"></td>
               <td>
                 <div class="row-actions compact">
+                  <template x-if="canManageAllocations()">
+                    <button
+                      type="button"
+                      class="icon-btn"
+                      :disabled="allocationsBusyKey === row.allocation_id"
+                      title="Manage security groups"
+                      aria-label="Manage security groups"
+                      @click="openAllocationSecurityGroups(row)"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.5 8 11 4.6-1.5 8-6 8-11V5l-8-3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><path d="M8 12h8M12 8v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+                    </button>
+                  </template>
                   <template x-if="canManageAllocations() && allocationCanScale(row)">
                     <button
                       type="button"
@@ -658,6 +670,40 @@
   </section>
 </main>
 
+<main class="layout" x-show="view === 'security_groups' && canViewKloigosAdmin()">
+  <aside class="sidebar">
+    <section><h2>Summary</h2><div class="metric"><div class="metric-label">Security Groups</div><div class="metric-value" x-text="securityGroups.length"></div></div></section>
+    <section><h2>Actions</h2><div class="metric button-stack">
+      <button class="btn" @click="refreshSecurityGroups()" :disabled="securityGroupsLoading.list">Refresh</button>
+      <button class="btn primary" @click="openSecurityGroupCreateModal()">Create Security Group</button>
+      <label class="check-row"><input type="checkbox" x-model="securityGroupsAutoRefreshEnabled" /> Auto-refresh (5s)</label>
+    </div></section>
+  </aside>
+  <section class="main events-main">
+    <div class="main-header"><div class="main-header-left"><div class="main-title">Network Security Groups</div><div class="main-subtitle">Reusable ingress and egress policies for allocations.</div></div><div class="main-actions"><div class="pill">Updated (UTC): <span x-text="securityGroupsLastUpdatedUtc || '-'"></span></div></div></div>
+    <div class="table-container events-table-container"><div class="table-scroll events-table-scroll"><table class="data-table events-table kloigos-security-groups-table">
+      <thead><tr><th>Name</th><th>ID</th><th>Description</th><th>Ingress</th><th>Egress</th><th>Allocations</th><th>Updated</th><th>Actions</th></tr></thead>
+      <tbody>
+        <template x-for="group in securityGroups" :key="group.security_group_id"><tr>
+          <td><button type="button" class="kloigos-id-button" @click="openSecurityGroupDetails(group)" x-text="group.name"></button></td>
+          <td><span class="kloigos-chip" x-text="group.security_group_id"></span></td>
+          <td x-text="group.description || '-'"></td>
+          <td x-text="(group.ingress_rules || []).length"></td><td x-text="(group.egress_rules || []).length"></td><td x-text="(group.attached_allocations || []).length"></td>
+          <td x-text="formatDateTime(group.updated_at)"></td>
+          <td><div class="row-actions compact">
+            <button class="btn" @click="openSecurityGroupDetails(group)">Details</button>
+            <button class="btn" @click="openSecurityGroupEditModal(group)">Edit</button>
+            <button class="btn danger" :disabled="(group.attached_allocations || []).length > 0" @click="openSecurityGroupDeleteConfirm(group)">Delete</button>
+          </div></td>
+        </tr></template>
+        <tr x-show="!securityGroupsLoading.list && securityGroups.length === 0"><td colspan="8" class="empty-cell">No network security groups found.</td></tr>
+      </tbody>
+    </table></div></div>
+  </section>
+</main>
+
+<main class="layout" x-show="view === 'security_groups' && !canViewKloigosAdmin()"><section class="main"><div class="metric kloigos-empty-state"><h2>Not authorized</h2><p class="muted">Network Security Groups are available only to CP_ADMIN users.</p></div></section></main>
+
 <div class="modal-backdrop" x-show="modal.allocate.open" @click.self="closeAllocateModal()">
   <div class="modal kloigos-wide-modal">
     <div class="modal-head">
@@ -810,6 +856,10 @@
       x-show="!isAceAvailable()"
       x-text="formatYaml(allocationDetailsRecord(modal.allocationDetails.row || {}))"
     ></pre>
+    <div class="kloigos-details-section">
+      <div class="kloigos-tags-head"><label class="field-label">Security Groups</label><button class="btn" x-show="canManageAllocations()" @click="openAllocationSecurityGroups(modal.allocationDetails.row)">Manage</button></div>
+      <div class="kloigos-chip-list"><template x-for="group in modal.allocationDetails.row?.security_groups || []" :key="group.security_group_id"><span class="kloigos-chip" x-text="group.name"></span></template><span class="muted" x-show="!(modal.allocationDetails.row?.security_groups || []).length">None attached.</span></div>
+    </div>
     <div class="modal-actions">
       <button class="btn" @click="closeAllocationDetails()">Close</button>
     </div>
@@ -1060,3 +1110,39 @@
     </div>
   </div>
 </div>
+
+<div class="modal-backdrop" x-show="modal.securityGroupEdit.open" @click.self="closeSecurityGroupEditModal()"><div class="modal">
+  <div class="modal-head"><h2 x-text="modal.securityGroupEdit.security_group_id ? 'Edit Network Security Group' : 'Create Network Security Group'"></h2><button class="icon-btn" @click="closeSecurityGroupEditModal()">x</button></div>
+  <div class="notice danger" x-show="modalError.securityGroupEdit" x-text="modalError.securityGroupEdit"></div>
+  <label><span class="field-label required">Name</span><input class="input" x-model="modal.securityGroupEdit.name" placeholder="web" /></label>
+  <label><span class="field-label">Description</span><textarea class="input kloigos-textarea" x-model="modal.securityGroupEdit.description" placeholder="Optional description"></textarea></label>
+  <div class="modal-actions"><button class="btn" @click="closeSecurityGroupEditModal()">Cancel</button><button class="btn primary" :disabled="securityGroupsLoading.save" @click="saveSecurityGroup()">Save</button></div>
+</div></div>
+
+<div class="modal-backdrop" x-show="modal.securityGroupDeleteConfirm.open" @click.self="closeSecurityGroupDeleteConfirm()"><div class="modal">
+  <div class="modal-head"><h2>Confirm Delete</h2><button class="icon-btn" @click="closeSecurityGroupDeleteConfirm()">x</button></div>
+  <div class="notice danger" x-show="modalError.securityGroupDeleteConfirm" x-text="modalError.securityGroupDeleteConfirm"></div>
+  <p class="muted">Permanently delete <span class="kloigos-chip" x-text="modal.securityGroupDeleteConfirm.name"></span>?</p>
+  <div class="modal-actions"><button class="btn" @click="closeSecurityGroupDeleteConfirm()">Cancel</button><button class="btn danger" :disabled="securityGroupsLoading.delete" @click="deleteSecurityGroup()">Delete</button></div>
+</div></div>
+
+<div class="modal-backdrop" x-show="modal.securityGroupDetails.open" @click.self="closeSecurityGroupDetails()"><div class="modal kloigos-wide-modal">
+  <div class="modal-head"><h2>Network Security Group Details</h2><button class="icon-btn" @click="closeSecurityGroupDetails()">x</button></div>
+  <p class="muted"><span class="kloigos-chip" x-text="modal.securityGroupDetails.group?.security_group_id"></span> <span x-text="modal.securityGroupDetails.group?.description || ''"></span></p>
+  <div class="kloigos-rule-section"><div class="kloigos-tags-head"><h3>Ingress Rules</h3><button class="btn" @click="openSecurityGroupRuleModal(modal.securityGroupDetails.group, 'ingress')">Add Rule</button></div><table class="data-table kloigos-rules-table"><thead><tr><th>Protocol</th><th>Ports</th><th>CIDR</th><th>Description</th><th></th></tr></thead><tbody><template x-for="rule in modal.securityGroupDetails.group?.ingress_rules || []" :key="rule.rule_id"><tr><td x-text="rule.protocol"></td><td x-text="rule.port_from ? `${rule.port_from}${rule.port_to && rule.port_to !== rule.port_from ? `-${rule.port_to}` : ''}` : '-'"></td><td x-text="rule.cidr"></td><td x-text="rule.description || '-'"></td><td><button class="btn danger" :disabled="securityGroupsLoading.rule" @click="deleteSecurityGroupRule(modal.securityGroupDetails.group, rule)">Delete</button></td></tr></template><tr x-show="!(modal.securityGroupDetails.group?.ingress_rules || []).length"><td colspan="5" class="empty-cell">No ingress rules.</td></tr></tbody></table></div>
+  <div class="kloigos-rule-section"><div class="kloigos-tags-head"><h3>Egress Rules</h3><button class="btn" @click="openSecurityGroupRuleModal(modal.securityGroupDetails.group, 'egress')">Add Rule</button></div><table class="data-table kloigos-rules-table"><thead><tr><th>Protocol</th><th>Ports</th><th>CIDR</th><th>Description</th><th></th></tr></thead><tbody><template x-for="rule in modal.securityGroupDetails.group?.egress_rules || []" :key="rule.rule_id"><tr><td x-text="rule.protocol"></td><td x-text="rule.port_from ? `${rule.port_from}${rule.port_to && rule.port_to !== rule.port_from ? `-${rule.port_to}` : ''}` : '-'"></td><td x-text="rule.cidr"></td><td x-text="rule.description || '-'"></td><td><button class="btn danger" :disabled="securityGroupsLoading.rule" @click="deleteSecurityGroupRule(modal.securityGroupDetails.group, rule)">Delete</button></td></tr></template><tr x-show="!(modal.securityGroupDetails.group?.egress_rules || []).length"><td colspan="5" class="empty-cell">No egress rules.</td></tr></tbody></table></div>
+  <div class="modal-actions"><button class="btn" @click="closeSecurityGroupDetails()">Close</button></div>
+</div></div>
+
+<div class="modal-backdrop" x-show="modal.securityGroupRule.open" @click.self="closeSecurityGroupRuleModal()"><div class="modal">
+  <div class="modal-head"><h2>Add Security Group Rule</h2><button class="icon-btn" @click="closeSecurityGroupRuleModal()">x</button></div><div class="notice danger" x-show="modalError.securityGroupRule" x-text="modalError.securityGroupRule"></div>
+  <div class="kloigos-form-grid"><label><span class="field-label">Direction</span><select class="input" x-model="modal.securityGroupRule.direction"><option value="ingress">Ingress</option><option value="egress">Egress</option></select></label><label><span class="field-label">Protocol</span><select class="input" x-model="modal.securityGroupRule.protocol"><option value="tcp">TCP</option><option value="udp">UDP</option><option value="icmp">ICMP</option><option value="icmpv6">ICMPv6</option><option value="all">All</option></select></label><label><span class="field-label">IP Version</span><select class="input" x-model="modal.securityGroupRule.ip_version"><option value="ipv4">IPv4</option><option value="ipv6">IPv6</option></select></label><label><span class="field-label required">CIDR</span><input class="input" x-model="modal.securityGroupRule.cidr" placeholder="0.0.0.0/0" /></label><label x-show="securityGroupRuleUsesPorts()"><span class="field-label">Port From</span><input class="input" type="number" min="1" max="65535" x-model="modal.securityGroupRule.port_from" /></label><label x-show="securityGroupRuleUsesPorts()"><span class="field-label">Port To</span><input class="input" type="number" min="1" max="65535" x-model="modal.securityGroupRule.port_to" /></label></div><label><span class="field-label">Description</span><input class="input" x-model="modal.securityGroupRule.description" /></label>
+  <div class="modal-actions"><button class="btn" @click="closeSecurityGroupRuleModal()">Cancel</button><button class="btn primary" :disabled="securityGroupsLoading.rule" @click="addSecurityGroupRule()">Add Rule</button></div>
+</div></div>
+
+<div class="modal-backdrop" x-show="modal.allocationSecurityGroups.open" @click.self="closeAllocationSecurityGroups()"><div class="modal kloigos-wide-modal">
+  <div class="modal-head"><h2>Allocation Security Groups</h2><button class="icon-btn" @click="closeAllocationSecurityGroups()">x</button></div><p class="muted" x-text="modal.allocationSecurityGroups.allocation?.allocation_id || ''"></p><div class="notice danger" x-show="modalError.allocationSecurityGroups" x-text="modalError.allocationSecurityGroups"></div>
+  <div class="kloigos-tags-head"><h3>Attached</h3></div><div class="kloigos-attached-list"><template x-for="group in modal.allocationSecurityGroups.attached" :key="group.security_group_id"><div class="kloigos-attached-row"><span><strong x-text="group.name"></strong> <span class="muted" x-text="group.security_group_id"></span></span><button class="btn danger" :disabled="securityGroupsLoading.attachment" @click="detachSecurityGroupFromAllocation(group)">Detach</button></div></template><div class="muted" x-show="!modal.allocationSecurityGroups.attached.length">None attached.</div></div>
+  <div class="kloigos-tags-head"><h3>Attach Group</h3></div><div class="kloigos-attach-form"><select class="input" x-model="modal.allocationSecurityGroups.selected"><option value="">Select a network security group</option><template x-for="group in modal.allocationSecurityGroups.available" :key="group.security_group_id"><option :value="group.security_group_id" x-text="`${group.name} (${group.security_group_id})`"></option></template></select><button class="btn primary" :disabled="securityGroupsLoading.attachment" @click="attachSecurityGroupToAllocation()">Attach</button></div>
+  <div class="modal-actions"><button class="btn" @click="closeAllocationSecurityGroups()">Close</button></div>
+</div></div>
