@@ -19,6 +19,7 @@ from smoke import collect_smoke_results
 from isolation_enforcement import collect_isolation_results
 from storage_network import collect_storage_network_results
 from concurrent_stress import collect_concurrent_stress_results
+from diagnostics import collect_diagnostics
 
 
 SCHEMA_VERSION = 1
@@ -199,7 +200,9 @@ def _exit_status(summary: dict[str, int | str]) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     started_at = _timestamp()
+    run_id = str(uuid.uuid4())
     profile_name = Path(args.profile).stem if Path(args.profile).suffix else args.profile
+    profile: dict[str, Any] = {"diagnostics": "never"}
     results: list[dict[str, Any]]
 
     try:
@@ -230,10 +233,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         results = [{"id": "runner.input", "status": "error", "summary": str(exc)}]
 
     summary = summarize(results)
+    diagnostics = []
+    if profile.get("diagnostics") == "always" or (profile.get("diagnostics") == "on_failure" and summary["status"] != "passed"):
+        diagnostics = collect_diagnostics(ARTIFACT_DIRECTORY / run_id)
     report = {
         "schema_version": SCHEMA_VERSION,
         "run": {
-            "id": str(uuid.uuid4()),
+            "id": run_id,
             "profile": profile_name,
             "target": args.target,
             "started_at": started_at,
@@ -241,7 +247,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         },
         "summary": summary,
         "results": results,
-        "diagnostics": [],
+        "diagnostics": diagnostics,
     }
     output = write_report(report, args.output or _default_output(profile_name, args.target))
     print(f"Profile: {profile_name}")

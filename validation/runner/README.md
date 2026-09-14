@@ -69,3 +69,10 @@ simultaneous, bounded (default 15 seconds; maximum 60) CPU, memory, process, and
 those users. It preserves logs as artifacts, checks distinct cgroup CPU sets, and verifies systemd
 remains responsive. Network contention is reported as skipped until a future multi-endpoint iperf3
 orchestrator is added.
+
+## Failure diagnostics and cleanup
+
+For profiles configured with `diagnostics: on_failure`, a failed or errored run collects bounded,
+read-only systemd, journal, cgroup, and nftables evidence under a run-specific artifact directory.
+Those paths are recorded in the JSON report. Workload profiles remove their temporary files even
+when a workload fails; logs and diagnostic artifacts are deliberately retained.
