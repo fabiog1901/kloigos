@@ -22,7 +22,7 @@ python tools/codemap.py --write
 
 | Package | Modules | Classes | Functions | Routes |
 | --- | ---: | ---: | ---: | ---: |
-| `kloigos` | 29 | 60 | 37 | 20 |
+| `kloigos` | 30 | 64 | 38 | 20 |
 
 ## API Routes
 
@@ -69,7 +69,7 @@ python tools/codemap.py --write
 | `kloigos/dep.py` | functions: get_allocation_service, get_compute_unit_service, get_admin_service, get_security_group_service |
 | `kloigos/hooks.py` | Application extension hooks.; functions: run_periodic_hook |
 | `kloigos/main.py` | no public surface |
-| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, SecurityGroupNotFoundError, ServerNotFoundError, ServerStateError, Event, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ServerHealthStatus, AlertType, AlertSeverity, AlertStatus, SecurityGroupDirection, SecurityGroupProtocol, SecurityGroupIpVersion, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, AllocationCreateRequest, AllocationCreateCommand, AllocationCreateResponse, ServerHealthCheckCommand, AllocationDeallocateCommand, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolInsertRequest, SecurityGroupCreateRequest, SecurityGroupUpdateRequest, SecurityGroupInDB, SecurityGroupRuleCreateRequest, SecurityGroupRuleInDB, SecurityGroupAttachmentInDB, SecurityGroupDetail, BaseServer, ServerInDB, AlertInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
+| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, SecurityGroupNotFoundError, ServerNotFoundError, ServerStateError, Event, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ServerHealthStatus, AlertType, AlertSeverity, AlertStatus, SecurityGroupDirection, SecurityGroupProtocol, SecurityGroupIpVersion, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, AllocationCreateRequest, AllocationCreateCommand, AllocationCreateResponse, ServerHealthCheckCommand, AllocationDeallocateCommand, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolInsertRequest, SecurityGroupCreateRequest, SecurityGroupUpdateRequest, SecurityGroupInDB, SecurityGroupRuleCreateRequest, SecurityGroupRuleInDB, SecurityGroupAttachmentInDB, SecurityGroupDetail, EffectiveNetworkRule, AllocationNetworkPolicy, HostNetworkPolicy, BaseServer, ServerInDB, AlertInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
 | `kloigos/repos/__init__.py` | classes: Repo |
 | `kloigos/repos/postgres.py` | classes: PostgresRepo |
 | `kloigos/services/__init__.py` | no public surface |
@@ -79,6 +79,7 @@ python tools/codemap.py --write
 | `kloigos/services/admin/servers.py` | classes: ServersAdminService |
 | `kloigos/services/allocation.py` | classes: AllocationService |
 | `kloigos/services/compute_unit.py` | classes: ComputeUnitService |
+| `kloigos/services/network_policy.py` | classes: NetworkPolicyService; functions: render_nftables_policy |
 | `kloigos/services/security_group.py` | classes: SecurityGroupService |
 | `kloigos/util.py` | functions: to_cpu_set, parse_cpu_range |
 | `kloigos/workers/__init__.py` | Job worker entry points for Kloigos. |

@@ -475,6 +475,43 @@ class SecurityGroupDetail(SecurityGroupInDB):
     attached_allocations: list[str] = Field(default_factory=list)
 
 
+class EffectiveNetworkRule(BaseModel):
+    direction: SecurityGroupDirection
+    protocol: SecurityGroupProtocol
+    port_from: int | None = None
+    port_to: int | None = None
+    cidr: str
+    ip_version: SecurityGroupIpVersion
+    source_rule_ids: list[str] = Field(default_factory=list)
+    source_security_group_ids: list[str] = Field(default_factory=list)
+    description: str | None = None
+
+    def key(self) -> tuple:
+        return (
+            self.direction,
+            self.protocol,
+            self.port_from,
+            self.port_to,
+            self.cidr,
+            self.ip_version,
+        )
+
+
+class AllocationNetworkPolicy(BaseModel):
+    allocation_id: str
+    login_user: str
+    hostname: str
+    ip_address: str
+    ip_version: SecurityGroupIpVersion
+    ingress_rules: list[EffectiveNetworkRule] = Field(default_factory=list)
+    egress_rules: list[EffectiveNetworkRule] = Field(default_factory=list)
+
+
+class HostNetworkPolicy(BaseModel):
+    hostname: str
+    allocations: list[AllocationNetworkPolicy] = Field(default_factory=list)
+
+
 class BaseServer(BaseModel):
     hostname: str
     private_ip: str
