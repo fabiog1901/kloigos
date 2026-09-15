@@ -43,6 +43,14 @@ fixture_vars=""
 if [[ -n "${KLOIGOS_VALIDATION_FIXTURE_MANIFEST:-}" || -n "${KLOIGOS_VALIDATION_FIXTURE_ALLOCATION:-}" ]]; then
   fixture_vars="$(KLOIGOS_VALIDATION_FIXTURE_MANIFEST="${KLOIGOS_VALIDATION_FIXTURE_MANIFEST:-}" KLOIGOS_VALIDATION_FIXTURE_ALLOCATION="${KLOIGOS_VALIDATION_FIXTURE_ALLOCATION:-}" poetry run python scripts/validation-fixture-context)"
 fi
+if [[ "$profile" == "cpu-cgroup-enforcement" && -z "$fixture_vars" ]]; then
+  echo "cpu-cgroup-enforcement requires a selected fixture manifest allocation." >&2
+  exit 2
+fi
+if [[ "$profile" == "cpu-cgroup-enforcement" && "${KLOIGOS_VALIDATION_CONFIRM:-}" != "RUN_VALIDATION" ]]; then
+  echo "cpu-cgroup-enforcement requires KLOIGOS_VALIDATION_CONFIRM=RUN_VALIDATION." >&2
+  exit 2
+fi
 echo "Profile: $profile"
 echo "Run ID: $run_id"
 echo "Controller reports: $report_dir"

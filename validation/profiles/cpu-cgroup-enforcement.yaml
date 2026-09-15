@@ -1,0 +1,8 @@
+schema_version: 1
+name: cpu-cgroup-enforcement
+description: Verify fixture allocation cgroup CPU constraints and bounded affinity escape rejection.
+destructive: true
+categories:
+  - cgroups
+  - cpu-affinity
+diagnostics: on_failure

@@ -213,8 +213,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         profile_name = profile["name"]
         if profile["destructive"] and not args.allow_destructive:
             raise ValueError("Profile is destructive; rerun with --allow-destructive to select it.")
-        if profile_name == "isolation-enforcement" and not args.allocation_user:
-            raise ValueError("isolation-enforcement requires --allocation-user.")
+        if profile_name in {"isolation-enforcement", "cpu-cgroup-enforcement"} and not args.allocation_user:
+            raise ValueError(f"{profile_name} requires --allocation-user.")
         if profile_name == "storage-network" and not args.workload_dir:
             raise ValueError("storage-network requires --workload-dir.")
         if profile_name == "concurrent-stress" and not args.allocation_users:
@@ -225,7 +225,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             else collect_smoke_results()
             if profile_name == "smoke"
             else collect_isolation_results(args.allocation_user, allow_escape_attempts=args.allow_escape_attempts, deny_path=args.filesystem_deny_path, spoof_ip=args.spoof_ip, deny_connect=args.deny_connect)
-            if profile_name == "isolation-enforcement"
+            if profile_name in {"isolation-enforcement", "cpu-cgroup-enforcement"}
             else collect_storage_network_results(args.workload_dir, args.iperf_server, ARTIFACT_DIRECTORY)
             if profile_name == "storage-network"
             else collect_concurrent_stress_results([user for user in args.allocation_users.split(",") if user], args.stress_seconds, args.iperf_server, ARTIFACT_DIRECTORY)

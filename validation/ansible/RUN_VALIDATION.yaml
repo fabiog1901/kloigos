@@ -45,6 +45,8 @@
           - "{{ validation_fixture.ip_address | default('') }}"
           - --fixture-compute-unit
           - "{{ validation_fixture.compute_unit | default('') }}"
+          - --allow-destructive
+          - --allow-escape-attempts
       register: validation_runner
       changed_when: false
       failed_when: false
