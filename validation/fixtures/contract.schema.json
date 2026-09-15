@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "control_plane", "servers", "compute_units", "allocations"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "control_plane": {"type": "object", "required": ["url"]},
+    "servers": {"type": "array", "minItems": 1},
+    "compute_units": {"type": "array", "minItems": 1},
+    "allocations": {"type": "array", "minItems": 1},
+    "security_groups": {"type": "array"},
+    "tenancy_scenarios": {"type": "array"}
+  }
+}

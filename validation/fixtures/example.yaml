@@ -1,0 +1,23 @@
+schema_version: 1
+control_plane:
+  url: https://kloigos-test-controller.example.invalid
+servers:
+  - hostname: validation-host-01
+    tenancy: shared
+compute_units:
+  - hostname: validation-host-01
+    ordinal: 1
+    cpu_range: 0-3
+allocations:
+  - allocation_id: validation-a
+    login_user: validation_a
+    ip_address: 192.0.2.10
+    compute_unit: validation-host-01-cu01
+    organization: validation-org-a
+security_groups:
+  - name: validation-allow-http
+    attachments: [validation-a]
+tenancy_scenarios:
+  - name: shared-same-organization
+    organization: validation-org-a
+    server: validation-host-01
