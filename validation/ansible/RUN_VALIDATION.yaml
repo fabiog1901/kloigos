@@ -37,6 +37,14 @@
           - "{{ inventory_hostname }}"
           - --output
           - "{{ validation_remote_report }}"
+          - --allocation-user
+          - "{{ validation_fixture.login_user | default('') }}"
+          - --fixture-allocation-id
+          - "{{ validation_fixture.allocation_id | default('') }}"
+          - --fixture-ip
+          - "{{ validation_fixture.ip_address | default('') }}"
+          - --fixture-compute-unit
+          - "{{ validation_fixture.compute_unit | default('') }}"
       register: validation_runner
       changed_when: false
       failed_when: false

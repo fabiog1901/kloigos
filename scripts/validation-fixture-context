@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+"""Emit one explicitly selected fixture allocation as Ansible JSON extra vars."""
+from __future__ import annotations
+import json, os, sys
+from pathlib import Path
+import yaml
+
+manifest=Path(os.environ.get("KLOIGOS_VALIDATION_FIXTURE_MANIFEST", ""))
+selected=os.environ.get("KLOIGOS_VALIDATION_FIXTURE_ALLOCATION", "")
+if not manifest.is_file() or not selected: raise SystemExit("Fixture manifest and allocation selection are required.")
+data=yaml.safe_load(manifest.read_text())
+fixture=next((item for item in data.get("allocations", []) if item.get("allocation_id")==selected), None)
+if not fixture: raise SystemExit(f"Fixture allocation '{selected}' is absent from {manifest}.")
+required={"allocation_id","login_user","ip_address","compute_unit"}
+missing=required-fixture.keys()
+if missing: raise SystemExit(f"Fixture allocation is missing: {', '.join(sorted(missing))}.")
+print(json.dumps({"validation_fixture":fixture}))
