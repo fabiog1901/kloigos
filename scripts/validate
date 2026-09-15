@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Local controller entry point for manually requested Kloigos validation.
+set -euo pipefail
+
+if [[ "${1:-}" == "--help" ]]; then
+  cat <<'EOF'
+Usage: make validate
+
+Run from the Ubuntu development machine. Set KLOIGOS_VALIDATION_INVENTORY to
+an Ansible inventory containing explicitly designated remote Kloigos test hosts.
+This controller does not accept localhost inventories and never starts validation
+automatically. Remote orchestration is added in the next validation phase.
+EOF
+  exit 0
+fi
+
+inventory="${KLOIGOS_VALIDATION_INVENTORY:-}"
+if [[ -z "$inventory" ]]; then
+  echo "KLOIGOS_VALIDATION_INVENTORY is required; see validation/controller.env.example." >&2
+  exit 2
+fi
+if [[ ! -f "$inventory" ]]; then
+  echo "Validation inventory does not exist: $inventory" >&2
+  exit 2
+fi
+if grep -Eq '(^|[[:space:]])(localhost|127\.0\.0\.1|::1)([[:space:]]|$)' "$inventory"; then
+  echo "Validation inventory must name remote Kloigos test hosts, not localhost." >&2
+  exit 2
+fi
+
+echo "Kloigos validation controller"
+echo "Inventory: $inventory"
+echo "Remote Ansible orchestration is not installed yet (tracked by #20); refusing to report PASS." >&2
+exit 2

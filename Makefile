@@ -1,6 +1,6 @@
 # Convenience commands for local development and documentation maintenance.
 
-.PHONY: help run serve migrate format refresh-cpkit pre-commit docs-write docs-check docs-build docs-serve docs-clean py-compile
+.PHONY: help run serve migrate format refresh-cpkit pre-commit docs-write docs-check docs-build docs-serve docs-clean py-compile validate
 
 MKDOCS_SITE_DIR ?= /private/tmp/kloigos-mkdocs-site
 
@@ -41,3 +41,6 @@ docs-clean: ## Remove the temporary MkDocs build output.
 
 py-compile: ## Compile all Python files to catch syntax errors.
 	poetry run python -m py_compile $$(find kloigos tools -type f -name '*.py' -not -path '*/__pycache__/*')
+
+validate: ## Start manually requested Kloigos real-host validation from this controller.
+	./scripts/validate
