@@ -1,269 +1,55 @@
 #!/usr/bin/env python3
-"""Run the Kloigos real-host validation reporting MVP."""
-
+"""Evaluate Ansible-collected Kloigos validation evidence and write a report."""
 from __future__ import annotations
-
-import argparse
-import json
-import re
-import sys
-import uuid
+import argparse, json, uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
-
-from smoke import collect_smoke_results
-from isolation_enforcement import collect_isolation_results
-from storage_network import collect_storage_network_results
-from concurrent_stress import collect_concurrent_stress_results
-from diagnostics import collect_diagnostics
-
-
 SCHEMA_VERSION = 1
-EXIT_PASSED = 0
-EXIT_FAILED = 1
-EXIT_ERROR = 2
-RESULT_STATUSES = frozenset({"passed", "failed", "skipped", "error"})
-PROFILE_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-ROOT = Path(__file__).resolve().parents[1]
-PROFILE_DIRECTORY = ROOT / "profiles"
-REPORT_DIRECTORY = ROOT / "reports"
-ARTIFACT_DIRECTORY = ROOT / "artifacts"
+GROUPS = frozenset({"smoke", "resources", "network", "workloads"})
+DESTRUCTIVE_GROUPS = frozenset({"workloads"})
 
-
-def _timestamp() -> str:
+def timestamp() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
+def parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--group", required=True, choices=sorted(GROUPS)); p.add_argument("--target", required=True)
+    p.add_argument("--evidence-file", required=True, type=Path); p.add_argument("--output", required=True, type=Path)
+    p.add_argument("--allow-destructive", action="store_true")
+    return p
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--profile",
-        required=True,
-        help="Profile name in validation/profiles or path to a profile YAML file.",
-    )
-    parser.add_argument("--target", required=True, help="Explicit validation-host identifier.")
-    parser.add_argument(
-        "--results-file",
-        type=Path,
-        help="JSON array of normalized check-result objects supplied by an adapter.",
-    )
-    parser.add_argument("--output", type=Path, help="Path for the generated JSON report.")
-    parser.add_argument("--allocation-user", help="Allocation user required by isolation-enforcement.")
-    parser.add_argument("--fixture-allocation-id", help="Selected fixture allocation identifier.")
-    parser.add_argument("--fixture-ip", help="Selected fixture allocation IP address.")
-    parser.add_argument("--fixture-compute-unit", help="Selected fixture expected Compute Unit.")
-    parser.add_argument("--filesystem-deny-path", help="Path the allocation user must not read.")
-    parser.add_argument("--spoof-ip", help="Source address the allocation user must not bind.")
-    parser.add_argument("--deny-connect", help="host:port the allocation user must not reach.")
-    parser.add_argument("--workload-dir", type=Path, help="Writable directory for the storage-network profile.")
-    parser.add_argument("--iperf-server", help="iperf3 server host:port for the storage-network profile.")
-    parser.add_argument("--allocation-users", help="Comma-separated allocation users for concurrent-stress.")
-    parser.add_argument("--stress-seconds", type=int, default=15, help="Concurrent stress duration (1-60 seconds).")
-    parser.add_argument("--allow-escape-attempts", action="store_true", help="Run bounded negative isolation probes.")
-    parser.add_argument(
-        "--allow-destructive",
-        action="store_true",
-        help="Allow a profile declared as destructive to be selected.",
-    )
-    return parser
+def load_evidence(path: Path) -> list[dict[str, str]]:
+    try: value = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as exc: raise ValueError(f"Unable to read evidence '{path}': {exc}") from exc
+    if not isinstance(value, list): raise ValueError("Evidence must be a JSON array.")
+    records = []
+    for index, item in enumerate(value, 1):
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str) or not item["id"].strip(): raise ValueError(f"Evidence record {index} needs a non-empty id.")
+        if item.get("status") == "skipped": records.append({"id": item["id"], "status": "skipped", "summary": str(item.get("summary") or "Not configured.")}); continue
+        if not isinstance(item.get("rc"), int): raise ValueError(f"Evidence record {index} needs an integer rc.")
+        output = str(item.get("stderr") or item.get("stdout") or "command returned no output").strip().replace("\n", " ")
+        records.append({"id": item["id"], "status": "passed" if item["rc"] == 0 else "failed", "summary": f"{item.get('command', item['id'])}: {output[:300]}"})
+    return records
 
-
-def _profile_path(profile: str) -> Path:
-    candidate = Path(profile)
-    if candidate.suffix in {".yaml", ".yml"} or candidate.parent != Path("."):
-        return candidate
-    if not PROFILE_NAME.fullmatch(profile):
-        raise ValueError("Profile names must be lowercase hyphen-separated identifiers.")
-    return PROFILE_DIRECTORY / f"{profile}.yaml"
-
-
-def load_profile(profile_argument: str) -> dict[str, Any]:
-    path = _profile_path(profile_argument)
-    try:
-        document = yaml.safe_load(path.read_text())
-    except OSError as exc:
-        raise ValueError(f"Unable to read profile '{path}': {exc.strerror or exc}") from exc
-    except yaml.YAMLError as exc:
-        raise ValueError(f"Profile '{path}' is not valid YAML: {exc}") from exc
-
-    if not isinstance(document, dict):
-        raise ValueError("A profile must be a YAML mapping.")
-
-    required = {"schema_version", "name", "description", "destructive", "categories", "diagnostics"}
-    missing = required - document.keys()
-    if missing:
-        raise ValueError(f"Profile is missing required field(s): {', '.join(sorted(missing))}.")
-    if document["schema_version"] != SCHEMA_VERSION:
-        raise ValueError(f"Unsupported profile schema version: {document['schema_version']!r}.")
-    if not isinstance(document["name"], str) or not PROFILE_NAME.fullmatch(document["name"]):
-        raise ValueError("Profile 'name' must be a lowercase hyphen-separated identifier.")
-    if not isinstance(document["description"], str) or not document["description"].strip():
-        raise ValueError("Profile 'description' must be a non-empty string.")
-    if not isinstance(document["destructive"], bool):
-        raise ValueError("Profile 'destructive' must be a boolean.")
-    if not isinstance(document["categories"], list) or not document["categories"]:
-        raise ValueError("Profile 'categories' must be a non-empty list.")
-    if not all(isinstance(category, str) and category.strip() for category in document["categories"]):
-        raise ValueError("Every profile category must be a non-empty string.")
-    if document["diagnostics"] not in {"never", "on_failure", "always"}:
-        raise ValueError("Profile 'diagnostics' must be never, on_failure, or always.")
-    return document
-
-
-def _normalize_assertion(value: Any) -> dict[str, str]:
-    if not isinstance(value, dict):
-        raise ValueError("Each assertion must be an object.")
-    allowed = {"id", "status", "summary"}
-    unexpected = value.keys() - allowed
-    if unexpected:
-        raise ValueError(f"Assertion contains unsupported field(s): {', '.join(sorted(unexpected))}.")
-    normalized = {key: value.get(key) for key in allowed}
-    if not isinstance(normalized["id"], str) or not normalized["id"].strip():
-        raise ValueError("Assertion 'id' must be a non-empty string.")
-    if normalized["status"] not in RESULT_STATUSES:
-        raise ValueError("Assertion 'status' must be passed, failed, skipped, or error.")
-    if not isinstance(normalized["summary"], str) or not normalized["summary"].strip():
-        raise ValueError("Assertion 'summary' must be a non-empty string.")
-    return normalized  # type: ignore[return-value]
-
-
-def normalize_results(path: Path | None) -> list[dict[str, Any]]:
-    if path is None:
-        return []
-    try:
-        source = json.loads(path.read_text())
-    except OSError as exc:
-        raise ValueError(f"Unable to read results file '{path}': {exc.strerror or exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Results file '{path}' is not valid JSON: {exc.msg}.") from exc
-    if not isinstance(source, list):
-        raise ValueError("Results file must contain a JSON array.")
-
-    normalized_results: list[dict[str, Any]] = []
-    allowed = {"id", "status", "summary", "started_at", "finished_at", "assertions"}
-    for index, value in enumerate(source, start=1):
-        if not isinstance(value, dict):
-            raise ValueError(f"Result {index} must be an object.")
-        unexpected = value.keys() - allowed
-        if unexpected:
-            raise ValueError(
-                f"Result {index} contains unsupported field(s): {', '.join(sorted(unexpected))}."
-            )
-        result = {key: value[key] for key in ("id", "status", "summary") if key in value}
-        if not isinstance(result.get("id"), str) or not result["id"].strip():
-            raise ValueError(f"Result {index} 'id' must be a non-empty string.")
-        if result.get("status") not in RESULT_STATUSES:
-            raise ValueError(f"Result {index} 'status' must be passed, failed, skipped, or error.")
-        if not isinstance(result.get("summary"), str) or not result["summary"].strip():
-            raise ValueError(f"Result {index} 'summary' must be a non-empty string.")
-        for field in ("started_at", "finished_at"):
-            if field in value:
-                if not isinstance(value[field], str) or not value[field].strip():
-                    raise ValueError(f"Result {index} '{field}' must be a non-empty string.")
-                result[field] = value[field]
-        if "assertions" in value:
-            if not isinstance(value["assertions"], list):
-                raise ValueError(f"Result {index} 'assertions' must be an array.")
-            result["assertions"] = [_normalize_assertion(item) for item in value["assertions"]]
-        normalized_results.append(result)
-    return normalized_results
-
-
-def summarize(results: list[dict[str, Any]]) -> dict[str, int | str]:
-    counts = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0}
-    for result in results:
-        status = result["status"]
-        if status == "error":
-            counts["errors"] += 1
-        else:
-            counts[status] += 1
-    status = "error" if counts["errors"] else "failed" if counts["failed"] else "passed"
-    return {"status": status, **counts}
-
-
-def _default_output(profile: str, target: str) -> Path:
-    safe_target = re.sub(r"[^A-Za-z0-9_.-]+", "-", target).strip("-") or "target"
-    return REPORT_DIRECTORY / f"{_timestamp().replace(':', '')}-{profile}-{safe_target}.json"
-
-
-def write_report(report: dict[str, Any], output: Path) -> Path:
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
-    return output.resolve()
-
-
-def _exit_status(summary: dict[str, int | str]) -> int:
-    return {"passed": EXIT_PASSED, "failed": EXIT_FAILED, "error": EXIT_ERROR}[summary["status"]]  # type: ignore[index]
-
+def summarize(results: list[dict[str, str]]) -> dict[str, int | str]:
+    counts: dict[str, int | str] = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0}
+    for item in results: counts["errors" if item["status"] == "error" else item["status"]] = int(counts["errors" if item["status"] == "error" else item["status"]]) + 1
+    counts["status"] = "error" if counts["errors"] else "failed" if counts["failed"] else "passed"
+    return counts
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
-    started_at = _timestamp()
-    run_id = str(uuid.uuid4())
-    profile_name = Path(args.profile).stem if Path(args.profile).suffix else args.profile
-    profile: dict[str, Any] = {"diagnostics": "never"}
-    results: list[dict[str, Any]]
-
+    args = parser().parse_args(argv); started = timestamp()
     try:
-        profile = load_profile(args.profile)
-        profile_name = profile["name"]
-        if profile["destructive"] and not args.allow_destructive:
-            raise ValueError("Profile is destructive; rerun with --allow-destructive to select it.")
-        if profile_name in {"isolation-enforcement", "cpu-cgroup-enforcement"} and not args.allocation_user:
-            raise ValueError(f"{profile_name} requires --allocation-user.")
-        if profile_name == "storage-network" and not args.workload_dir:
-            raise ValueError("storage-network requires --workload-dir.")
-        if profile_name == "concurrent-stress" and not args.allocation_users:
-            raise ValueError("concurrent-stress requires --allocation-users.")
-        results = (
-            normalize_results(args.results_file)
-            if args.results_file is not None
-            else collect_smoke_results()
-            if profile_name == "smoke"
-            else collect_isolation_results(args.allocation_user, allow_escape_attempts=args.allow_escape_attempts, deny_path=args.filesystem_deny_path, spoof_ip=args.spoof_ip, deny_connect=args.deny_connect)
-            if profile_name in {"isolation-enforcement", "cpu-cgroup-enforcement"}
-            else collect_storage_network_results(args.workload_dir, args.iperf_server, ARTIFACT_DIRECTORY)
-            if profile_name == "storage-network"
-            else collect_concurrent_stress_results([user for user in args.allocation_users.split(",") if user], args.stress_seconds, args.iperf_server, ARTIFACT_DIRECTORY)
-            if profile_name == "concurrent-stress"
-            else []
-        )
-    except ValueError as exc:
-        results = [{"id": "runner.input", "status": "error", "summary": str(exc)}]
+        if args.group in DESTRUCTIVE_GROUPS and not args.allow_destructive: raise ValueError(f"{args.group} requires --allow-destructive.")
+        results = load_evidence(args.evidence_file)
+    except ValueError as exc: results = [{"id": "runner.input", "status": "error", "summary": str(exc)}]
+    totals = summarize(results)
+    report: dict[str, Any] = {"schema_version": SCHEMA_VERSION, "run": {"id": str(uuid.uuid4()), "profile": args.group, "target": args.target, "started_at": started, "finished_at": timestamp()}, "summary": totals, "results": results, "diagnostics": []}
+    args.output.parent.mkdir(parents=True, exist_ok=True); args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    print(f"Group: {args.group}\nTarget: {args.target}\nStatus: {totals['status']} (passed={totals['passed']}, failed={totals['failed']}, skipped={totals['skipped']}, errors={totals['errors']})\nReport: {args.output.resolve()}")
+    return 2 if totals["status"] == "error" else 1 if totals["status"] == "failed" else 0
 
-    summary = summarize(results)
-    diagnostics = []
-    if profile.get("diagnostics") == "always" or (profile.get("diagnostics") == "on_failure" and summary["status"] != "passed"):
-        diagnostics = collect_diagnostics(ARTIFACT_DIRECTORY / run_id)
-    report = {
-        "schema_version": SCHEMA_VERSION,
-        "run": {
-            "id": run_id,
-            "profile": profile_name,
-            "target": args.target,
-            "started_at": started_at,
-            "finished_at": _timestamp(),
-        },
-        "summary": summary,
-        "results": results,
-        "diagnostics": diagnostics,
-    }
-    output = write_report(report, args.output or _default_output(profile_name, args.target))
-    print(f"Profile: {profile_name}")
-    print(f"Target: {args.target}")
-    print(
-        "Status: {status} (passed={passed}, failed={failed}, skipped={skipped}, errors={errors})".format(
-            **summary
-        )
-    )
-    print(f"Report: {output}")
-    print(f"Artifacts: {ARTIFACT_DIRECTORY.resolve()}")
-    return _exit_status(summary)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+if __name__ == "__main__": raise SystemExit(main())

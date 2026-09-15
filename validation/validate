@@ -59,9 +59,10 @@ esac
 inventory="${KLOIGOS_VALIDATION_INVENTORY:-}"
 [[ -f "$inventory" ]] || { echo "KLOIGOS_VALIDATION_INVENTORY is required." >&2; exit 2; }
 command -v ansible-playbook >/dev/null || { echo "ansible-playbook is required." >&2; exit 2; }
-profile="${KLOIGOS_VALIDATION_PROFILE:-smoke}"
+group="${KLOIGOS_VALIDATION_GROUP:-smoke}"
 report_dir="${KLOIGOS_VALIDATION_REPORT_DIR:-$(pwd)/validation/reports/controller}"
 run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"; mkdir -p "$report_dir"
-extra_vars=(--extra-vars "validation_profile=$profile validation_controller_report_dir=$report_dir validation_run_id=$run_id")
+allow_destructive="${KLOIGOS_VALIDATION_ALLOW_DESTRUCTIVE:-false}"
+extra_vars=(--extra-vars "validation_group=$group validation_allow_destructive=$allow_destructive validation_controller_report_dir=$report_dir validation_run_id=$run_id")
 if [[ -n "$manifest" ]]; then extra_vars+=(--extra-vars "$(fixture_context)"); fi
 ansible-playbook -i "$inventory" validation/ansible/RUN_VALIDATION.yaml "${extra_vars[@]}"

@@ -1,5 +1,4 @@
----
-# Controller-side orchestration only. Remote runner exit status determines PASS/FAIL.
+# Controller orchestration. Linux commands run in Ansible; run.py only evaluates evidence.
 - name: Run Kloigos validation on explicitly selected test hosts
   hosts: validation_hosts
   gather_facts: false
@@ -7,86 +6,74 @@
   vars:
     validation_remote_root: "/var/lib/kloigos-validation/runs/{{ validation_run_id }}"
     validation_remote_report: "{{ validation_remote_root }}/report.json"
+    validation_remote_evidence: "{{ validation_remote_root }}/evidence.json"
   tasks:
-    - name: Create remote harness directory
+    - name: Validate stable check group
+      ansible.builtin.assert:
+        that: validation_group in ['smoke', 'resources', 'network', 'workloads']
+        fail_msg: "KLOIGOS_VALIDATION_GROUP must be smoke, resources, network, or workloads."
+    - name: Require destructive-workload consent
+      ansible.builtin.assert:
+        that: validation_allow_destructive | bool
+        fail_msg: "The workloads group requires KLOIGOS_VALIDATION_ALLOW_DESTRUCTIVE=1."
+      when: validation_group == 'workloads'
+    - name: Create remote run workspace
       ansible.builtin.file:
         path: "{{ validation_remote_root }}"
         state: directory
         mode: "0750"
-
-    - name: Deploy validation runner
+    - name: Deploy report evaluator
       ansible.builtin.copy:
-        src: ../runner/
-        dest: "{{ validation_remote_root }}/runner/"
-        mode: preserve
-
-    - name: Deploy validation profiles
-      ansible.builtin.copy:
-        src: ../profiles/
-        dest: "{{ validation_remote_root }}/profiles/"
-        mode: preserve
-
-    - name: Run selected validation profile remotely
+        src: ../runner/run.py
+        dest: "{{ validation_remote_root }}/run.py"
+        mode: "0750"
+    - name: Collect Linux command evidence
+      ansible.builtin.shell:
+        cmd: |
+          set -u
+          evidence={{ validation_remote_evidence | quote }}; work={{ validation_remote_root | quote }}; group={{ validation_group | quote }}
+          fixture_user={{ validation_fixture.login_user | default('') | quote }}; fixture_ip={{ validation_fixture.ip_address | default('') | quote }}
+          printf '[]' > "$evidence"
+          record() { id="$1"; shift; output="$work/$id.out"; "$@" >"$output" 2>&1; rc=$?; jq --arg id "$id" --arg command "$*" --arg stdout "$(cat "$output")" --argjson rc "$rc" '. + [{id:$id,command:$command,stdout:$stdout,rc:$rc}]' "$evidence" > "$evidence.next" && mv "$evidence.next" "$evidence"; }
+          skip() { jq --arg id "$1" --arg summary "$2" '. + [{id:$id,status:"skipped",summary:$summary}]' "$evidence" > "$evidence.next" && mv "$evidence.next" "$evidence"; }
+          case "$group" in
+            smoke) record compute-units.discovery sh -c 'lvs --noheadings -o lv_name | grep -Eq "^[[:space:]]*cu[0-9]+$"'; record cgroups.v2 sh -c 'test -f /sys/fs/cgroup/cgroup.controllers && grep -qw cpuset /sys/fs/cgroup/cgroup.controllers && test -f /etc/systemd/system/user@.service.d/delegate.conf'; if compgen -G '/etc/systemd/system/user-*.slice.d/50-kloigos.conf' >/dev/null; then record cpu.cpuset sh -c 'grep -Rqs "^AllowedCPUs=" /etc/systemd/system/user-*.slice.d/50-kloigos.conf'; else skip cpu.cpuset 'No allocated-user slice overrides are present on this host.'; fi; record systemd.manager systemctl show --property=Version --value; record storage.compute-unit-mounts sh -c 'find /mnt/kloigos -mindepth 2 -maxdepth 2 -type d -name "cu*" -print -quit | grep -q .'; if compgen -G '/etc/kloigos/floating-ips.d/*.conf' >/dev/null; then record networking.floating-ips sh -c 'grep -Rqs "^ip_address=" /etc/kloigos/floating-ips.d'; else skip networking.floating-ips 'No Kloigos floating-IP configurations are present.'; fi; record nftables.configuration sh -c 'test -f /etc/nftables.conf && test -f /etc/nftables.d/kloigos-compute-units.nft && nft list table inet kloigos_compute_units'; if compgen -G '/etc/apparmor.d/kloigos-*' >/dev/null; then record apparmor.profiles aa-status --enabled; else skip apparmor.profiles 'No Kloigos AppArmor profiles are present.'; fi; if compgen -G '/etc/systemd/system/user@*.service.d/50-kloigos.conf' >/dev/null; then record resource-limits.nofile sh -c 'grep -Rqs "^LimitNOFILE=[0-9]" /etc/systemd/system/user@*.service.d/50-kloigos.conf'; else skip resource-limits.nofile 'No allocation LimitNOFILE overrides are present.'; fi ;;
+            resources) if [ -n "$fixture_user" ] && id -u "$fixture_user" >/dev/null 2>&1; then uid=$(id -u "$fixture_user"); record resources.cgroup-limits sh -c "test -s /sys/fs/cgroup/user.slice/user-${uid}.slice/cpuset.cpus.effective && test \"\$(cat /sys/fs/cgroup/user.slice/user-${uid}.slice/memory.max)\" != max && test \"\$(cat /sys/fs/cgroup/user.slice/user-${uid}.slice/pids.max)\" != max"; else skip resources.cgroup-limits 'No selected fixture allocation user.'; fi; record resources.systemd-overrides sh -c 'find /etc/systemd/system -path "*/50-kloigos.conf" -print -quit | grep -q .' ;;
+            network) if [ -n "$fixture_ip" ]; then record network.floating-ip ip addr show to "$fixture_ip"; else skip network.floating-ip 'No selected fixture IP.'; fi; record network.nftables nft list table inet kloigos_compute_units ;;
+            workloads) record workloads.fio sh -c 'command -v fio && fio --name=kloigos-validation --filename=/var/lib/kloigos-validation/.fio.bin --size=16M --rw=readwrite --bs=1M --direct=0 --verify=crc32c --do_verify=1 --output-format=json; rc=$?; rm -f /var/lib/kloigos-validation/.fio.bin; exit $rc'; record workloads.host-responsiveness systemctl is-system-running ;;
+          esac
+        executable: /bin/bash
+      changed_when: false
+    - name: Evaluate collected evidence and write report
       ansible.builtin.command:
-        argv:
-          - python3
-          - "{{ validation_remote_root }}/runner/run.py"
-          - --profile
-          - "{{ validation_remote_root }}/profiles/{{ validation_profile }}.yaml"
-          - --target
-          - "{{ inventory_hostname }}"
-          - --output
-          - "{{ validation_remote_report }}"
-          - --allocation-user
-          - "{{ validation_fixture.login_user | default('') }}"
-          - --fixture-allocation-id
-          - "{{ validation_fixture.allocation_id | default('') }}"
-          - --fixture-ip
-          - "{{ validation_fixture.ip_address | default('') }}"
-          - --fixture-compute-unit
-          - "{{ validation_fixture.compute_unit | default('') }}"
-          - --allow-destructive
-          - --allow-escape-attempts
+        argv: [python3, "{{ validation_remote_root }}/run.py", --group, "{{ validation_group }}", --target, "{{ inventory_hostname }}", --evidence-file, "{{ validation_remote_evidence }}", --output, "{{ validation_remote_report }}", --allow-destructive]
       register: validation_runner
       changed_when: false
       failed_when: false
-
-    - name: Fetch remote validation report
+    - name: Fetch validation report and evidence
       ansible.builtin.fetch:
-        src: "{{ validation_remote_report }}"
+        src: "{{ item }}"
         dest: "{{ validation_controller_report_dir }}/"
         flat: false
+      loop: ["{{ validation_remote_report }}", "{{ validation_remote_evidence }}"]
       failed_when: false
-
-    - name: Archive remote validation artifacts
+    - name: Archive raw command artifacts
       ansible.builtin.command:
-        argv:
-          - tar
-          - -C
-          - "{{ validation_remote_root }}"
-          - -czf
-          - "{{ validation_remote_root }}/artifacts.tar.gz"
-          - artifacts
+        argv: [tar, -C, "{{ validation_remote_root }}", -czf, "{{ validation_remote_root }}/artifacts.tar.gz", --exclude=report.json, --exclude=evidence.json, .]
       changed_when: false
       failed_when: false
-
-    - name: Fetch remote validation artifacts
+    - name: Fetch raw command artifacts
       ansible.builtin.fetch:
         src: "{{ validation_remote_root }}/artifacts.tar.gz"
         dest: "{{ validation_controller_report_dir }}/"
         flat: false
       failed_when: false
-
-    - name: Remove successful remote validation workspace
+    - name: Remove successful remote workspace
       ansible.builtin.file:
         path: "{{ validation_remote_root }}"
         state: absent
       when: validation_runner.rc | default(1) == 0
-
     - name: Propagate validation result
       ansible.builtin.assert:
-        that:
-          - validation_runner.rc == 0
-        fail_msg: >-
-          Validation failed on {{ inventory_hostname }} with runner exit status
-          {{ validation_runner.rc }}. Inspect the fetched JSON report.
+        that: validation_runner.rc == 0
+        fail_msg: "Validation failed on {{ inventory_hostname }}; inspect the fetched JSON report."

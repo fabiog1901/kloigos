@@ -1,50 +1,22 @@
 # Kloigos real-host validation
 
-This directory defines the real-host validation harness for Kloigos. Unlike unit or integration
-tests of the Python codebase, this harness will exercise and inspect Linux hosts and Compute Units
-managed by Kloigos.
+Run manually from a controller that can SSH to explicitly designated Kloigos test hosts:
 
-It is intended to answer operational questions such as whether a deployed allocation has the
-expected cgroup, networking, storage, and isolation boundaries. It is not a general-purpose test
-framework and it must only run against hosts explicitly selected for validation.
+```bash
+make validate
+```
 
-## Current scope
+The stable check groups are `smoke` (default), `resources`, `network`, and `workloads`.
+Set `KLOIGOS_VALIDATION_GROUP` to select one. `workloads` creates a bounded temporary fio file
+and additionally requires `KLOIGOS_VALIDATION_ALLOW_DESTRUCTIVE=1`.
 
-This foundation establishes the directory layout, declarative profile convention, stable report
-contract, idempotent Ansible preparation for explicitly selected validation hosts, a local runner,
-and read-only smoke checks. It intentionally includes no workload generation.
+The one fixture manifest is the only environment-specific configuration source. Set
+`KLOIGOS_VALIDATION_FIXTURE_MANIFEST` and select an allocation with
+`KLOIGOS_VALIDATION_FIXTURE_ALLOCATION`; use `make validate ARGS="fixtures setup"` before a
+run and `make validate ARGS="fixtures cleanup"` afterwards when fixtures are needed.
 
-- `profiles/` contains declarative validation profiles.
-- `report.schema.json` defines the versioned machine-readable result format.
-- `examples/` contains a valid illustrative report.
-- `reports/` and `artifacts/` are local, ignored destinations for generated output.
-- `ansible/` contains validation-host preparation.
-- `runner/` contains the Kloigos-specific reporting runner.
-
-## Safety model
-
-Profiles must state whether they are destructive. A future runner must require explicit user
-selection before it runs a destructive profile, and must write all reports and collected evidence
-under this directory. Profiles must not embed shell commands or credentials; executable behavior
-belongs to the runner and its documented adapters.
-
-## Report contract
-
-Every completed run will write one JSON report conforming to `report.schema.json` and a concise
-human-readable summary. The JSON report is the authoritative automation interface:
-
-- `schema_version` allows compatible evolution of the contract.
-- `run` identifies the requested profile, target, and timing.
-- `summary` provides stable aggregate counts and final status.
-- `results` records one result per check with a stable check identifier.
-- `diagnostics`, when present, points to collected evidence rather than embedding secrets or
-  arbitrarily large output.
-
-The terminal summary includes the profile, target, final status, pass/fail/skip/error counts, and
-paths to the JSON report and artifacts. The runner's documented exit-status contract is available
-in `runner/README.md`.
-
-## Phased ownership
-
-- Enforcement, workload, contention, diagnostics, and CI profiles are implemented in their
-  respective later phases.
+Ansible runs Linux inspection or workload commands on the selected host, saving raw output and
+`evidence.json` in a unique remote workspace. `runner/run.py` evaluates that evidence and writes
+the structured JSON report. Both files are fetched below `KLOIGOS_VALIDATION_REPORT_DIR`
+(`validation/reports/controller` by default). Successful remote workspaces are removed; failed
+ones remain for diagnosis.
