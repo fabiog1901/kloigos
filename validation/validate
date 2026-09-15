@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Single local controller entry point for Kloigos validation and fixtures.
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: make validate [ARGS="run|fixtures setup|fixtures cleanup"]
+
+run (default) validates explicitly inventoried remote Kloigos test hosts.
+fixtures setup/cleanup manages only allocations and IPs declared in the fixture manifest.
+EOF
+}
+
+manifest="${KLOIGOS_VALIDATION_FIXTURE_MANIFEST:-}"
+api_call() {
+  local method="$1" path="$2" body="${3:-}"
+  local args=(--fail --silent --show-error --max-time 30 -X "$method" -H 'Content-Type: application/json')
+  [[ -n "$body" ]] && args+=(--data "$body")
+  curl "${args[@]}" "${KLOIGOS_VALIDATION_API_URL:-http://localhost:8000/api}${path}"
+}
+fixture_context() {
+  KLOIGOS_VALIDATION_FIXTURE_MANIFEST="$manifest" \
+  KLOIGOS_VALIDATION_FIXTURE_ALLOCATION="${KLOIGOS_VALIDATION_FIXTURE_ALLOCATION:-}" \
+  poetry run python -c 'import json,os,yaml; from pathlib import Path; p=Path(os.environ["KLOIGOS_VALIDATION_FIXTURE_MANIFEST"]); a=os.environ["KLOIGOS_VALIDATION_FIXTURE_ALLOCATION"]; d=yaml.safe_load(p.read_text()); f=next((x for x in d.get("allocations",[]) if x.get("allocation_id")==a),None); assert f, "selected fixture allocation is absent"; print(json.dumps({"validation_fixture":f}))'
+}
+fixtures() {
+  [[ -f "$manifest" ]] || { echo "KLOIGOS_VALIDATION_FIXTURE_MANIFEST is required." >&2; exit 2; }
+  local action="$1" allocations addresses item job status
+  allocations="$(poetry run python -c 'import os,yaml,json; print(json.dumps(yaml.safe_load(open(os.environ["KLOIGOS_VALIDATION_FIXTURE_MANIFEST"]))["allocations"]))')"
+  addresses="$(jq -c '[.[].ip_address]' <<<"$allocations")"
+  if [[ "$action" == setup ]]; then
+    api_call POST /admin/ip_pool/ "{\"ip_addresses\":$addresses}" >/dev/null
+  fi
+  while read -r item; do
+    if [[ "$action" == setup ]]; then
+      job="$(api_call POST /allocations/ "$(jq -c '{allocation_id,login_user,cpu_count,region,zone,tags,ssh_public_key}' <<<"$item")")"
+    else
+      job="$(api_call DELETE "/allocations/$(jq -r .allocation_id <<<"$item")")"
+    fi
+    for _ in {1..120}; do
+      status="$(api_call GET "/jobs/$(jq -r .job_id <<<"$job")")"
+      [[ "$(jq -r .status <<<"$status")" == successful ]] && break
+      [[ "$(jq -r .status <<<"$status")" =~ ^(failed|cancelled)$ ]] && { echo "Fixture job failed: $status" >&2; exit 1; }
+      sleep 2
+    done
+  done < <(jq -c '.[]' <<<"$allocations")
+  if [[ "$action" == cleanup ]]; then
+    while read -r address; do api_call DELETE "/admin/ip_pool/$address" >/dev/null; done < <(jq -r '.[]' <<<"$addresses")
+  fi
+}
+
+case "${1:-run}" in
+  --help|-h) usage; exit 0 ;;
+  fixtures) fixtures "${2:?Use fixtures setup or fixtures cleanup.}"; exit 0 ;;
+  run) ;;
+  *) usage >&2; exit 2 ;;
+esac
+
+inventory="${KLOIGOS_VALIDATION_INVENTORY:-}"
+[[ -f "$inventory" ]] || { echo "KLOIGOS_VALIDATION_INVENTORY is required." >&2; exit 2; }
+command -v ansible-playbook >/dev/null || { echo "ansible-playbook is required." >&2; exit 2; }
+profile="${KLOIGOS_VALIDATION_PROFILE:-smoke}"
+report_dir="${KLOIGOS_VALIDATION_REPORT_DIR:-$(pwd)/validation/reports/controller}"
+run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"; mkdir -p "$report_dir"
+extra_vars=(--extra-vars "validation_profile=$profile validation_controller_report_dir=$report_dir validation_run_id=$run_id")
+if [[ -n "$manifest" ]]; then extra_vars+=(--extra-vars "$(fixture_context)"); fi
+ansible-playbook -i "$inventory" validation/ansible/RUN_VALIDATION.yaml "${extra_vars[@]}"
