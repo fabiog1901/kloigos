@@ -1,0 +1,57 @@
+---
+# Controller-side orchestration only. Remote runner exit status determines PASS/FAIL.
+- name: Run Kloigos validation on explicitly selected test hosts
+  hosts: validation_hosts
+  gather_facts: false
+  become: true
+  vars:
+    validation_remote_root: /var/lib/kloigos-validation/harness
+    validation_remote_report: /var/lib/kloigos-validation/report.json
+  tasks:
+    - name: Create remote harness directory
+      ansible.builtin.file:
+        path: "{{ validation_remote_root }}"
+        state: directory
+        mode: "0750"
+
+    - name: Deploy validation runner
+      ansible.builtin.copy:
+        src: ../runner/
+        dest: "{{ validation_remote_root }}/runner/"
+        mode: preserve
+
+    - name: Deploy validation profiles
+      ansible.builtin.copy:
+        src: ../profiles/
+        dest: "{{ validation_remote_root }}/profiles/"
+        mode: preserve
+
+    - name: Run selected validation profile remotely
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ validation_remote_root }}/runner/run.py"
+          - --profile
+          - "{{ validation_remote_root }}/profiles/{{ validation_profile }}.yaml"
+          - --target
+          - "{{ inventory_hostname }}"
+          - --output
+          - "{{ validation_remote_report }}"
+      register: validation_runner
+      changed_when: false
+      failed_when: false
+
+    - name: Fetch remote validation report
+      ansible.builtin.fetch:
+        src: "{{ validation_remote_report }}"
+        dest: "{{ validation_controller_report_dir }}/"
+        flat: false
+      failed_when: false
+
+    - name: Propagate validation result
+      ansible.builtin.assert:
+        that:
+          - validation_runner.rc == 0
+        fail_msg: >-
+          Validation failed on {{ inventory_hostname }} with runner exit status
+          {{ validation_runner.rc }}. Inspect the fetched JSON report.

@@ -10,6 +10,8 @@ Run it from the Ubuntu development machine that can reach designated Kloigos tes
 SSH. Set `KLOIGOS_VALIDATION_INVENTORY` to an Ansible inventory outside this repository (or an
 ignored local file). The controller rejects missing, nonexistent, and localhost inventories.
 
-This phase establishes the safe invocation contract only. It deliberately exits nonzero rather
-than claim validation passed until the next phase installs remote Ansible orchestration. No GitHub
-Actions, hooks, or automatic triggers are involved.
+The controller invokes `validation/ansible/RUN_VALIDATION.yaml`. Ansible copies the runner and
+profiles to each host, runs the selected profile there, fetches its JSON report into the controller
+report directory, and then propagates the runner status. Ansible only transports and collects;
+the remote harness determines PASS or FAIL. No GitHub Actions, hooks, or automatic triggers are
+involved.

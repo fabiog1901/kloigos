@@ -30,5 +30,15 @@ fi
 
 echo "Kloigos validation controller"
 echo "Inventory: $inventory"
-echo "Remote Ansible orchestration is not installed yet (tracked by #20); refusing to report PASS." >&2
-exit 2
+if ! command -v ansible-playbook >/dev/null 2>&1; then
+  echo "ansible-playbook is required on the validation controller." >&2
+  exit 2
+fi
+
+profile="${KLOIGOS_VALIDATION_PROFILE:-smoke}"
+report_dir="${KLOIGOS_VALIDATION_REPORT_DIR:-$(pwd)/validation/reports/controller}"
+mkdir -p "$report_dir"
+echo "Profile: $profile"
+echo "Controller reports: $report_dir"
+ansible-playbook -i "$inventory" validation/ansible/RUN_VALIDATION.yaml \
+  --extra-vars "validation_profile=$profile validation_controller_report_dir=$report_dir"
