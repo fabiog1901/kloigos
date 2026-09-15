@@ -12,6 +12,8 @@ allocations:
   - allocation_id: validation-a
     login_user: validation_a
     ip_address: 192.0.2.10
+    cpu_count: 4
+    ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDk65l+4HPbBZRt6mV7tHcvap3PrhCUo79iaCEdE1exxfabio@hp
     compute_unit: validation-host-01-cu01
     organization: validation-org-a
 security_groups:
