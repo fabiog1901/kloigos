@@ -30,8 +30,12 @@ def load_evidence(path: Path) -> list[dict[str, str]]:
         if not isinstance(item, dict) or not isinstance(item.get("id"), str) or not item["id"].strip(): raise ValueError(f"Evidence record {index} needs a non-empty id.")
         if item.get("status") == "skipped": records.append({"id": item["id"], "status": "skipped", "summary": str(item.get("summary") or "Not configured.")}); continue
         if not isinstance(item.get("rc"), int): raise ValueError(f"Evidence record {index} needs an integer rc.")
+        if "expect_failure" in item and not isinstance(item["expect_failure"], bool): raise ValueError(f"Evidence record {index} expect_failure must be a boolean.")
         output = str(item.get("stderr") or item.get("stdout") or "command returned no output").strip().replace("\n", " ")
-        records.append({"id": item["id"], "status": "passed" if item["rc"] == 0 else "failed", "summary": f"{item.get('command', item['id'])}: {output[:300]}"})
+        expected_failure = item.get("expect_failure", False)
+        passed = item["rc"] != 0 if expected_failure else item["rc"] == 0
+        expectation = "denied as expected" if expected_failure and passed else "unexpectedly succeeded" if expected_failure else output[:300]
+        records.append({"id": item["id"], "status": "passed" if passed else "failed", "summary": f"{item.get('command', item['id'])}: {expectation}"})
     return records
 
 def summarize(results: list[dict[str, str]]) -> dict[str, int | str]:

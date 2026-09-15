@@ -7,8 +7,10 @@ make validate
 ```
 
 The stable check groups are `smoke` (default), `resources`, `network`, and `workloads`.
-Set `KLOIGOS_VALIDATION_GROUP` to select one. `workloads` creates a bounded temporary fio file
-and additionally requires `KLOIGOS_VALIDATION_ALLOW_DESTRUCTIVE=1`.
+Set `KLOIGOS_VALIDATION_GROUP` to select one. `resources` uses the manifest-selected allocation
+user to inspect its cgroup limits and prove a CPU-affinity escape is rejected. `workloads` runs
+bounded `stress-ng` CPU, memory, process, and disk workers as that allocation user and creates a
+temporary fio file; it requires `KLOIGOS_VALIDATION_ALLOW_DESTRUCTIVE=1`.
 
 The one fixture manifest is the only environment-specific configuration source. Set
 `KLOIGOS_VALIDATION_FIXTURE_MANIFEST` and select an allocation with

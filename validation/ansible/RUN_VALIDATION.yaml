@@ -35,18 +35,109 @@
           fixture_user={{ validation_fixture.login_user | default('') | quote }}; fixture_ip={{ validation_fixture.ip_address | default('') | quote }}
           printf '[]' > "$evidence"
           record() { id="$1"; shift; output="$work/$id.out"; "$@" >"$output" 2>&1; rc=$?; jq --arg id "$id" --arg command "$*" --arg stdout "$(cat "$output")" --argjson rc "$rc" '. + [{id:$id,command:$command,stdout:$stdout,rc:$rc}]' "$evidence" > "$evidence.next" && mv "$evidence.next" "$evidence"; }
+          expect_failure() { id="$1"; shift; output="$work/$id.out"; "$@" >"$output" 2>&1; rc=$?; jq --arg id "$id" --arg command "$*" --arg stdout "$(cat "$output")" --argjson rc "$rc" '. + [{id:$id,command:$command,stdout:$stdout,rc:$rc,expect_failure:true}]' "$evidence" > "$evidence.next" && mv "$evidence.next" "$evidence"; }
           skip() { jq --arg id "$1" --arg summary "$2" '. + [{id:$id,status:"skipped",summary:$summary}]' "$evidence" > "$evidence.next" && mv "$evidence.next" "$evidence"; }
           case "$group" in
             smoke) record compute-units.discovery sh -c 'lvs --noheadings -o lv_name | grep -Eq "^[[:space:]]*cu[0-9]+$"'; record cgroups.v2 sh -c 'test -f /sys/fs/cgroup/cgroup.controllers && grep -qw cpuset /sys/fs/cgroup/cgroup.controllers && test -f /etc/systemd/system/user@.service.d/delegate.conf'; if compgen -G '/etc/systemd/system/user-*.slice.d/50-kloigos.conf' >/dev/null; then record cpu.cpuset sh -c 'grep -Rqs "^AllowedCPUs=" /etc/systemd/system/user-*.slice.d/50-kloigos.conf'; else skip cpu.cpuset 'No allocated-user slice overrides are present on this host.'; fi; record systemd.manager systemctl show --property=Version --value; record storage.compute-unit-mounts sh -c 'find /mnt/kloigos -mindepth 2 -maxdepth 2 -type d -name "cu*" -print -quit | grep -q .'; if compgen -G '/etc/kloigos/floating-ips.d/*.conf' >/dev/null; then record networking.floating-ips sh -c 'grep -Rqs "^ip_address=" /etc/kloigos/floating-ips.d'; else skip networking.floating-ips 'No Kloigos floating-IP configurations are present.'; fi; record nftables.configuration sh -c 'test -f /etc/nftables.conf && test -f /etc/nftables.d/kloigos-compute-units.nft && nft list table inet kloigos_compute_units'; if compgen -G '/etc/apparmor.d/kloigos-*' >/dev/null; then record apparmor.profiles aa-status --enabled; else skip apparmor.profiles 'No Kloigos AppArmor profiles are present.'; fi; if compgen -G '/etc/systemd/system/user@*.service.d/50-kloigos.conf' >/dev/null; then record resource-limits.nofile sh -c 'grep -Rqs "^LimitNOFILE=[0-9]" /etc/systemd/system/user@*.service.d/50-kloigos.conf'; else skip resource-limits.nofile 'No allocation LimitNOFILE overrides are present.'; fi ;;
-            resources) if [ -n "$fixture_user" ] && id -u "$fixture_user" >/dev/null 2>&1; then uid=$(id -u "$fixture_user"); record resources.cgroup-limits sh -c "test -s /sys/fs/cgroup/user.slice/user-${uid}.slice/cpuset.cpus.effective && test \"\$(cat /sys/fs/cgroup/user.slice/user-${uid}.slice/memory.max)\" != max && test \"\$(cat /sys/fs/cgroup/user.slice/user-${uid}.slice/pids.max)\" != max"; else skip resources.cgroup-limits 'No selected fixture allocation user.'; fi; record resources.systemd-overrides sh -c 'find /etc/systemd/system -path "*/50-kloigos.conf" -print -quit | grep -q .' ;;
+            resources) ;;
             network) if [ -n "$fixture_ip" ]; then record network.floating-ip ip addr show to "$fixture_ip"; else skip network.floating-ip 'No selected fixture IP.'; fi; record network.nftables nft list table inet kloigos_compute_units ;;
-            workloads) record workloads.fio sh -c 'command -v fio && fio --name=kloigos-validation --filename=/var/lib/kloigos-validation/.fio.bin --size=16M --rw=readwrite --bs=1M --direct=0 --verify=crc32c --do_verify=1 --output-format=json; rc=$?; rm -f /var/lib/kloigos-validation/.fio.bin; exit $rc'; record workloads.host-responsiveness systemctl is-system-running ;;
+            workloads)
+              if [ -n "$fixture_user" ] && id -u "$fixture_user" >/dev/null 2>&1; then record workloads.stress-ng runuser -u "$fixture_user" -- stress-ng --cpu 1 --vm 1 --vm-bytes 64M --fork 1 --hdd 1 --hdd-bytes 16M --timeout 15s --metrics-brief; else record workloads.fixture-user false; fi
+              record workloads.fio sh -c 'command -v fio && fio --name=kloigos-validation --filename=/var/lib/kloigos-validation/.fio.bin --size=16M --rw=readwrite --bs=1M --direct=0 --verify=crc32c --do_verify=1 --output-format=json; rc=$?; rm -f /var/lib/kloigos-validation/.fio.bin; exit $rc'
+              record workloads.host-responsiveness systemctl is-system-running
+              ;;
           esac
         executable: /bin/bash
       changed_when: false
+    - name: Resources | inspect selected allocation cgroup limits
+      ansible.builtin.shell:
+        cmd: >-
+          uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
+          cgroup=/sys/fs/cgroup/user.slice/user-${uid}.slice &&
+          test -s "$cgroup/cpuset.cpus.effective" &&
+          test "$(cat "$cgroup/memory.max")" != max &&
+          test "$(cat "$cgroup/pids.max")" != max
+        executable: /bin/bash
+      register: resources_cgroup_limits
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'resources'
+    - name: Resources | verify selected allocation cgroup hierarchy
+      ansible.builtin.shell:
+        cmd: >-
+          uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
+          test -d "/sys/fs/cgroup/user.slice/user-${uid}.slice"
+        executable: /bin/bash
+      register: resources_cgroup_hierarchy
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'resources'
+    - name: Resources | inspect selected allocation CPU affinity
+      ansible.builtin.command:
+        argv: [runuser, -u, "{{ validation_fixture.login_user | default('') }}", --, taskset, -pc, "0"]
+      register: resources_cpu_affinity_positive
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'resources'
+    - name: Resources | verify allocation CPU-affinity escape is denied
+      ansible.builtin.shell:
+        cmd: >-
+          uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
+          allowed=$(cat "/sys/fs/cgroup/user.slice/user-${uid}.slice/cpuset.cpus.effective") &&
+          outside=$(python3 -c 'import os,sys; allowed=set(); [allowed.update(range(int(x.split("-")[0]), int(x.split("-")[-1])+1)) for x in sys.argv[1].split(",") if x]; print(next((cpu for cpu in range(os.cpu_count() or 0) if cpu not in allowed), ""))' "$allowed") &&
+          test -n "$outside" && runuser -u {{ validation_fixture.login_user | default('') | quote }} -- taskset -c "$outside" /bin/true
+        executable: /bin/bash
+      register: resources_cpu_affinity_escape
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'resources'
+    - name: Resources | verify Kloigos systemd overrides are rendered
+      ansible.builtin.shell:
+        cmd: find /etc/systemd/system -path '*/50-kloigos.conf' -print -quit | grep -q .
+        executable: /bin/bash
+      register: resources_systemd_overrides
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'resources'
+    - name: Resources | write cgroup-limit evidence
+      ansible.builtin.copy:
+        content: >-
+          {{ [
+          {'id': 'resources.cgroup-hierarchy', 'command': resources_cgroup_hierarchy.cmd,
+          'stdout': resources_cgroup_hierarchy.stdout, 'stderr': resources_cgroup_hierarchy.stderr,
+          'rc': resources_cgroup_hierarchy.rc},
+          {'id': 'resources.cgroup-limits', 'command': resources_cgroup_limits.cmd,
+          'stdout': resources_cgroup_limits.stdout, 'stderr': resources_cgroup_limits.stderr,
+          'rc': resources_cgroup_limits.rc}
+          , {'id': 'resources.cpu-affinity.positive', 'command': resources_cpu_affinity_positive.cmd,
+          'stdout': resources_cpu_affinity_positive.stdout, 'stderr': resources_cpu_affinity_positive.stderr,
+          'rc': resources_cpu_affinity_positive.rc}
+          , {'id': 'resources.cpu-affinity.escape', 'command': resources_cpu_affinity_escape.cmd,
+          'stdout': resources_cpu_affinity_escape.stdout, 'stderr': resources_cpu_affinity_escape.stderr,
+          'rc': resources_cpu_affinity_escape.rc, 'expect_failure': true}
+          , {'id': 'resources.systemd-overrides', 'command': resources_systemd_overrides.cmd,
+          'stdout': resources_systemd_overrides.stdout, 'stderr': resources_systemd_overrides.stderr,
+          'rc': resources_systemd_overrides.rc}
+          ] | to_nice_json }}
+        dest: "{{ validation_remote_evidence }}"
+        mode: "0640"
+      when: validation_group == 'resources'
     - name: Evaluate collected evidence and write report
       ansible.builtin.command:
-        argv: [python3, "{{ validation_remote_root }}/run.py", --group, "{{ validation_group }}", --target, "{{ inventory_hostname }}", --evidence-file, "{{ validation_remote_evidence }}", --output, "{{ validation_remote_report }}", --allow-destructive]
+        argv:
+          [
+            python3,
+            "{{ validation_remote_root }}/run.py",
+            --group,
+            "{{ validation_group }}",
+            --target,
+            "{{ inventory_hostname }}",
+            --evidence-file,
+            "{{ validation_remote_evidence }}",
+            --output,
+            "{{ validation_remote_report }}",
+            --allow-destructive,
+          ]
       register: validation_runner
       changed_when: false
       failed_when: false
@@ -55,11 +146,22 @@
         src: "{{ item }}"
         dest: "{{ validation_controller_report_dir }}/"
         flat: false
-      loop: ["{{ validation_remote_report }}", "{{ validation_remote_evidence }}"]
+      loop:
+        ["{{ validation_remote_report }}", "{{ validation_remote_evidence }}"]
       failed_when: false
     - name: Archive raw command artifacts
       ansible.builtin.command:
-        argv: [tar, -C, "{{ validation_remote_root }}", -czf, "{{ validation_remote_root }}/artifacts.tar.gz", --exclude=report.json, --exclude=evidence.json, .]
+        argv:
+          [
+            tar,
+            -C,
+            "{{ validation_remote_root }}",
+            -czf,
+            "{{ validation_remote_root }}/artifacts.tar.gz",
+            --exclude=report.json,
+            --exclude=evidence.json,
+            .,
+          ]
       changed_when: false
       failed_when: false
     - name: Fetch raw command artifacts
