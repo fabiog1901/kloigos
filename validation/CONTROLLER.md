@@ -15,3 +15,8 @@ profiles to each host, runs the selected profile there, fetches its JSON report 
 report directory, and then propagates the runner status. Ansible only transports and collects;
 the remote harness determines PASS or FAIL. No GitHub Actions, hooks, or automatic triggers are
 involved.
+
+Every invocation receives a controller-generated run ID. Remote runner files, reports, diagnostics,
+and temporary workload paths are isolated under `/var/lib/kloigos-validation/runs/<run-id>`. Ansible
+fetches the report and a compressed artifact bundle before removing successful-run state. Failed
+runs retain their remote workspace as well as the fetched evidence for diagnosis.

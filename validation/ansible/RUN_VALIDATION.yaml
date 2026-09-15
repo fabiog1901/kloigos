@@ -5,8 +5,8 @@
   gather_facts: false
   become: true
   vars:
-    validation_remote_root: /var/lib/kloigos-validation/harness
-    validation_remote_report: /var/lib/kloigos-validation/report.json
+    validation_remote_root: "/var/lib/kloigos-validation/runs/{{ validation_run_id }}"
+    validation_remote_report: "{{ validation_remote_root }}/report.json"
   tasks:
     - name: Create remote harness directory
       ansible.builtin.file:
@@ -47,6 +47,31 @@
         dest: "{{ validation_controller_report_dir }}/"
         flat: false
       failed_when: false
+
+    - name: Archive remote validation artifacts
+      ansible.builtin.command:
+        argv:
+          - tar
+          - -C
+          - "{{ validation_remote_root }}"
+          - -czf
+          - "{{ validation_remote_root }}/artifacts.tar.gz"
+          - artifacts
+      changed_when: false
+      failed_when: false
+
+    - name: Fetch remote validation artifacts
+      ansible.builtin.fetch:
+        src: "{{ validation_remote_root }}/artifacts.tar.gz"
+        dest: "{{ validation_controller_report_dir }}/"
+        flat: false
+      failed_when: false
+
+    - name: Remove successful remote validation workspace
+      ansible.builtin.file:
+        path: "{{ validation_remote_root }}"
+        state: absent
+      when: validation_runner.rc | default(1) == 0
 
     - name: Propagate validation result
       ansible.builtin.assert:

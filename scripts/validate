@@ -38,7 +38,9 @@ fi
 profile="${KLOIGOS_VALIDATION_PROFILE:-smoke}"
 report_dir="${KLOIGOS_VALIDATION_REPORT_DIR:-$(pwd)/validation/reports/controller}"
 mkdir -p "$report_dir"
+run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 echo "Profile: $profile"
+echo "Run ID: $run_id"
 echo "Controller reports: $report_dir"
 ansible-playbook -i "$inventory" validation/ansible/RUN_VALIDATION.yaml \
-  --extra-vars "validation_profile=$profile validation_controller_report_dir=$report_dir"
+  --extra-vars "validation_profile=$profile validation_controller_report_dir=$report_dir validation_run_id=$run_id"
