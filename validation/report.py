@@ -2,7 +2,7 @@
 """Run Kloigos real-host validation and evaluate its collected evidence."""
 
 from __future__ import annotations
-import argparse, json, os, sys, time, uuid
+import argparse, json, os, sys, tarfile, time, uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,17 +23,31 @@ def evaluation_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--group", required=True, choices=sorted(GROUPS))
     p.add_argument("--target", required=True)
-    p.add_argument("--evidence-file", required=True, type=Path)
+    p.add_argument("--bundle", required=True, type=Path)
     p.add_argument("--output", required=True, type=Path)
     p.add_argument("--allow-destructive", action="store_true")
     return p
 
 
-def load_evidence(path: Path) -> list[dict[str, str]]:
+def load_evidence(bundle: Path) -> list[dict[str, str]]:
     try:
-        value = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"Unable to read evidence '{path}': {exc}") from exc
+        with tarfile.open(bundle, "r:gz") as archive:
+            member = next(
+                (
+                    item
+                    for item in archive.getmembers()
+                    if item.isfile() and item.name.lstrip("./") == "evidence.json"
+                ),
+                None,
+            )
+            if member is None:
+                raise ValueError("Evidence bundle does not contain evidence.json.")
+            source = archive.extractfile(member)
+            if source is None:
+                raise ValueError("Unable to read evidence.json from the bundle.")
+            value = json.loads(source.read())
+    except (OSError, tarfile.TarError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Unable to read evidence bundle '{bundle}': {exc}") from exc
     if not isinstance(value, list):
         raise ValueError("Evidence must be a JSON array.")
     records = []
@@ -101,7 +115,7 @@ def evaluate(argv: Sequence[str]) -> int:
     try:
         if args.group in DESTRUCTIVE_GROUPS and not args.allow_destructive:
             raise ValueError(f"{args.group} requires --allow-destructive.")
-        results = load_evidence(args.evidence_file)
+        results = load_evidence(args.bundle)
     except ValueError as exc:
         results = [{"id": "runner.input", "status": "error", "summary": str(exc)}]
     totals = summarize(results)
@@ -116,10 +130,12 @@ def evaluate(argv: Sequence[str]) -> int:
         },
         "summary": totals,
         "results": results,
-        "diagnostics": [],
+        "diagnostics": [{"name": "evidence-bundle", "path": str(args.bundle)}],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    import yaml
+
+    args.output.write_text(yaml.safe_dump(report, sort_keys=False))
     print(
         f"Group: {args.group}\nTarget: {args.target}\nStatus: {totals['status']} (passed={totals['passed']}, failed={totals['failed']}, skipped={totals['skipped']}, errors={totals['errors']})\nReport: {args.output.resolve()}"
     )
@@ -266,17 +282,18 @@ def run_controller() -> int:
         os.environ.get("KLOIGOS_VALIDATION_REPORT_DIR", root / "reports" / "controller")
     )
     report_dir.mkdir(parents=True, exist_ok=True)
+    run_id = f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}-{os.getpid()}"
     extravars: dict[str, Any] = {
         "validation_group": group,
         "validation_allow_destructive": os.environ.get(
             "KLOIGOS_VALIDATION_ALLOW_DESTRUCTIVE", "false"
         ),
         "validation_controller_report_dir": str(report_dir),
-        "validation_run_id": f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}-{os.getpid()}",
+        "validation_run_id": run_id,
     }
     manifest_value = os.environ.get("KLOIGOS_VALIDATION_FIXTURE_MANIFEST")
     allocation_id = os.environ.get("KLOIGOS_VALIDATION_FIXTURE_ALLOCATION")
-    if group in {"resources", "workloads"} and (
+    if group in {"resources", "network", "workloads"} and (
         not manifest_value or not allocation_id
     ):
         raise ValidationError(
@@ -293,7 +310,27 @@ def run_controller() -> int:
         inventory=inventory_value,
         extravars=extravars,
     )
-    return result.rc
+    if result.rc:
+        return result.rc
+    bundles = sorted(report_dir.glob(f"*-{run_id}.tar.gz"))
+    if not bundles:
+        raise ValidationError("Ansible completed without fetching an evidence bundle.")
+    return max(
+        evaluate(
+            [
+                "--group",
+                group,
+                "--target",
+                bundle.name.removesuffix(f"-{run_id}.tar.gz"),
+                "--bundle",
+                str(bundle),
+                "--output",
+                str(bundle.with_suffix("").with_suffix(".report.yaml")),
+                "--allow-destructive",
+            ]
+        )
+        for bundle in bundles
+    )
 
 
 USAGE = 'Usage: make validate [ARGS="run|fixtures setup|fixtures cleanup"]'

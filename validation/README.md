@@ -19,13 +19,13 @@ make validate
    allocations and IP addresses declared in that manifest.
 3. [`ansible/RUN_VALIDATION.yaml`](ansible/RUN_VALIDATION.yaml) creates a per-run workspace on
    each explicitly inventoried host, performs Linux inspection or workload commands, and writes
-   `evidence.json`.
-4. The remote copy of `report.py` evaluates that collected evidence into the structured JSON report and
-   determines the process exit status. It does not execute host commands. The report format is
-   implemented here rather than governed by a separate schema file.
-5. Ansible fetches the report, evidence, and raw command artifacts to
-   `KLOIGOS_VALIDATION_REPORT_DIR` (default: `validation/reports/controller`). Successful remote
-   workspaces are removed; failed workspaces remain for diagnosis.
+   the raw `evidence.json` file.
+4. Ansible archives the complete workspace as a `.tar.gz` bundle and fetches it to
+   `KLOIGOS_VALIDATION_REPORT_DIR` (default: `validation/reports/controller`). The bundle is the
+   immutable audit artifact for that host and run.
+5. The local `report.py` reads each fetched bundle, evaluates its evidence, and writes its adjacent
+   human-readable YAML report (for example, `k01-<run-id>.report.yaml`). It determines the final
+   validation exit status; no reporting code is copied to the remote host.
 
 `ansible/PREPARE_VALIDATION_HOST.yaml` is an administrator preparation aid. It is not part of a
 normal validation run.
@@ -48,8 +48,9 @@ make validate
 
 Copy [`controller.env.example`](controller.env.example) into an untracked local environment file
 or export its settings. The inventory must contain only explicitly designated test hosts. When a
-group needs fixture resources, point `KLOIGOS_VALIDATION_FIXTURE_MANIFEST` at your manifest and
-choose an allocation with `KLOIGOS_VALIDATION_FIXTURE_ALLOCATION`.
+`resources`, `network`, and `workloads` need fixture resources: point
+`KLOIGOS_VALIDATION_FIXTURE_MANIFEST` at your manifest and choose an allocation with
+`KLOIGOS_VALIDATION_FIXTURE_ALLOCATION`.
 
 For the local demo, provision and later remove those declared resources explicitly:
 

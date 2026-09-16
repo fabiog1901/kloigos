@@ -1,12 +1,12 @@
-# Controller orchestration. Linux commands run in Ansible; run.py only evaluates evidence.
+# Controller orchestration. Linux commands run in Ansible; the local controller evaluates bundles.
 - name: Run Kloigos validation on explicitly selected test hosts
   hosts: validation_hosts
   gather_facts: false
   become: true
   vars:
     validation_remote_root: "/var/lib/kloigos-validation/runs/{{ validation_run_id }}"
-    validation_remote_report: "{{ validation_remote_root }}/report.json"
     validation_remote_evidence: "{{ validation_remote_root }}/evidence.json"
+    validation_remote_bundle: "{{ validation_remote_root }}.tar.gz"
   tasks:
 
     - name: Validate stable check group
@@ -24,12 +24,6 @@
       ansible.builtin.file:
         path: "{{ validation_remote_root }}"
         state: directory
-        mode: "0750"
-
-    - name: Deploy report evaluator
-      ansible.builtin.copy:
-        src: ../report.py
-        dest: "{{ validation_remote_root }}/report.py"
         mode: "0750"
 
     - name: Smoke | discover Compute Unit LVM volumes
@@ -311,37 +305,7 @@
         mode: "0640"
       when: validation_group == 'workloads'
 
-    - name: Evaluate collected evidence and write report
-      ansible.builtin.command:
-        argv:
-          [
-            python3,
-            "{{ validation_remote_root }}/report.py",
-            evaluate,
-            --group,
-            "{{ validation_group }}",
-            --target,
-            "{{ inventory_hostname }}",
-            --evidence-file,
-            "{{ validation_remote_evidence }}",
-            --output,
-            "{{ validation_remote_report }}",
-            --allow-destructive,
-          ]
-      register: validation_runner
-      changed_when: false
-      failed_when: false
-
-    - name: Fetch validation report and evidence
-      ansible.builtin.fetch:
-        src: "{{ item }}"
-        dest: "{{ validation_controller_report_dir }}/"
-        flat: false
-      loop:
-        ["{{ validation_remote_report }}", "{{ validation_remote_evidence }}"]
-      failed_when: false
-
-    - name: Archive raw command artifacts
+    - name: Archive collected validation data
       ansible.builtin.command:
         argv:
           [
@@ -349,28 +313,20 @@
             -C,
             "{{ validation_remote_root }}",
             -czf,
-            "{{ validation_remote_root }}/artifacts.tar.gz",
-            --exclude=report.json,
-            --exclude=evidence.json,
+            "{{ validation_remote_bundle }}",
             .,
           ]
       changed_when: false
-      failed_when: false
 
-    - name: Fetch raw command artifacts
+    - name: Fetch collected validation bundle
       ansible.builtin.fetch:
-        src: "{{ validation_remote_root }}/artifacts.tar.gz"
-        dest: "{{ validation_controller_report_dir }}/"
-        flat: false
-      failed_when: false
+        src: "{{ validation_remote_bundle }}"
+        dest: "{{ validation_controller_report_dir }}/{{ inventory_hostname }}-{{ validation_run_id }}.tar.gz"
+        flat: true
 
-    - name: Remove successful remote workspace
+    - name: Remove remote validation workspace and bundle after fetch
       ansible.builtin.file:
-        path: "{{ validation_remote_root }}"
+        path: "{{ item }}"
         state: absent
-      when: validation_runner.rc | default(1) == 0
-
-    - name: Propagate validation result
-      ansible.builtin.assert:
-        that: validation_runner.rc == 0
-        fail_msg: "Validation failed on {{ inventory_hostname }}; inspect the fetched JSON report."
+      loop:
+        ["{{ validation_remote_root }}", "{{ validation_remote_bundle }}"]
