@@ -20,11 +20,15 @@ api_call() {
 }
 fixtures() {
   [[ -f "$manifest" ]] || { echo "KLOIGOS_VALIDATION_FIXTURE_MANIFEST is required." >&2; exit 2; }
-  local action="$1" allocations addresses item job status
+  local action="$1" allocations addresses existing_addresses addresses_to_add item job status
   allocations="$(poetry run python -c 'import os,yaml,json; print(json.dumps(yaml.safe_load(open(os.environ["KLOIGOS_VALIDATION_FIXTURE_MANIFEST"]))["allocations"]))')"
   addresses="$(jq -c '[.[].ip_address]' <<<"$allocations")"
   if [[ "$action" == setup ]]; then
-    api_call POST /admin/ip_pool/ "{\"ip_addresses\":$addresses}" >/dev/null
+    existing_addresses="$(api_call GET /admin/ip_pool/ | jq -c '[.[].ip_address]')"
+    addresses_to_add="$(jq -cn --argjson addresses "$addresses" --argjson existing "$existing_addresses" '$addresses - $existing')"
+    if [[ "$(jq length <<<"$addresses_to_add")" -gt 0 ]]; then
+      api_call POST /admin/ip_pool/ "{\"ip_addresses\":$addresses_to_add}" >/dev/null
+    fi
   fi
   while read -r item; do
     if [[ "$action" == setup ]]; then

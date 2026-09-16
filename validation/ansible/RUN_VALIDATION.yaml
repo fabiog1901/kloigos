@@ -34,7 +34,7 @@
 
     - name: Smoke | discover Compute Unit LVM volumes
       shell: |
-        lvs --noheadings -o lv_name | grep -Eq '^[[:space:]]*cu[0-9]+$'
+        lvs --noheadings -o lv_name | grep -Eq '^[[:space:]]*cu[0-9]+[[:space:]]*$'
       args: {executable: /bin/bash}
       register: smoke_compute_units_discovery
       changed_when: false
@@ -141,7 +141,7 @@
       shell: |
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
         cgroup=/sys/fs/cgroup/user.slice/user-${uid}.slice &&
-        test -s "$cgroup/cpuset.cpus.effective" &&
+        test -n "$(cat "$cgroup/cpuset.cpus.effective")" &&
         test "$(cat "$cgroup/memory.max")" != max &&
         test "$(cat "$cgroup/pids.max")" != max
       args:
@@ -194,8 +194,14 @@
       when: validation_group == 'resources'
 
     - name: Resources | inspect selected allocation CPU affinity
-      ansible.builtin.command:
-        argv: [runuser, -u, "{{ validation_fixture.login_user | default('') }}", --, taskset, -pc, "0"]
+      shell: |
+        uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
+        cgroup=/sys/fs/cgroup/user.slice/user-${uid}.slice &&
+        allowed=$(cat "$cgroup/cpuset.cpus.effective") &&
+        actual=$(systemd-run --quiet --pipe --wait --collect --uid {{ validation_fixture.login_user | default('') | quote }} --slice=user-${uid}.slice /bin/sh -c 'awk "/Cpus_allowed_list/ {print \$2}" /proc/self/status') &&
+        test "$actual" = "$allowed"
+      args:
+        executable: /bin/bash
       register: resources_cpu_affinity_positive
       changed_when: false
       failed_when: false
@@ -206,7 +212,7 @@
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
         allowed=$(cat "/sys/fs/cgroup/user.slice/user-${uid}.slice/cpuset.cpus.effective") &&
         outside=$(python3 -c 'import os,sys; allowed=set(); [allowed.update(range(int(x.split("-")[0]), int(x.split("-")[-1])+1)) for x in sys.argv[1].split(",") if x]; print(next((cpu for cpu in range(os.cpu_count() or 0) if cpu not in allowed), ""))' "$allowed") &&
-        test -n "$outside" && runuser -u {{ validation_fixture.login_user | default('') | quote }} -- taskset -c "$outside" /bin/true
+        test -n "$outside" && systemd-run --quiet --pipe --wait --collect --uid {{ validation_fixture.login_user | default('') | quote }} --slice=user-${uid}.slice taskset -c "$outside" /bin/true
       args:
         executable: /bin/bash
       register: resources_cpu_affinity_escape
@@ -257,8 +263,11 @@
       when: validation_group == 'workloads'
 
     - name: Workloads | run bounded stress-ng workload
-      ansible.builtin.command:
-        argv: [runuser, -u, "{{ validation_fixture.login_user | default('') }}", --, stress-ng, --cpu, "1", --vm, "1", --vm-bytes, 64M, --fork, "1", --hdd, "1", --hdd-bytes, 16M, --timeout, 15s, --metrics-brief]
+      shell: |
+        uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
+        systemd-run --quiet --pipe --wait --collect --uid {{ validation_fixture.login_user | default('') | quote }} --slice=user-${uid}.slice stress-ng --cpu 1 --vm 1 --vm-bytes 64M --fork 1 --hdd 1 --hdd-bytes 16M --timeout 15s --temp-path /tmp --metrics-brief
+      args:
+        executable: /bin/bash
       register: workloads_stress_ng
       changed_when: false
       failed_when: false
@@ -266,10 +275,14 @@
 
     - name: Workloads | run and clean bounded fio workload
       shell: |
-        fio --name=kloigos-validation --filename=/var/lib/kloigos-validation/.fio.bin --size=16M --rw=readwrite --bs=1M --direct=0 --verify=crc32c --do_verify=1 --output-format=json
-        rc=$?
-        rm -f /var/lib/kloigos-validation/.fio.bin
-        exit $rc
+        uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
+        home=$(getent passwd {{ validation_fixture.login_user | default('') | quote }} | cut -d: -f6) &&
+        systemd-run --quiet --pipe --wait --collect --uid {{ validation_fixture.login_user | default('') | quote }} --slice=user-${uid}.slice /bin/sh -c '
+          fio --name=kloigos-validation --filename="$1/.kloigos-validation-fio.bin" --size=16M --rw=readwrite --bs=1M --direct=0 --verify=crc32c --do_verify=1 --output-format=json
+          rc=$?
+          rm -f "$1/.kloigos-validation-fio.bin"
+          exit $rc
+        ' sh "$home"
       args:
         executable: /bin/bash
       register: workloads_fio
