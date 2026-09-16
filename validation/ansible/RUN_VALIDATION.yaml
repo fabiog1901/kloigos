@@ -32,6 +32,7 @@
         state: directory
         mode: "0750"
 
+    # Discover Kloigos Compute Unit logical volumes.
     - name: smoke | compute_units | discovery
       shell: |
         lvs --noheadings -o lv_name | grep -Eq '^[[:space:]]*cu[0-9]+[[:space:]]*$'
@@ -42,6 +43,7 @@
       failed_when: false
       when: validation_group in ['smoke', 'all']
 
+    # Check cgroup v2 and systemd delegation.
     - name: smoke | cgroups | v2
       shell: |
         test -f /sys/fs/cgroup/cgroup.controllers && 
@@ -54,6 +56,7 @@
       failed_when: false
       when: validation_group in ['smoke', 'all']
 
+    # Check allocated-user slice CPU configuration.
     - name: smoke | cpu | cpuset
       shell: |
         if compgen -G '/etc/systemd/system/user-*.slice.d/50-kloigos.conf' >/dev/null;
@@ -66,6 +69,7 @@
       failed_when: false
       when: validation_group in ['smoke', 'all']
 
+    # Confirm the systemd manager is available.
     - name: smoke | systemd | manager
       shell: |
         systemctl show --property=Version --value
@@ -76,6 +80,7 @@
       failed_when: false
       when: validation_group in ['smoke', 'all']
 
+    # Discover Compute Unit mount directories.
     - name: smoke | storage | compute_unit_mounts
       shell: |
         find /mnt/kloigos -mindepth 2 -maxdepth 2 -type d -name 'cu*' -print -quit | grep -q .
@@ -86,6 +91,7 @@
       failed_when: false
       when: validation_group in ['smoke', 'all']
 
+    # Check configured floating-IP definitions.
     - name: smoke | networking | floating_ips
       shell: |
         if compgen -G '/etc/kloigos/floating-ips.d/*.conf' >/dev/null;
@@ -98,6 +104,7 @@
       failed_when: false
       when: validation_group in ['smoke', 'all']
 
+    # Verify Kloigos nftables configuration.
     - name: smoke | nftables | configuration
       shell: |
         test -f /etc/nftables.conf && 
@@ -110,6 +117,7 @@
       failed_when: false
       when: validation_group in ['smoke', 'all']
 
+    # Check Kloigos AppArmor profiles.
     - name: smoke | apparmor | profiles
       shell: |
         if compgen -G '/etc/apparmor.d/kloigos-*' >/dev/null;
@@ -122,6 +130,7 @@
       failed_when: false
       when: validation_group in ['smoke', 'all']
 
+    # Check rendered allocation file-descriptor limits.
     - name: smoke | resource_limits | nofile
       shell: |
         if compgen -G '/etc/systemd/system/user@*.service.d/50-kloigos.conf' >/dev/null;
@@ -224,6 +233,7 @@
         mode: "0640"
       when: validation_group in ['smoke', 'all']
 
+    # Inspect selected allocation cgroup limits.
     - name: resources | cgroup | limits
       shell: |
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
@@ -238,6 +248,7 @@
       failed_when: false
       when: validation_group in ['resources', 'all']
 
+    # Inspect the selected allocation memory limit.
     - name: resources | memory | limit
       shell: |
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
@@ -250,6 +261,7 @@
       failed_when: false
       when: validation_group in ['resources', 'all']
 
+    # Inspect the selected allocation PID limit.
     - name: resources | pids | limit
       shell: |
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
@@ -262,6 +274,7 @@
       failed_when: false
       when: validation_group in ['resources', 'all']
 
+    # Verify the selected fixture floating IP is present.
     - name: network | floating_ip | presence
       shell: |
         ip addr show to {{ validation_fixture.ip_address | default('') | quote }}
@@ -272,6 +285,7 @@
       failed_when: false
       when: validation_group in ['network', 'all']
 
+    # Verify the Kloigos nftables table is active.
     - name: network | nftables | table_active
       shell: |
         nft list table inet kloigos_compute_units
@@ -306,6 +320,7 @@
         mode: "0640"
       when: validation_group in ['network', 'all']
 
+    # Verify the selected allocation cgroup hierarchy.
     - name: resources | cgroup | hierarchy
       shell: |
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
@@ -317,6 +332,7 @@
       failed_when: false
       when: validation_group in ['resources', 'all']
 
+    # Verify the selected allocation CPU affinity.
     - name: resources | cpu_affinity | positive
       shell: |
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
@@ -331,6 +347,7 @@
       failed_when: false
       when: validation_group in ['resources', 'all']
 
+    # Verify an allocation CPU-affinity escape is denied.
     - name: resources | cpu_affinity | escape
       shell: |
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
@@ -344,6 +361,7 @@
       failed_when: false
       when: validation_group in ['resources', 'all']
 
+    # Verify bounded memory-limit enforcement.
     - name: resources | memory | enforcement
       shell: |
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
@@ -364,6 +382,7 @@
       failed_when: false
       when: validation_group in ['resources', 'all']
 
+    # Verify bounded PID-limit enforcement.
     - name: resources | pids | enforcement
       shell: |
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
@@ -412,6 +431,7 @@
       failed_when: false
       when: validation_group in ['resources', 'all']
 
+    # Verify Kloigos systemd overrides are rendered.
     - name: resources | systemd | overrides
       shell: |
         find /etc/systemd/system -path '*/50-kloigos.conf' -print -quit | grep -q .
@@ -480,6 +500,7 @@
         mode: "0640"
       when: validation_group in ['resources', 'all']
 
+    # Verify the selected fixture user exists.
     - name: workloads | fixture | user_exists
       shell: |
         id -u {{ validation_fixture.login_user | default('') | quote }}
@@ -490,6 +511,7 @@
       failed_when: false
       when: validation_group in ['workloads', 'all']
 
+    # Run a bounded CPU, memory, process, and disk workload.
     - name: workloads | resource_load | bounded_execution
       shell: |
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
@@ -501,6 +523,7 @@
       failed_when: false
       when: validation_group in ['workloads', 'all'] and workloads__fixture__user_exists.rc == 0
 
+    # Run and clean a bounded disk-I/O correctness workload.
     - name: workloads | filesystem | disk_io_correctness
       shell: |
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
@@ -518,6 +541,7 @@
       failed_when: false
       when: validation_group in ['workloads', 'all']
 
+    # Verify host responsiveness after workloads complete.
     - name: workloads | host | responsiveness
       shell: |
         systemctl is-system-running

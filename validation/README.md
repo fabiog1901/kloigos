@@ -24,7 +24,8 @@ make validate
    `<group>.<subsection>.<behavior>`. IDs describe the behavior being verified rather than the
    implementation tool, so they remain stable if a workload tool changes. The matching Ansible
    check task is named `<group> | <subsection> | <behavior>` and registers its result as
-   `<group>__<subsection>__<behavior>`.
+   `<group>__<subsection>__<behavior>`; a YAML comment immediately before the task preserves its
+   human-friendly description.
 4. Ansible archives the complete workspace as a `.tar.gz` bundle and fetches it to the selected
    report directory (default: `validation/reports/controller`). The bundle is the immutable audit
    artifact for that host and run.
