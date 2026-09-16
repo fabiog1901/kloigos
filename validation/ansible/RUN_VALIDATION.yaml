@@ -40,12 +40,8 @@
           case "$group" in
             smoke) record compute-units.discovery sh -c 'lvs --noheadings -o lv_name | grep -Eq "^[[:space:]]*cu[0-9]+$"'; record cgroups.v2 sh -c 'test -f /sys/fs/cgroup/cgroup.controllers && grep -qw cpuset /sys/fs/cgroup/cgroup.controllers && test -f /etc/systemd/system/user@.service.d/delegate.conf'; if compgen -G '/etc/systemd/system/user-*.slice.d/50-kloigos.conf' >/dev/null; then record cpu.cpuset sh -c 'grep -Rqs "^AllowedCPUs=" /etc/systemd/system/user-*.slice.d/50-kloigos.conf'; else skip cpu.cpuset 'No allocated-user slice overrides are present on this host.'; fi; record systemd.manager systemctl show --property=Version --value; record storage.compute-unit-mounts sh -c 'find /mnt/kloigos -mindepth 2 -maxdepth 2 -type d -name "cu*" -print -quit | grep -q .'; if compgen -G '/etc/kloigos/floating-ips.d/*.conf' >/dev/null; then record networking.floating-ips sh -c 'grep -Rqs "^ip_address=" /etc/kloigos/floating-ips.d'; else skip networking.floating-ips 'No Kloigos floating-IP configurations are present.'; fi; record nftables.configuration sh -c 'test -f /etc/nftables.conf && test -f /etc/nftables.d/kloigos-compute-units.nft && nft list table inet kloigos_compute_units'; if compgen -G '/etc/apparmor.d/kloigos-*' >/dev/null; then record apparmor.profiles aa-status --enabled; else skip apparmor.profiles 'No Kloigos AppArmor profiles are present.'; fi; if compgen -G '/etc/systemd/system/user@*.service.d/50-kloigos.conf' >/dev/null; then record resource-limits.nofile sh -c 'grep -Rqs "^LimitNOFILE=[0-9]" /etc/systemd/system/user@*.service.d/50-kloigos.conf'; else skip resource-limits.nofile 'No allocation LimitNOFILE overrides are present.'; fi ;;
             resources) ;;
-            network) if [ -n "$fixture_ip" ]; then record network.floating-ip ip addr show to "$fixture_ip"; else skip network.floating-ip 'No selected fixture IP.'; fi; record network.nftables nft list table inet kloigos_compute_units ;;
-            workloads)
-              if [ -n "$fixture_user" ] && id -u "$fixture_user" >/dev/null 2>&1; then record workloads.stress-ng runuser -u "$fixture_user" -- stress-ng --cpu 1 --vm 1 --vm-bytes 64M --fork 1 --hdd 1 --hdd-bytes 16M --timeout 15s --metrics-brief; else record workloads.fixture-user false; fi
-              record workloads.fio sh -c 'command -v fio && fio --name=kloigos-validation --filename=/var/lib/kloigos-validation/.fio.bin --size=16M --rw=readwrite --bs=1M --direct=0 --verify=crc32c --do_verify=1 --output-format=json; rc=$?; rm -f /var/lib/kloigos-validation/.fio.bin; exit $rc'
-              record workloads.host-responsiveness systemctl is-system-running
-              ;;
+            network) ;;
+            workloads) ;;
           esac
         executable: /bin/bash
       changed_when: false
@@ -62,6 +58,34 @@
       changed_when: false
       failed_when: false
       when: validation_group == 'resources'
+    - name: Network | verify selected fixture floating IP is present
+      ansible.builtin.command:
+        argv: [ip, addr, show, to, "{{ validation_fixture.ip_address | default('') }}"]
+      register: network_floating_ip
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'network'
+    - name: Network | verify Kloigos nftables table is active
+      ansible.builtin.command:
+        argv: [nft, list, table, inet, kloigos_compute_units]
+      register: network_nftables
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'network'
+    - name: Network | write collected evidence
+      ansible.builtin.copy:
+        content: >-
+          {{ [
+          {'id': 'network.floating-ip', 'command': network_floating_ip.cmd,
+          'stdout': network_floating_ip.stdout, 'stderr': network_floating_ip.stderr,
+          'rc': network_floating_ip.rc},
+          {'id': 'network.nftables', 'command': network_nftables.cmd,
+          'stdout': network_nftables.stdout, 'stderr': network_nftables.stderr,
+          'rc': network_nftables.rc}
+          ] | to_nice_json }}
+        dest: "{{ validation_remote_evidence }}"
+        mode: "0640"
+      when: validation_group == 'network'
     - name: Resources | verify selected allocation cgroup hierarchy
       ansible.builtin.shell:
         cmd: >-
@@ -122,6 +146,49 @@
         dest: "{{ validation_remote_evidence }}"
         mode: "0640"
       when: validation_group == 'resources'
+    - name: Workloads | verify selected fixture user exists
+      ansible.builtin.command:
+        argv: [id, -u, "{{ validation_fixture.login_user | default('') }}"]
+      register: workloads_fixture_user
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'workloads'
+    - name: Workloads | run bounded stress-ng workload
+      ansible.builtin.command:
+        argv: [runuser, -u, "{{ validation_fixture.login_user | default('') }}", --, stress-ng, --cpu, "1", --vm, "1", --vm-bytes, 64M, --fork, "1", --hdd, "1", --hdd-bytes, 16M, --timeout, 15s, --metrics-brief]
+      register: workloads_stress_ng
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'workloads' and workloads_fixture_user.rc == 0
+    - name: Workloads | run and clean bounded fio workload
+      ansible.builtin.shell:
+        cmd: >-
+          fio --name=kloigos-validation --filename=/var/lib/kloigos-validation/.fio.bin --size=16M --rw=readwrite --bs=1M --direct=0 --verify=crc32c --do_verify=1 --output-format=json;
+          rc=$?; rm -f /var/lib/kloigos-validation/.fio.bin; exit $rc
+        executable: /bin/bash
+      register: workloads_fio
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'workloads'
+    - name: Workloads | verify host responsiveness
+      ansible.builtin.command:
+        argv: [systemctl, is-system-running]
+      register: workloads_host_responsiveness
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'workloads'
+    - name: Workloads | write collected evidence
+      ansible.builtin.copy:
+        content: >-
+          {{ [
+          {'id': 'workloads.fixture-user', 'command': workloads_fixture_user.cmd, 'stdout': workloads_fixture_user.stdout, 'stderr': workloads_fixture_user.stderr, 'rc': workloads_fixture_user.rc},
+          {'id': 'workloads.stress-ng', 'command': workloads_stress_ng.cmd | default('not run'), 'stdout': workloads_stress_ng.stdout | default(''), 'stderr': workloads_stress_ng.stderr | default('fixture user is unavailable'), 'rc': workloads_stress_ng.rc | default(1)},
+          {'id': 'workloads.fio', 'command': workloads_fio.cmd, 'stdout': workloads_fio.stdout, 'stderr': workloads_fio.stderr, 'rc': workloads_fio.rc},
+          {'id': 'workloads.host-responsiveness', 'command': workloads_host_responsiveness.cmd, 'stdout': workloads_host_responsiveness.stdout, 'stderr': workloads_host_responsiveness.stderr, 'rc': workloads_host_responsiveness.rc}
+          ] | to_nice_json }}
+        dest: "{{ validation_remote_evidence }}"
+        mode: "0640"
+      when: validation_group == 'workloads'
     - name: Evaluate collected evidence and write report
       ansible.builtin.command:
         argv:
