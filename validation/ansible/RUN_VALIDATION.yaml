@@ -8,56 +8,149 @@
     validation_remote_report: "{{ validation_remote_root }}/report.json"
     validation_remote_evidence: "{{ validation_remote_root }}/evidence.json"
   tasks:
+
     - name: Validate stable check group
       ansible.builtin.assert:
         that: validation_group in ['smoke', 'resources', 'network', 'workloads']
         fail_msg: "KLOIGOS_VALIDATION_GROUP must be smoke, resources, network, or workloads."
+
     - name: Require destructive-workload consent
       ansible.builtin.assert:
         that: validation_allow_destructive | bool
         fail_msg: "The workloads group requires KLOIGOS_VALIDATION_ALLOW_DESTRUCTIVE=1."
       when: validation_group == 'workloads'
+
     - name: Create remote run workspace
       ansible.builtin.file:
         path: "{{ validation_remote_root }}"
         state: directory
         mode: "0750"
+
     - name: Deploy report evaluator
       ansible.builtin.copy:
         src: ../runner/run.py
         dest: "{{ validation_remote_root }}/run.py"
         mode: "0750"
-    - name: Collect Linux command evidence
-      ansible.builtin.shell:
-        cmd: |
-          set -u
-          evidence={{ validation_remote_evidence | quote }}; work={{ validation_remote_root | quote }}; group={{ validation_group | quote }}
-          fixture_user={{ validation_fixture.login_user | default('') | quote }}; fixture_ip={{ validation_fixture.ip_address | default('') | quote }}
-          printf '[]' > "$evidence"
-          record() { id="$1"; shift; output="$work/$id.out"; "$@" >"$output" 2>&1; rc=$?; jq --arg id "$id" --arg command "$*" --arg stdout "$(cat "$output")" --argjson rc "$rc" '. + [{id:$id,command:$command,stdout:$stdout,rc:$rc}]' "$evidence" > "$evidence.next" && mv "$evidence.next" "$evidence"; }
-          expect_failure() { id="$1"; shift; output="$work/$id.out"; "$@" >"$output" 2>&1; rc=$?; jq --arg id "$id" --arg command "$*" --arg stdout "$(cat "$output")" --argjson rc "$rc" '. + [{id:$id,command:$command,stdout:$stdout,rc:$rc,expect_failure:true}]' "$evidence" > "$evidence.next" && mv "$evidence.next" "$evidence"; }
-          skip() { jq --arg id "$1" --arg summary "$2" '. + [{id:$id,status:"skipped",summary:$summary}]' "$evidence" > "$evidence.next" && mv "$evidence.next" "$evidence"; }
-          case "$group" in
-            smoke) record compute-units.discovery sh -c 'lvs --noheadings -o lv_name | grep -Eq "^[[:space:]]*cu[0-9]+$"'; record cgroups.v2 sh -c 'test -f /sys/fs/cgroup/cgroup.controllers && grep -qw cpuset /sys/fs/cgroup/cgroup.controllers && test -f /etc/systemd/system/user@.service.d/delegate.conf'; if compgen -G '/etc/systemd/system/user-*.slice.d/50-kloigos.conf' >/dev/null; then record cpu.cpuset sh -c 'grep -Rqs "^AllowedCPUs=" /etc/systemd/system/user-*.slice.d/50-kloigos.conf'; else skip cpu.cpuset 'No allocated-user slice overrides are present on this host.'; fi; record systemd.manager systemctl show --property=Version --value; record storage.compute-unit-mounts sh -c 'find /mnt/kloigos -mindepth 2 -maxdepth 2 -type d -name "cu*" -print -quit | grep -q .'; if compgen -G '/etc/kloigos/floating-ips.d/*.conf' >/dev/null; then record networking.floating-ips sh -c 'grep -Rqs "^ip_address=" /etc/kloigos/floating-ips.d'; else skip networking.floating-ips 'No Kloigos floating-IP configurations are present.'; fi; record nftables.configuration sh -c 'test -f /etc/nftables.conf && test -f /etc/nftables.d/kloigos-compute-units.nft && nft list table inet kloigos_compute_units'; if compgen -G '/etc/apparmor.d/kloigos-*' >/dev/null; then record apparmor.profiles aa-status --enabled; else skip apparmor.profiles 'No Kloigos AppArmor profiles are present.'; fi; if compgen -G '/etc/systemd/system/user@*.service.d/50-kloigos.conf' >/dev/null; then record resource-limits.nofile sh -c 'grep -Rqs "^LimitNOFILE=[0-9]" /etc/systemd/system/user@*.service.d/50-kloigos.conf'; else skip resource-limits.nofile 'No allocation LimitNOFILE overrides are present.'; fi ;;
-            resources) ;;
-            network) ;;
-            workloads) ;;
-          esac
-        executable: /bin/bash
+
+    - name: Smoke | discover Compute Unit LVM volumes
+      shell: |
+        lvs --noheadings -o lv_name | grep -Eq '^[[:space:]]*cu[0-9]+$'
+      args: {executable: /bin/bash}
+      register: smoke_compute_units_discovery
       changed_when: false
+      failed_when: false
+      when: validation_group == 'smoke'
+
+    - name: Smoke | check cgroup v2 and systemd delegation
+      shell: |
+        test -f /sys/fs/cgroup/cgroup.controllers && grep -qw cpuset /sys/fs/cgroup/cgroup.controllers && test -f /etc/systemd/system/user@.service.d/delegate.conf
+      args: {executable: /bin/bash}
+      register: smoke_cgroups_v2
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'smoke'
+
+    - name: Smoke | check allocated-user slice CPU configuration
+      shell: |
+        if compgen -G '/etc/systemd/system/user-*.slice.d/50-kloigos.conf' >/dev/null;
+        then grep -Rqs '^AllowedCPUs=' /etc/systemd/system/user-*.slice.d/50-kloigos.conf;
+        else printf '__KLOIGOS_SKIPPED__\n'; fi
+      args: {executable: /bin/bash}
+      register: smoke_cpu_cpuset
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'smoke'
+
+    - name: Smoke | confirm systemd manager is available
+      ansible.builtin.command: systemctl show --property=Version --value
+      register: smoke_systemd_manager
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'smoke'
+
+    - name: Smoke | discover Compute Unit mount directories
+      shell: |
+        find /mnt/kloigos -mindepth 2 -maxdepth 2 -type d -name 'cu*' -print -quit | grep -q .
+      args: {executable: /bin/bash}
+      register: smoke_storage_compute_unit_mounts
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'smoke'
+
+    - name: Smoke | check configured floating-IP definitions
+      shell: |
+        if compgen -G '/etc/kloigos/floating-ips.d/*.conf' >/dev/null;
+        then grep -Rqs '^ip_address=' /etc/kloigos/floating-ips.d;
+        else printf '__KLOIGOS_SKIPPED__\n'; fi
+      args: {executable: /bin/bash}
+      register: smoke_networking_floating_ips
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'smoke'
+
+    - name: Smoke | verify Kloigos nftables configuration
+      shell: |
+        test -f /etc/nftables.conf && test -f /etc/nftables.d/kloigos-compute-units.nft && nft list table inet kloigos_compute_units
+      args: {executable: /bin/bash}
+      register: smoke_nftables_configuration
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'smoke'
+
+    - name: Smoke | check Kloigos AppArmor profiles
+      shell: |
+        if compgen -G '/etc/apparmor.d/kloigos-*' >/dev/null;
+        then aa-status --enabled;
+        else printf '__KLOIGOS_SKIPPED__\n'; fi
+      args: {executable: /bin/bash}
+      register: smoke_apparmor_profiles
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'smoke'
+
+    - name: Smoke | check rendered allocation file-descriptor limits
+      shell: |
+        if compgen -G '/etc/systemd/system/user@*.service.d/50-kloigos.conf' >/dev/null;
+        then grep -Rqs '^LimitNOFILE=[0-9]' /etc/systemd/system/user@*.service.d/50-kloigos.conf;
+        else printf '__KLOIGOS_SKIPPED__\n'; fi
+      args: {executable: /bin/bash}
+      register: smoke_resource_limits_nofile
+      changed_when: false
+      failed_when: false
+      when: validation_group == 'smoke'
+
+    - name: Smoke | write collected evidence
+      ansible.builtin.copy:
+        content: >-
+          {{ [
+          {'id': 'compute-units.discovery', 'command': smoke_compute_units_discovery.cmd, 'stdout': smoke_compute_units_discovery.stdout, 'stderr': smoke_compute_units_discovery.stderr, 'rc': smoke_compute_units_discovery.rc},
+          {'id': 'cgroups.v2', 'command': smoke_cgroups_v2.cmd, 'stdout': smoke_cgroups_v2.stdout, 'stderr': smoke_cgroups_v2.stderr, 'rc': smoke_cgroups_v2.rc},
+          {'id': 'cpu.cpuset', 'status': 'skipped', 'summary': 'No allocated-user slice overrides are present on this host.'} if smoke_cpu_cpuset.stdout == '__KLOIGOS_SKIPPED__' else {'id': 'cpu.cpuset', 'command': smoke_cpu_cpuset.cmd, 'stdout': smoke_cpu_cpuset.stdout, 'stderr': smoke_cpu_cpuset.stderr, 'rc': smoke_cpu_cpuset.rc},
+          {'id': 'systemd.manager', 'command': smoke_systemd_manager.cmd, 'stdout': smoke_systemd_manager.stdout, 'stderr': smoke_systemd_manager.stderr, 'rc': smoke_systemd_manager.rc},
+          {'id': 'storage.compute-unit-mounts', 'command': smoke_storage_compute_unit_mounts.cmd, 'stdout': smoke_storage_compute_unit_mounts.stdout, 'stderr': smoke_storage_compute_unit_mounts.stderr, 'rc': smoke_storage_compute_unit_mounts.rc},
+          {'id': 'networking.floating-ips', 'status': 'skipped', 'summary': 'No Kloigos floating-IP configurations are present.'} if smoke_networking_floating_ips.stdout == '__KLOIGOS_SKIPPED__' else {'id': 'networking.floating-ips', 'command': smoke_networking_floating_ips.cmd, 'stdout': smoke_networking_floating_ips.stdout, 'stderr': smoke_networking_floating_ips.stderr, 'rc': smoke_networking_floating_ips.rc},
+          {'id': 'nftables.configuration', 'command': smoke_nftables_configuration.cmd, 'stdout': smoke_nftables_configuration.stdout, 'stderr': smoke_nftables_configuration.stderr, 'rc': smoke_nftables_configuration.rc},
+          {'id': 'apparmor.profiles', 'status': 'skipped', 'summary': 'No Kloigos AppArmor profiles are present.'} if smoke_apparmor_profiles.stdout == '__KLOIGOS_SKIPPED__' else {'id': 'apparmor.profiles', 'command': smoke_apparmor_profiles.cmd, 'stdout': smoke_apparmor_profiles.stdout, 'stderr': smoke_apparmor_profiles.stderr, 'rc': smoke_apparmor_profiles.rc},
+          {'id': 'resource-limits.nofile', 'status': 'skipped', 'summary': 'No allocation LimitNOFILE overrides are present.'} if smoke_resource_limits_nofile.stdout == '__KLOIGOS_SKIPPED__' else {'id': 'resource-limits.nofile', 'command': smoke_resource_limits_nofile.cmd, 'stdout': smoke_resource_limits_nofile.stdout, 'stderr': smoke_resource_limits_nofile.stderr, 'rc': smoke_resource_limits_nofile.rc}
+          ] | to_nice_json }}
+        dest: "{{ validation_remote_evidence }}"
+        mode: "0640"
+      when: validation_group == 'smoke'
+
     - name: Resources | inspect selected allocation cgroup limits
-      ansible.builtin.shell:
-        cmd: >-
-          uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
-          cgroup=/sys/fs/cgroup/user.slice/user-${uid}.slice &&
-          test -s "$cgroup/cpuset.cpus.effective" &&
-          test "$(cat "$cgroup/memory.max")" != max &&
-          test "$(cat "$cgroup/pids.max")" != max
+      shell: |
+        uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
+        cgroup=/sys/fs/cgroup/user.slice/user-${uid}.slice &&
+        test -s "$cgroup/cpuset.cpus.effective" &&
+        test "$(cat "$cgroup/memory.max")" != max &&
+        test "$(cat "$cgroup/pids.max")" != max
+      args:
         executable: /bin/bash
       register: resources_cgroup_limits
       changed_when: false
       failed_when: false
       when: validation_group == 'resources'
+
     - name: Network | verify selected fixture floating IP is present
       ansible.builtin.command:
         argv: [ip, addr, show, to, "{{ validation_fixture.ip_address | default('') }}"]
@@ -65,6 +158,7 @@
       changed_when: false
       failed_when: false
       when: validation_group == 'network'
+
     - name: Network | verify Kloigos nftables table is active
       ansible.builtin.command:
         argv: [nft, list, table, inet, kloigos_compute_units]
@@ -72,6 +166,7 @@
       changed_when: false
       failed_when: false
       when: validation_group == 'network'
+
     - name: Network | write collected evidence
       ansible.builtin.copy:
         content: >-
@@ -86,16 +181,18 @@
         dest: "{{ validation_remote_evidence }}"
         mode: "0640"
       when: validation_group == 'network'
+
     - name: Resources | verify selected allocation cgroup hierarchy
-      ansible.builtin.shell:
-        cmd: >-
-          uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
-          test -d "/sys/fs/cgroup/user.slice/user-${uid}.slice"
+      shell: |
+        uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
+        test -d "/sys/fs/cgroup/user.slice/user-${uid}.slice"
+      args:
         executable: /bin/bash
       register: resources_cgroup_hierarchy
       changed_when: false
       failed_when: false
       when: validation_group == 'resources'
+
     - name: Resources | inspect selected allocation CPU affinity
       ansible.builtin.command:
         argv: [runuser, -u, "{{ validation_fixture.login_user | default('') }}", --, taskset, -pc, "0"]
@@ -103,26 +200,30 @@
       changed_when: false
       failed_when: false
       when: validation_group == 'resources'
+
     - name: Resources | verify allocation CPU-affinity escape is denied
-      ansible.builtin.shell:
-        cmd: >-
-          uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
-          allowed=$(cat "/sys/fs/cgroup/user.slice/user-${uid}.slice/cpuset.cpus.effective") &&
-          outside=$(python3 -c 'import os,sys; allowed=set(); [allowed.update(range(int(x.split("-")[0]), int(x.split("-")[-1])+1)) for x in sys.argv[1].split(",") if x]; print(next((cpu for cpu in range(os.cpu_count() or 0) if cpu not in allowed), ""))' "$allowed") &&
-          test -n "$outside" && runuser -u {{ validation_fixture.login_user | default('') | quote }} -- taskset -c "$outside" /bin/true
+      shell: |
+        uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
+        allowed=$(cat "/sys/fs/cgroup/user.slice/user-${uid}.slice/cpuset.cpus.effective") &&
+        outside=$(python3 -c 'import os,sys; allowed=set(); [allowed.update(range(int(x.split("-")[0]), int(x.split("-")[-1])+1)) for x in sys.argv[1].split(",") if x]; print(next((cpu for cpu in range(os.cpu_count() or 0) if cpu not in allowed), ""))' "$allowed") &&
+        test -n "$outside" && runuser -u {{ validation_fixture.login_user | default('') | quote }} -- taskset -c "$outside" /bin/true
+      args:
         executable: /bin/bash
       register: resources_cpu_affinity_escape
       changed_when: false
       failed_when: false
       when: validation_group == 'resources'
+
     - name: Resources | verify Kloigos systemd overrides are rendered
-      ansible.builtin.shell:
-        cmd: find /etc/systemd/system -path '*/50-kloigos.conf' -print -quit | grep -q .
+      shell: |
+        find /etc/systemd/system -path '*/50-kloigos.conf' -print -quit | grep -q .
+      args:
         executable: /bin/bash
       register: resources_systemd_overrides
       changed_when: false
       failed_when: false
       when: validation_group == 'resources'
+
     - name: Resources | write cgroup-limit evidence
       ansible.builtin.copy:
         content: >-
@@ -146,6 +247,7 @@
         dest: "{{ validation_remote_evidence }}"
         mode: "0640"
       when: validation_group == 'resources'
+
     - name: Workloads | verify selected fixture user exists
       ansible.builtin.command:
         argv: [id, -u, "{{ validation_fixture.login_user | default('') }}"]
@@ -153,6 +255,7 @@
       changed_when: false
       failed_when: false
       when: validation_group == 'workloads'
+
     - name: Workloads | run bounded stress-ng workload
       ansible.builtin.command:
         argv: [runuser, -u, "{{ validation_fixture.login_user | default('') }}", --, stress-ng, --cpu, "1", --vm, "1", --vm-bytes, 64M, --fork, "1", --hdd, "1", --hdd-bytes, 16M, --timeout, 15s, --metrics-brief]
@@ -160,16 +263,20 @@
       changed_when: false
       failed_when: false
       when: validation_group == 'workloads' and workloads_fixture_user.rc == 0
+
     - name: Workloads | run and clean bounded fio workload
-      ansible.builtin.shell:
-        cmd: >-
-          fio --name=kloigos-validation --filename=/var/lib/kloigos-validation/.fio.bin --size=16M --rw=readwrite --bs=1M --direct=0 --verify=crc32c --do_verify=1 --output-format=json;
-          rc=$?; rm -f /var/lib/kloigos-validation/.fio.bin; exit $rc
+      shell: |
+        fio --name=kloigos-validation --filename=/var/lib/kloigos-validation/.fio.bin --size=16M --rw=readwrite --bs=1M --direct=0 --verify=crc32c --do_verify=1 --output-format=json
+        rc=$?
+        rm -f /var/lib/kloigos-validation/.fio.bin
+        exit $rc
+      args:
         executable: /bin/bash
       register: workloads_fio
       changed_when: false
       failed_when: false
       when: validation_group == 'workloads'
+
     - name: Workloads | verify host responsiveness
       ansible.builtin.command:
         argv: [systemctl, is-system-running]
@@ -177,6 +284,7 @@
       changed_when: false
       failed_when: false
       when: validation_group == 'workloads'
+
     - name: Workloads | write collected evidence
       ansible.builtin.copy:
         content: >-
@@ -189,6 +297,7 @@
         dest: "{{ validation_remote_evidence }}"
         mode: "0640"
       when: validation_group == 'workloads'
+
     - name: Evaluate collected evidence and write report
       ansible.builtin.command:
         argv:
@@ -208,6 +317,7 @@
       register: validation_runner
       changed_when: false
       failed_when: false
+
     - name: Fetch validation report and evidence
       ansible.builtin.fetch:
         src: "{{ item }}"
@@ -216,6 +326,7 @@
       loop:
         ["{{ validation_remote_report }}", "{{ validation_remote_evidence }}"]
       failed_when: false
+
     - name: Archive raw command artifacts
       ansible.builtin.command:
         argv:
@@ -231,17 +342,20 @@
           ]
       changed_when: false
       failed_when: false
+
     - name: Fetch raw command artifacts
       ansible.builtin.fetch:
         src: "{{ validation_remote_root }}/artifacts.tar.gz"
         dest: "{{ validation_controller_report_dir }}/"
         flat: false
       failed_when: false
+
     - name: Remove successful remote workspace
       ansible.builtin.file:
         path: "{{ validation_remote_root }}"
         state: absent
       when: validation_runner.rc | default(1) == 0
+
     - name: Propagate validation result
       ansible.builtin.assert:
         that: validation_runner.rc == 0
