@@ -67,19 +67,17 @@
         mode: "0750"
 
     - name: Verify required validation commands
-      ansible.builtin.command:
-        argv:
-          - /bin/sh
-          - -c
-          - "command -v {{ item }}"
+      shell: |
+        command -v {{ item | quote }}
+      args:
+        executable: /bin/bash
       changed_when: false
       loop: "{{ validation_required_commands }}"
 
     - name: Verify AppArmor inspection command on Debian-family hosts
-      ansible.builtin.command:
-        argv:
-          - /bin/sh
-          - -c
-          - command -v aa-status
+      shell: |
+        command -v aa-status
+      args:
+        executable: /bin/bash
       changed_when: false
       when: ansible_facts.os_family | lower == "debian"

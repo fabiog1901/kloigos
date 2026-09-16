@@ -29,7 +29,8 @@
     - name: Smoke | discover Compute Unit LVM volumes
       shell: |
         lvs --noheadings -o lv_name | grep -Eq '^[[:space:]]*cu[0-9]+[[:space:]]*$'
-      args: {executable: /bin/bash}
+      args:
+        executable: /bin/bash
       register: smoke_compute_units_discovery
       changed_when: false
       failed_when: false
@@ -37,8 +38,11 @@
 
     - name: Smoke | check cgroup v2 and systemd delegation
       shell: |
-        test -f /sys/fs/cgroup/cgroup.controllers && grep -qw cpuset /sys/fs/cgroup/cgroup.controllers && test -f /etc/systemd/system/user@.service.d/delegate.conf
-      args: {executable: /bin/bash}
+        test -f /sys/fs/cgroup/cgroup.controllers && 
+        grep -qw cpuset /sys/fs/cgroup/cgroup.controllers && 
+        test -f /etc/systemd/system/user@.service.d/delegate.conf
+      args:
+        executable: /bin/bash
       register: smoke_cgroups_v2
       changed_when: false
       failed_when: false
@@ -49,7 +53,8 @@
         if compgen -G '/etc/systemd/system/user-*.slice.d/50-kloigos.conf' >/dev/null;
         then grep -Rqs '^AllowedCPUs=' /etc/systemd/system/user-*.slice.d/50-kloigos.conf;
         else printf '__KLOIGOS_SKIPPED__\n'; fi
-      args: {executable: /bin/bash}
+      args:
+        executable: /bin/bash
       register: smoke_cpu_cpuset
       changed_when: false
       failed_when: false
@@ -58,7 +63,8 @@
     - name: Smoke | confirm systemd manager is available
       shell: |
         systemctl show --property=Version --value
-      args: {executable: /bin/bash}
+      args:
+        executable: /bin/bash
       register: smoke_systemd_manager
       changed_when: false
       failed_when: false
@@ -67,7 +73,8 @@
     - name: Smoke | discover Compute Unit mount directories
       shell: |
         find /mnt/kloigos -mindepth 2 -maxdepth 2 -type d -name 'cu*' -print -quit | grep -q .
-      args: {executable: /bin/bash}
+      args:
+        executable: /bin/bash
       register: smoke_storage_compute_unit_mounts
       changed_when: false
       failed_when: false
@@ -78,7 +85,8 @@
         if compgen -G '/etc/kloigos/floating-ips.d/*.conf' >/dev/null;
         then grep -Rqs '^ip_address=' /etc/kloigos/floating-ips.d;
         else printf '__KLOIGOS_SKIPPED__\n'; fi
-      args: {executable: /bin/bash}
+      args:
+        executable: /bin/bash
       register: smoke_networking_floating_ips
       changed_when: false
       failed_when: false
@@ -86,8 +94,11 @@
 
     - name: Smoke | verify Kloigos nftables configuration
       shell: |
-        test -f /etc/nftables.conf && test -f /etc/nftables.d/kloigos-compute-units.nft && nft list table inet kloigos_compute_units
-      args: {executable: /bin/bash}
+        test -f /etc/nftables.conf && 
+        test -f /etc/nftables.d/kloigos-compute-units.nft && 
+        nft list table inet kloigos_compute_units
+      args:
+        executable: /bin/bash
       register: smoke_nftables_configuration
       changed_when: false
       failed_when: false
@@ -98,7 +109,8 @@
         if compgen -G '/etc/apparmor.d/kloigos-*' >/dev/null;
         then aa-status --enabled;
         else printf '__KLOIGOS_SKIPPED__\n'; fi
-      args: {executable: /bin/bash}
+      args:
+        executable: /bin/bash
       register: smoke_apparmor_profiles
       changed_when: false
       failed_when: false
@@ -109,7 +121,8 @@
         if compgen -G '/etc/systemd/system/user@*.service.d/50-kloigos.conf' >/dev/null;
         then grep -Rqs '^LimitNOFILE=[0-9]' /etc/systemd/system/user@*.service.d/50-kloigos.conf;
         else printf '__KLOIGOS_SKIPPED__\n'; fi
-      args: {executable: /bin/bash}
+      args:
+        executable: /bin/bash
       register: smoke_resource_limits_nofile
       changed_when: false
       failed_when: false
@@ -150,7 +163,8 @@
     - name: Network | verify selected fixture floating IP is present
       shell: |
         ip addr show to {{ validation_fixture.ip_address | default('') | quote }}
-      args: {executable: /bin/bash}
+      args:
+        executable: /bin/bash
       register: network_floating_ip
       changed_when: false
       failed_when: false
@@ -159,7 +173,8 @@
     - name: Network | verify Kloigos nftables table is active
       shell: |
         nft list table inet kloigos_compute_units
-      args: {executable: /bin/bash}
+      args:
+        executable: /bin/bash
       register: network_nftables
       changed_when: false
       failed_when: false
@@ -255,7 +270,8 @@
     - name: Workloads | verify selected fixture user exists
       shell: |
         id -u {{ validation_fixture.login_user | default('') | quote }}
-      args: {executable: /bin/bash}
+      args:
+        executable: /bin/bash
       register: workloads_fixture_user
       changed_when: false
       failed_when: false
@@ -292,7 +308,8 @@
     - name: Workloads | verify host responsiveness
       shell: |
         systemctl is-system-running
-      args: {executable: /bin/bash}
+      args:
+        executable: /bin/bash
       register: workloads_host_responsiveness
       changed_when: false
       failed_when: false
@@ -314,7 +331,8 @@
     - name: Archive collected validation data
       shell: |
         tar -C {{ validation_remote_root | quote }} -czf {{ validation_remote_bundle | quote }} .
-      args: {executable: /bin/bash}
+      args:
+        executable: /bin/bash
       changed_when: false
 
     - name: Fetch collected validation bundle
@@ -328,4 +346,5 @@
         path: "{{ item }}"
         state: absent
       loop:
-        ["{{ validation_remote_root }}", "{{ validation_remote_bundle }}"]
+        - "{{ validation_remote_root }}"
+        - "{{ validation_remote_bundle }}"
