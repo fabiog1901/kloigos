@@ -46,13 +46,16 @@ normal validation run.
 
 `--group` defaults to `all`, which runs every check group: `smoke`, `resources`, `network`, and
 `workloads`. Set it to one of those individual groups to run only that bounded subset.
-`resources` uses the allocation selected from the fixture manifest to
-inspect cgroup limits and verify CPU-affinity, memory, and PID-limit enforcement. The memory and
+`resources` uses the allocation selected from the fixture manifest to inspect cgroup limits,
+verify CPU-affinity, memory, and PID-limit enforcement, and verify the declared Compute Unit LVM
+mount, allocation mount, ownership, and optional declared peer filesystem boundary. The memory and
 PID probes run in short-lived child scopes beneath the allocation slice, with deliberately small
 `MemoryMax` and `TasksMax` values; they verify kernel cgroup enforcement without attempting to
 consume the allocation's full configured limit. `workloads` runs bounded
-`stress-ng` CPU, memory, process, and disk work as that allocation user and creates a temporary
-fio file. Because `all` includes workloads, the default run requires explicit consent:
+`stress-ng` CPU, memory, process, and disk work as that allocation user and creates a temporary,
+integrity-verified file on the declared allocation mount. Because `all` includes workloads, the
+default run requires explicit consent. The fio command is capped at 30 seconds and both the
+filesystem-access probe and fio file are removed on command exit:
 
 ```bash
 make validate ARGS="--allow-destructive --fixture-manifest /path/to/fixtures.yaml --fixture-allocation validation-a"
@@ -65,6 +68,12 @@ explicitly designated test hosts. The normal all-groups run needs `--inventory`,
 `--fixture-manifest`, `--fixture-allocation`, and `--allow-destructive`; `--report-dir` selects
 where fetched bundles and YAML reports are retained. Command-line values override their matching
 `KLOIGOS_VALIDATION_*` environment variables, which remain available as fallbacks.
+
+For storage validation, the selected allocation must declare `storage_mount_path` and
+`allocation_mount_path`. Set `filesystem_peer_allocation_id` to another allocation declared in the
+same manifest to enable the peer-access-denial test; without it, that one test is reported as
+skipped. Paths are explicit fixture inputs—the runner does not discover or probe other allocation
+mounts.
 
 For the local demo, provision and later remove those declared resources explicitly:
 

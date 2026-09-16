@@ -442,6 +442,96 @@
       failed_when: false
       when: validation_group in ['resources', 'all']
 
+    # Verify the selected Compute Unit mount is an ext4 logical volume.
+    - name: resources | storage | lvm_backing
+      shell: |
+        storage_mount={{ validation_fixture.storage_mount_path | quote }}
+        read -r source fstype <<EOF
+        $(findmnt --noheadings --output SOURCE,FSTYPE --target "$storage_mount")
+        EOF
+        test "$fstype" = ext4
+        lvs "$source" >/dev/null
+        printf 'mount=%s source=%s fstype=%s\n' "$storage_mount" "$source" "$fstype"
+      args:
+        executable: /bin/bash
+      register: resources__storage__lvm_backing
+      changed_when: false
+      failed_when: false
+      when: validation_group in ['resources', 'all']
+
+    # Verify the allocation mount resolves to the selected Compute Unit storage.
+    - name: resources | storage | allocation_mount
+      shell: |
+        storage_mount={{ validation_fixture.storage_mount_path | quote }}
+        allocation_mount={{ validation_fixture.allocation_mount_path | quote }}
+        storage_source=$(findmnt --noheadings --output SOURCE --target "$storage_mount")
+        allocation_source=$(findmnt --noheadings --output SOURCE --target "$allocation_mount")
+        test "$storage_source" = "$allocation_source"
+        mountpoint -q "$allocation_mount"
+        printf 'storage=%s allocation=%s source=%s\n' "$storage_mount" "$allocation_mount" "$storage_source"
+      args:
+        executable: /bin/bash
+      register: resources__storage__allocation_mount
+      changed_when: false
+      failed_when: false
+      when: validation_group in ['resources', 'all']
+
+    # Verify the allocation mount is owned and accessible only by its fixture user.
+    - name: resources | storage | ownership
+      shell: |
+        allocation_mount={{ validation_fixture.allocation_mount_path | quote }}
+        fixture_user={{ validation_fixture.login_user | quote }}
+        owner=$(stat --format='%U' "$allocation_mount")
+        mode=$(stat --format='%a' "$allocation_mount")
+        test "$owner" = "$fixture_user"
+        test "$mode" = 750
+        printf 'mount=%s owner=%s mode=%s\n' "$allocation_mount" "$owner" "$mode"
+      args:
+        executable: /bin/bash
+      register: resources__storage__ownership
+      changed_when: false
+      failed_when: false
+      when: validation_group in ['resources', 'all']
+
+    # Verify the selected fixture user can create, read, and remove a file on its allocation mount.
+    - name: resources | storage | own_access
+      shell: |
+        uid=$(id -u {{ validation_fixture.login_user | quote }})
+        allocation_mount={{ validation_fixture.allocation_mount_path | quote }}
+        systemd-run --quiet --pipe --wait --collect \
+          --uid {{ validation_fixture.login_user | quote }} \
+          --slice=user-${uid}.slice \
+          /bin/sh -c '
+            file="$1/.kloigos-validation-${validation_run_id}.access"
+            trap "rm -f \"$file\"" EXIT
+            printf validation-access > "$file"
+            test "$(cat "$file")" = validation-access
+          ' sh "$allocation_mount"
+      args:
+        executable: /bin/bash
+      register: resources__storage__own_access
+      changed_when: false
+      failed_when: false
+      when: validation_group in ['resources', 'all']
+
+    # Verify the selected fixture user cannot list a declared peer allocation mount.
+    - name: resources | storage | peer_access_denied
+      shell: |
+        uid=$(id -u {{ validation_fixture.login_user | quote }})
+        peer_mount={{ validation_filesystem_peer.allocation_mount_path | quote }}
+        systemd-run --quiet --pipe --wait --collect \
+          --uid {{ validation_fixture.login_user | quote }} \
+          --slice=user-${uid}.slice \
+          /bin/sh -c 'test -r "$1" && ls -A "$1" >/dev/null' sh "$peer_mount"
+      args:
+        executable: /bin/bash
+      register: resources__storage__peer_access_denied
+      changed_when: false
+      failed_when: false
+      when:
+        - validation_group in ['resources', 'all']
+        - validation_filesystem_peer is defined
+
     - name: Resources | persist cgroup evidence
       ansible.builtin.copy:
         content: >-
@@ -454,6 +544,20 @@
           'rc': resources__cgroup__limits.rc}
           ] | to_nice_yaml }}
         dest: "{{ validation_remote_evidence_dir }}/resources.cgroup.yaml"
+        mode: "0640"
+      when: validation_group in ['resources', 'all']
+
+    - name: Resources | persist storage evidence
+      ansible.builtin.copy:
+        content: >-
+          {{ [
+          {'id': 'resources.storage.lvm-backing', 'command': resources__storage__lvm_backing.cmd, 'stdout': resources__storage__lvm_backing.stdout, 'stderr': resources__storage__lvm_backing.stderr, 'rc': resources__storage__lvm_backing.rc},
+          {'id': 'resources.storage.allocation-mount', 'command': resources__storage__allocation_mount.cmd, 'stdout': resources__storage__allocation_mount.stdout, 'stderr': resources__storage__allocation_mount.stderr, 'rc': resources__storage__allocation_mount.rc},
+          {'id': 'resources.storage.ownership', 'command': resources__storage__ownership.cmd, 'stdout': resources__storage__ownership.stdout, 'stderr': resources__storage__ownership.stderr, 'rc': resources__storage__ownership.rc},
+          {'id': 'resources.storage.own-access', 'command': resources__storage__own_access.cmd, 'stdout': resources__storage__own_access.stdout, 'stderr': resources__storage__own_access.stderr, 'rc': resources__storage__own_access.rc},
+          {'id': 'resources.storage.peer-access-denied', 'status': 'skipped', 'summary': 'No filesystem peer allocation is declared in the selected fixture.'} if validation_filesystem_peer is not defined else {'id': 'resources.storage.peer-access-denied', 'command': resources__storage__peer_access_denied.cmd, 'stdout': resources__storage__peer_access_denied.stdout, 'stderr': resources__storage__peer_access_denied.stderr, 'rc': resources__storage__peer_access_denied.rc, 'expect_failure': true}
+          ] | to_nice_yaml }}
+        dest: "{{ validation_remote_evidence_dir }}/resources.storage.yaml"
         mode: "0640"
       when: validation_group in ['resources', 'all']
 
@@ -523,17 +627,16 @@
       failed_when: false
       when: validation_group in ['workloads', 'all'] and workloads__fixture__user_exists.rc == 0
 
-    # Run and clean a bounded disk-I/O correctness workload.
+    # Run and clean a bounded disk-I/O correctness workload on allocation storage.
     - name: workloads | filesystem | disk_io_correctness
       shell: |
         uid=$(id -u {{ validation_fixture.login_user | default('') | quote }}) &&
-        home=$(getent passwd {{ validation_fixture.login_user | default('') | quote }} | cut -d: -f6) &&
+        allocation_mount={{ validation_fixture.allocation_mount_path | quote }} &&
         systemd-run --quiet --pipe --wait --collect --uid {{ validation_fixture.login_user | default('') | quote }} --slice=user-${uid}.slice /bin/sh -c '
-          fio --name=kloigos-validation --filename="$1/.kloigos-validation-fio.bin" --size=16M --rw=readwrite --bs=1M --direct=0 --verify=crc32c --do_verify=1 --output-format=json
-          rc=$?
-          rm -f "$1/.kloigos-validation-fio.bin"
-          exit $rc
-        ' sh "$home"
+          file="$1/.kloigos-validation-${validation_run_id}.bin"
+          trap "rm -f \"$file\"" EXIT
+          /usr/bin/timeout --kill-after=5s 30s fio --name=kloigos-validation --filename="$file" --size=16M --rw=readwrite --bs=1M --direct=0 --verify=crc32c --do_verify=1 --output-format=json
+        ' sh "$allocation_mount"
       args:
         executable: /bin/bash
       register: workloads__filesystem__disk_io_correctness

@@ -17,6 +17,7 @@
         - procps
         - util-linux
         - lsof
+        - lvm2
         - psmisc
         - jq
         - apparmor-utils
@@ -29,6 +30,7 @@
         - procps-ng
         - util-linux
         - lsof
+        - lvm2
         - psmisc
         - jq
     validation_required_commands:
@@ -41,6 +43,7 @@
       - ps
       - findmnt
       - lsblk
+      - lvs
       - systemctl
       - jq
 

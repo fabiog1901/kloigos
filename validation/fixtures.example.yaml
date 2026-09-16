@@ -8,6 +8,9 @@ compute_units:
   - hostname: validation-host-01
     ordinal: 1
     cpu_range: 0-3
+  - hostname: validation-host-01
+    ordinal: 2
+    cpu_range: 4-7
 allocations:
   - allocation_id: validation-a
     login_user: validation_a
@@ -16,9 +19,21 @@ allocations:
     ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDk65l+4HPbBZRt6mV7tHcvap3PrhCUo79iaCEdE1exx fabio@hp
     compute_unit: validation-host-01-cu01
     organization: validation-org-a
+    storage_mount_path: /mnt/kloigos/validation-host-01/cu01
+    allocation_mount_path: /mnt/validation_a
+    filesystem_peer_allocation_id: validation-b
+  - allocation_id: validation-b
+    login_user: validation_b
+    ip_address: 192.0.2.11
+    cpu_count: 1
+    ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDk65l+4HPbBZRt6mV7tHcvap3PrhCUo79iaCEdE1exx fabio@hp
+    compute_unit: validation-host-01-cu02
+    organization: validation-org-a
+    storage_mount_path: /mnt/kloigos/validation-host-01/cu02
+    allocation_mount_path: /mnt/validation_b
 security_groups:
   - name: validation-allow-http
-    attachments: [validation-a]
+    attachments: [validation-a, validation-b]
 tenancy_scenarios:
   - name: shared-same-organization
     organization: validation-org-a

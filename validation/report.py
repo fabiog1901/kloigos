@@ -283,7 +283,9 @@ def manage_fixtures(args: argparse.Namespace) -> int:
     return 0
 
 
-def selected_fixture(manifest: Path, allocation_id: str) -> dict[str, Any]:
+def selected_fixture(
+    manifest: Path, allocation_id: str, *, require_storage: bool = False
+) -> dict[str, Any]:
     _, allocations = fixture_manifest(manifest)
     fixture = next(
         (item for item in allocations if item.get("allocation_id") == allocation_id),
@@ -293,6 +295,32 @@ def selected_fixture(manifest: Path, allocation_id: str) -> dict[str, Any]:
         raise ValidationError(
             "Selected fixture allocation is absent from the manifest."
         )
+    if require_storage:
+        for field in ("storage_mount_path", "allocation_mount_path"):
+            if not isinstance(fixture.get(field), str) or not fixture[field]:
+                raise ValidationError(
+                    f"Selected fixture allocation requires a non-empty {field}."
+                )
+    peer_id = fixture.get("filesystem_peer_allocation_id") if require_storage else None
+    if peer_id is not None:
+        if not isinstance(peer_id, str) or not peer_id:
+            raise ValidationError(
+                "filesystem_peer_allocation_id must be a non-empty allocation ID."
+            )
+        peer = next(
+            (item for item in allocations if item.get("allocation_id") == peer_id), None
+        )
+        if peer is None:
+            raise ValidationError(
+                "Selected fixture filesystem_peer_allocation_id is absent from the manifest."
+            )
+        if not isinstance(peer.get("allocation_mount_path"), str) or not peer[
+            "allocation_mount_path"
+        ]:
+            raise ValidationError(
+                "Filesystem peer fixture requires a non-empty allocation_mount_path."
+            )
+        fixture = {**fixture, "filesystem_peer": peer}
     return fixture
 
 
@@ -350,9 +378,14 @@ def run_controller(args: argparse.Namespace) -> int:
             f"{group} requires a fixture manifest and selected allocation."
         )
     if manifest_value and allocation_id:
-        extravars["validation_fixture"] = selected_fixture(
-            Path(manifest_value), allocation_id
+        fixture = selected_fixture(
+            Path(manifest_value),
+            allocation_id,
+            require_storage=group in {"all", "resources", "workloads"},
         )
+        extravars["validation_fixture"] = fixture
+        if "filesystem_peer" in fixture:
+            extravars["validation_filesystem_peer"] = fixture["filesystem_peer"]
 
     result = ansible_runner.run(
         private_data_dir=str("/tmp/"),
