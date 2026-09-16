@@ -4,8 +4,9 @@ Fixture manifests declare disposable Kloigos resources for real-host validation.
 controller inputs, not production discovery: servers, allocations, addresses, and tenancy scenarios
 must all be named. Use `example.yaml` as an external template; never commit tokens or private keys.
 
-The provisioning phase consumes this contract to create and delete resources deterministically.
-Until then, the manifest is configuration only.
+The controller consumes this contract to create and delete declared fixture resources
+deterministically when requested. It remains the only environment-specific validation
+configuration source.
 
 For the unauthenticated local demo, run `make validate ARGS="fixtures setup"` before validation and
 `make validate ARGS="fixtures cleanup"` afterwards. Each queued allocation/deallocation job is polled

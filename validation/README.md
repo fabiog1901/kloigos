@@ -6,6 +6,9 @@ Run manually from a controller that can SSH to explicitly designated Kloigos tes
 make validate
 ```
 
+`make validate` invokes [`validation/validate`](validate), the local controller script. Do not
+invoke the Ansible playbook or runner directly for a normal validation run.
+
 The stable check groups are `smoke` (default), `resources`, `network`, and `workloads`.
 Set `KLOIGOS_VALIDATION_GROUP` to select one. `resources` uses the manifest-selected allocation
 user to inspect its cgroup limits and prove a CPU-affinity escape is rejected. `workloads` runs

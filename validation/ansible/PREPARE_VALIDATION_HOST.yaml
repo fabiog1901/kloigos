@@ -1,5 +1,5 @@
 ---
-# Prepare explicitly selected Linux hosts for future Kloigos real-host validation.
+# Prepare explicitly selected Linux hosts for manually requested Kloigos real-host validation.
 # This playbook installs dependencies and verifies their availability only. It does
 # not run a profile, create load, or modify Kloigos-managed allocations.
 - name: Prepare Kloigos validation hosts
