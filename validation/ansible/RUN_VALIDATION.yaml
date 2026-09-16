@@ -28,8 +28,8 @@
 
     - name: Deploy report evaluator
       ansible.builtin.copy:
-        src: ../runner/run.py
-        dest: "{{ validation_remote_root }}/run.py"
+        src: ../report.py
+        dest: "{{ validation_remote_root }}/report.py"
         mode: "0750"
 
     - name: Smoke | discover Compute Unit LVM volumes
@@ -316,7 +316,8 @@
         argv:
           [
             python3,
-            "{{ validation_remote_root }}/run.py",
+            "{{ validation_remote_root }}/report.py",
+            evaluate,
             --group,
             "{{ validation_group }}",
             --target,

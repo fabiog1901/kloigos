@@ -8,6 +8,7 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "ansible-runner (>=2.4.3,<3.0.0)",
     "fastapi[standard] (>=0.135.3,<0.136.0)",
     "cryptography (>=46.0.7,<47.0.0)",
     "psycopg (>=3.3.3,<4.0.0)",
