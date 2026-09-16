@@ -11,22 +11,12 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 SCHEMA_VERSION = 1
-GROUPS = frozenset({"smoke", "resources", "network", "workloads"})
-DESTRUCTIVE_GROUPS = frozenset({"workloads"})
+GROUPS = frozenset({"all", "smoke", "resources", "network", "workloads"})
+DESTRUCTIVE_GROUPS = frozenset({"all", "workloads"})
 
 
 def timestamp() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
-
-
-def evaluation_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--group", required=True, choices=sorted(GROUPS))
-    p.add_argument("--target", required=True)
-    p.add_argument("--bundle", required=True, type=Path)
-    p.add_argument("--output", required=True, type=Path)
-    p.add_argument("--allow-destructive", action="store_true")
-    return p
 
 
 def load_evidence(bundle: Path) -> list[dict[str, str]]:
@@ -109,8 +99,7 @@ def summarize(results: list[dict[str, str]]) -> dict[str, int | str]:
     return counts
 
 
-def evaluate(argv: Sequence[str]) -> int:
-    args = evaluation_parser().parse_args(argv)
+def evaluate(args: argparse.Namespace) -> int:
     started = timestamp()
     try:
         if args.group in DESTRUCTIVE_GROUPS and not args.allow_destructive:
@@ -167,26 +156,29 @@ def fixture_manifest(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     return document, allocations
 
 
-def api_call(method: str, path: str, body: dict[str, Any] | None = None) -> Any:
-    base_url = os.environ.get("KLOIGOS_VALIDATION_API_URL", "http://localhost:8000/api")
+def api_call(
+    base_url: str, method: str, path: str, body: dict[str, Any] | None = None
+) -> Any:
     request = Request(
         f"{base_url.rstrip('/')}{path}",
         data=json.dumps(body).encode() if body is not None else None,
         headers={"Content-Type": "application/json"},
         method=method,
     )
+    print(request.data)
+
     try:
         with urlopen(request, timeout=30) as response:
             return json.loads(response.read())
     except (HTTPError, URLError, json.JSONDecodeError) as exc:
-        raise ValidationError(f"{method} {path} failed: {exc}") from exc
+        raise ValidationError(f"{method} {path} failed: {exc.read()} ") from exc
 
 
-def wait_for_job(job: Any) -> None:
+def wait_for_job(base_url: str, job: Any) -> None:
     if not isinstance(job, dict) or not isinstance(job.get("job_id"), str):
         raise ValidationError("Fixture API response did not contain a job_id.")
     for _ in range(120):
-        status = api_call("GET", f"/jobs/{job['job_id']}")
+        status = api_call(base_url, "GET", f"/jobs/{job['job_id']}")
         state = status.get("status") if isinstance(status, dict) else None
         if state == "successful":
             return
@@ -205,14 +197,11 @@ def fixture_addresses(allocations: list[dict[str, Any]]) -> list[str]:
     return list(dict.fromkeys(addresses))
 
 
-def manage_fixtures(action: str) -> int:
-    manifest_value = os.environ.get("KLOIGOS_VALIDATION_FIXTURE_MANIFEST")
-    if not manifest_value:
-        raise ValidationError("KLOIGOS_VALIDATION_FIXTURE_MANIFEST is required.")
-    _, allocations = fixture_manifest(Path(manifest_value))
+def manage_fixtures(args: argparse.Namespace) -> int:
+    _, allocations = fixture_manifest(args.fixture_manifest)
     addresses = fixture_addresses(allocations)
-    if action == "setup":
-        existing = api_call("GET", "/admin/ip_pool/")
+    if args.action == "setup":
+        existing = api_call(args.api_url, "GET", "/admin/ip_pool/")
         existing_addresses = {
             item.get("ip_address") for item in existing if isinstance(item, dict)
         }
@@ -220,14 +209,19 @@ def manage_fixtures(action: str) -> int:
             address for address in addresses if address not in existing_addresses
         ]
         if addresses_to_add:
-            api_call("POST", "/admin/ip_pool/", {"ip_addresses": addresses_to_add})
+            api_call(
+                args.api_url,
+                "POST",
+                "/admin/ip_pool/",
+                {"ip_addresses": addresses_to_add},
+            )
     for allocation in allocations:
         allocation_id = allocation.get("allocation_id")
         if not isinstance(allocation_id, str) or not allocation_id:
             raise ValidationError(
                 "Each fixture allocation requires a non-empty allocation_id."
             )
-        if action == "setup":
+        if args.action == "setup":
             fields = (
                 "allocation_id",
                 "login_user",
@@ -238,16 +232,17 @@ def manage_fixtures(action: str) -> int:
                 "ssh_public_key",
             )
             job = api_call(
+                args.api_url,
                 "POST",
                 "/allocations/",
                 {field: allocation.get(field) for field in fields},
             )
         else:
-            job = api_call("DELETE", f"/allocations/{allocation_id}")
-        wait_for_job(job)
-    if action == "cleanup":
+            job = api_call(args.api_url, "DELETE", f"/allocations/{allocation_id}")
+        wait_for_job(args.api_url, job)
+    if args.action == "cleanup":
         for address in addresses:
-            api_call("DELETE", f"/admin/ip_pool/{address}")
+            api_call(args.api_url, "DELETE", f"/admin/ip_pool/{address}")
     return 0
 
 
@@ -264,36 +259,54 @@ def selected_fixture(manifest: Path, allocation_id: str) -> dict[str, Any]:
     return fixture
 
 
-def run_controller() -> int:
+def configured(value: Any, environment: str, default: Any = None) -> Any:
+    return value if value is not None else os.environ.get(environment, default)
+
+
+def run_controller(args: argparse.Namespace) -> int:
     import ansible_runner
 
     root = Path(__file__).resolve().parent
-    inventory_value = os.environ.get("KLOIGOS_VALIDATION_INVENTORY")
-    if not inventory_value or not Path(inventory_value).is_file():
-        raise ValidationError(
-            "KLOIGOS_VALIDATION_INVENTORY is required and must name a file."
-        )
-    group = os.environ.get("KLOIGOS_VALIDATION_GROUP", "smoke")
+
+    print(root)
+
+    inventory = configured(args.inventory, "KLOIGOS_VALIDATION_INVENTORY")
+    if inventory is None or not Path(inventory).is_file():
+        raise ValidationError("--inventory is required and must name a file.")
+    group = configured(args.group, "KLOIGOS_VALIDATION_GROUP", "all")
     if group not in GROUPS:
+        raise ValidationError(f"--group must be one of: {', '.join(sorted(GROUPS))}.")
+    allow_destructive = configured(
+        args.allow_destructive, "KLOIGOS_VALIDATION_ALLOW_DESTRUCTIVE", "false"
+    )
+    if isinstance(allow_destructive, str):
+        allow_destructive = allow_destructive.lower() in {"1", "true", "yes"}
+    if group in DESTRUCTIVE_GROUPS and not allow_destructive:
         raise ValidationError(
-            f"KLOIGOS_VALIDATION_GROUP must be one of: {', '.join(sorted(GROUPS))}."
+            f"{group} requires --allow-destructive (or KLOIGOS_VALIDATION_ALLOW_DESTRUCTIVE=1)."
         )
     report_dir = Path(
-        os.environ.get("KLOIGOS_VALIDATION_REPORT_DIR", root / "reports" / "controller")
+        configured(
+            args.report_dir,
+            "KLOIGOS_VALIDATION_REPORT_DIR",
+            root / "reports",
+        )
     )
     report_dir.mkdir(parents=True, exist_ok=True)
     run_id = f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}-{os.getpid()}"
     extravars: dict[str, Any] = {
         "validation_group": group,
-        "validation_allow_destructive": os.environ.get(
-            "KLOIGOS_VALIDATION_ALLOW_DESTRUCTIVE", "false"
-        ),
+        "validation_allow_destructive": allow_destructive,
         "validation_controller_report_dir": str(report_dir),
         "validation_run_id": run_id,
     }
-    manifest_value = os.environ.get("KLOIGOS_VALIDATION_FIXTURE_MANIFEST")
-    allocation_id = os.environ.get("KLOIGOS_VALIDATION_FIXTURE_ALLOCATION")
-    if group in {"resources", "network", "workloads"} and (
+    manifest_value = configured(
+        args.fixture_manifest, "KLOIGOS_VALIDATION_FIXTURE_MANIFEST"
+    )
+    allocation_id = configured(
+        args.fixture_allocation, "KLOIGOS_VALIDATION_FIXTURE_ALLOCATION"
+    )
+    if group in {"all", "resources", "network", "workloads"} and (
         not manifest_value or not allocation_id
     ):
         raise ValidationError(
@@ -303,11 +316,12 @@ def run_controller() -> int:
         extravars["validation_fixture"] = selected_fixture(
             Path(manifest_value), allocation_id
         )
+
     result = ansible_runner.run(
-        private_data_dir=str(root),
+        private_data_dir=str("/tmp/"),
         project_dir=str(root / "ansible"),
         playbook="RUN_VALIDATION.yaml",
-        inventory=inventory_value,
+        inventory=str(root / inventory),
         extravars=extravars,
     )
     if result.rc:
@@ -317,47 +331,113 @@ def run_controller() -> int:
         raise ValidationError("Ansible completed without fetching an evidence bundle.")
     return max(
         evaluate(
-            [
-                "--group",
-                group,
-                "--target",
-                bundle.name.removesuffix(f"-{run_id}.tar.gz"),
-                "--bundle",
-                str(bundle),
-                "--output",
-                str(bundle.with_suffix("").with_suffix(".report.yaml")),
-                "--allow-destructive",
-            ]
+            argparse.Namespace(
+                group=group,
+                target=bundle.name.removesuffix(f"-{run_id}.tar.gz"),
+                bundle=bundle,
+                output=bundle.with_suffix("").with_suffix(".report.yaml"),
+                allow_destructive=True,
+            )
         )
         for bundle in bundles
     )
 
 
-USAGE = 'Usage: make validate [ARGS="run|fixtures setup|fixtures cleanup"]'
+def add_controller_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--inventory",
+        type=Path,
+        default=None,
+        help="Ansible inventory file (fallback: KLOIGOS_VALIDATION_INVENTORY).",
+    )
+    parser.add_argument(
+        "--group",
+        choices=sorted(GROUPS),
+        default=None,
+        help="Check scope; defaults to all (fallback: KLOIGOS_VALIDATION_GROUP).",
+    )
+    parser.add_argument(
+        "--report-dir",
+        type=Path,
+        default=None,
+        help="Directory for fetched bundles and YAML reports (fallback: KLOIGOS_VALIDATION_REPORT_DIR).",
+    )
+    parser.add_argument(
+        "--fixture-manifest",
+        type=Path,
+        default=None,
+        help="Fixture manifest (fallback: KLOIGOS_VALIDATION_FIXTURE_MANIFEST).",
+    )
+    parser.add_argument(
+        "--fixture-allocation",
+        default=None,
+        help="Allocation ID in the fixture manifest (fallback: KLOIGOS_VALIDATION_FIXTURE_ALLOCATION).",
+    )
+    parser.add_argument(
+        "--allow-destructive",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Allow workloads; use --no-allow-destructive to override the environment.",
+    )
+
+
+def add_fixture_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--fixture-manifest",
+        type=Path,
+        default=None,
+        help="Fixture manifest (fallback: KLOIGOS_VALIDATION_FIXTURE_MANIFEST).",
+    )
+    parser.add_argument(
+        "--api-url",
+        default=None,
+        help="Kloigos API URL (fallback: KLOIGOS_VALIDATION_API_URL).",
+    )
+
+
+def add_evaluation_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--group", required=True, choices=sorted(GROUPS))
+    parser.add_argument("--target", required=True)
+    parser.add_argument("--bundle", required=True, type=Path)
+    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--allow-destructive", action="store_true")
+
+
+def parser() -> argparse.ArgumentParser:
+    root = argparse.ArgumentParser(description=__doc__)
+    commands = root.add_subparsers(dest="command", required=True)
+    run = commands.add_parser(
+        "run", help="Run checks on explicitly inventoried test hosts."
+    )
+    add_controller_arguments(run)
+    fixtures = commands.add_parser(
+        "fixtures", help="Manage manifest-declared fixtures."
+    )
+    fixture_actions = fixtures.add_subparsers(dest="action", required=True)
+    for action in ("setup", "cleanup"):
+        fixture_action = fixture_actions.add_parser(action)
+        add_fixture_arguments(fixture_action)
+    evaluation = commands.add_parser("evaluate", help=argparse.SUPPRESS)
+    add_evaluation_arguments(evaluation)
+    return root
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    arguments = list(sys.argv[1:] if argv is None else argv)
-    if not arguments or arguments == ["run"]:
-        return run_controller()
-    if arguments[0] in {"--help", "-h"}:
-        print(
-            f"{USAGE}\n\nrun (default) validates explicitly inventoried remote Kloigos test hosts.\nfixtures setup/cleanup manages only allocations and IPs declared in the fixture manifest."
+    args = parser().parse_args(argv)
+    if args.command == "run":
+        return run_controller(args)
+    if args.command == "fixtures":
+        manifest = configured(
+            args.fixture_manifest, "KLOIGOS_VALIDATION_FIXTURE_MANIFEST"
         )
-        return 0
-    if (
-        arguments[0] == "fixtures"
-        and len(arguments) == 2
-        and arguments[1]
-        in {
-            "setup",
-            "cleanup",
-        }
-    ):
-        return manage_fixtures(arguments[1])
-    if arguments[0] == "evaluate":
-        return evaluate(arguments[1:])
-    raise ValidationError(USAGE)
+        if manifest is None:
+            raise ValidationError("--fixture-manifest is required.")
+        args.fixture_manifest = Path(manifest)
+        args.api_url = configured(
+            args.api_url, "KLOIGOS_VALIDATION_API_URL", "http://localhost:8000/api"
+        )
+        return manage_fixtures(args)
+    return evaluate(args)
 
 
 if __name__ == "__main__":

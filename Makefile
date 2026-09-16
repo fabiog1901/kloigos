@@ -43,4 +43,4 @@ py-compile: ## Compile all Python files to catch syntax errors.
 	poetry run python -m py_compile $$(find kloigos tools -type f -name '*.py' -not -path '*/__pycache__/*')
 
 validate: ## Start manually requested Kloigos real-host validation from this controller.
-	poetry run python validation/report.py $(ARGS)
+	cd validation && poetry run python report.py run --inventory inventory.ini --allow-destructive --fixture-manifest fixtures.yaml --fixture-allocation validation-a

@@ -20,9 +20,9 @@ make validate
 3. [`ansible/RUN_VALIDATION.yaml`](ansible/RUN_VALIDATION.yaml) creates a per-run workspace on
    each explicitly inventoried host, performs Linux inspection or workload commands, and writes
    the raw `evidence.json` file.
-4. Ansible archives the complete workspace as a `.tar.gz` bundle and fetches it to
-   `KLOIGOS_VALIDATION_REPORT_DIR` (default: `validation/reports/controller`). The bundle is the
-   immutable audit artifact for that host and run.
+4. Ansible archives the complete workspace as a `.tar.gz` bundle and fetches it to the selected
+   report directory (default: `validation/reports/controller`). The bundle is the immutable audit
+   artifact for that host and run.
 5. The local `report.py` reads each fetched bundle, evaluates its evidence, and writes its adjacent
    human-readable YAML report (for example, `k01-<run-id>.report.yaml`). It determines the final
    validation exit status; no reporting code is copied to the remote host.
@@ -32,32 +32,31 @@ normal validation run.
 
 ## Check groups
 
-Set `KLOIGOS_VALIDATION_GROUP` to one of the stable groups: `smoke` (default), `resources`,
-`network`, or `workloads`. `resources` uses the allocation selected from the fixture manifest to
+`--group` defaults to `all`, which runs every check group: `smoke`, `resources`, `network`, and
+`workloads`. Set it to one of those individual groups to run only that bounded subset.
+`resources` uses the allocation selected from the fixture manifest to
 inspect cgroup limits and verify a CPU-affinity escape is denied. `workloads` runs bounded
 `stress-ng` CPU, memory, process, and disk work as that allocation user and creates a temporary
-fio file. It requires explicit consent:
+fio file. Because `all` includes workloads, the default run requires explicit consent:
 
 ```bash
-KLOIGOS_VALIDATION_GROUP=workloads \
-KLOIGOS_VALIDATION_ALLOW_DESTRUCTIVE=1 \
-make validate
+make validate ARGS="--allow-destructive --fixture-manifest /path/to/fixtures.yaml --fixture-allocation validation-a"
 ```
 
-## Fixtures and controller inputs
+## CLI inputs and fixtures
 
-Copy [`controller.env.example`](controller.env.example) into an untracked local environment file
-or export its settings. The inventory must contain only explicitly designated test hosts. When a
-`resources`, `network`, and `workloads` need fixture resources: point
-`KLOIGOS_VALIDATION_FIXTURE_MANIFEST` at your manifest and choose an allocation with
-`KLOIGOS_VALIDATION_FIXTURE_ALLOCATION`.
+Use `make validate ARGS="--help"` to see the CLI options. The inventory must contain only
+explicitly designated test hosts. The normal all-groups run needs `--inventory`,
+`--fixture-manifest`, `--fixture-allocation`, and `--allow-destructive`; `--report-dir` selects
+where fetched bundles and YAML reports are retained. Command-line values override their matching
+`KLOIGOS_VALIDATION_*` environment variables, which remain available as fallbacks.
 
 For the local demo, provision and later remove those declared resources explicitly:
 
 ```bash
-make validate ARGS="fixtures setup"
-make validate
-make validate ARGS="fixtures cleanup"
+make validate ARGS="fixtures setup --fixture-manifest /path/to/fixtures.yaml"
+make validate ARGS="--inventory validation/inventory.ini --fixture-manifest /path/to/fixtures.yaml --fixture-allocation validation-a --allow-destructive"
+make validate ARGS="fixtures cleanup --fixture-manifest /path/to/fixtures.yaml"
 ```
 
 The fixture commands poll every queued allocation or deallocation job to completion and never

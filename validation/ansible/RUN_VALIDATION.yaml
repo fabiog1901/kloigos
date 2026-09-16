@@ -11,14 +11,14 @@
 
     - name: Validate stable check group
       ansible.builtin.assert:
-        that: validation_group in ['smoke', 'resources', 'network', 'workloads']
-        fail_msg: "KLOIGOS_VALIDATION_GROUP must be smoke, resources, network, or workloads."
+        that: validation_group in ['all', 'smoke', 'resources', 'network', 'workloads']
+        fail_msg: "KLOIGOS_VALIDATION_GROUP must be all, smoke, resources, network, or workloads."
 
     - name: Require destructive-workload consent
       ansible.builtin.assert:
         that: validation_allow_destructive | bool
         fail_msg: "The workloads group requires KLOIGOS_VALIDATION_ALLOW_DESTRUCTIVE=1."
-      when: validation_group == 'workloads'
+      when: validation_group in ['workloads', 'all']
 
     - name: Create remote run workspace
       ansible.builtin.file:
@@ -33,7 +33,7 @@
       register: smoke_compute_units_discovery
       changed_when: false
       failed_when: false
-      when: validation_group == 'smoke'
+      when: validation_group in ['smoke', 'all']
 
     - name: Smoke | check cgroup v2 and systemd delegation
       shell: |
@@ -42,7 +42,7 @@
       register: smoke_cgroups_v2
       changed_when: false
       failed_when: false
-      when: validation_group == 'smoke'
+      when: validation_group in ['smoke', 'all']
 
     - name: Smoke | check allocated-user slice CPU configuration
       shell: |
@@ -53,14 +53,16 @@
       register: smoke_cpu_cpuset
       changed_when: false
       failed_when: false
-      when: validation_group == 'smoke'
+      when: validation_group in ['smoke', 'all']
 
     - name: Smoke | confirm systemd manager is available
-      ansible.builtin.command: systemctl show --property=Version --value
+      shell: |
+        systemctl show --property=Version --value
+      args: {executable: /bin/bash}
       register: smoke_systemd_manager
       changed_when: false
       failed_when: false
-      when: validation_group == 'smoke'
+      when: validation_group in ['smoke', 'all']
 
     - name: Smoke | discover Compute Unit mount directories
       shell: |
@@ -69,7 +71,7 @@
       register: smoke_storage_compute_unit_mounts
       changed_when: false
       failed_when: false
-      when: validation_group == 'smoke'
+      when: validation_group in ['smoke', 'all']
 
     - name: Smoke | check configured floating-IP definitions
       shell: |
@@ -80,7 +82,7 @@
       register: smoke_networking_floating_ips
       changed_when: false
       failed_when: false
-      when: validation_group == 'smoke'
+      when: validation_group in ['smoke', 'all']
 
     - name: Smoke | verify Kloigos nftables configuration
       shell: |
@@ -89,7 +91,7 @@
       register: smoke_nftables_configuration
       changed_when: false
       failed_when: false
-      when: validation_group == 'smoke'
+      when: validation_group in ['smoke', 'all']
 
     - name: Smoke | check Kloigos AppArmor profiles
       shell: |
@@ -100,7 +102,7 @@
       register: smoke_apparmor_profiles
       changed_when: false
       failed_when: false
-      when: validation_group == 'smoke'
+      when: validation_group in ['smoke', 'all']
 
     - name: Smoke | check rendered allocation file-descriptor limits
       shell: |
@@ -111,7 +113,7 @@
       register: smoke_resource_limits_nofile
       changed_when: false
       failed_when: false
-      when: validation_group == 'smoke'
+      when: validation_group in ['smoke', 'all']
 
     - name: Smoke | write collected evidence
       ansible.builtin.copy:
@@ -129,7 +131,7 @@
           ] | to_nice_json }}
         dest: "{{ validation_remote_evidence }}"
         mode: "0640"
-      when: validation_group == 'smoke'
+      when: validation_group in ['smoke', 'all']
 
     - name: Resources | inspect selected allocation cgroup limits
       shell: |
@@ -143,23 +145,25 @@
       register: resources_cgroup_limits
       changed_when: false
       failed_when: false
-      when: validation_group == 'resources'
+      when: validation_group in ['resources', 'all']
 
     - name: Network | verify selected fixture floating IP is present
-      ansible.builtin.command:
-        argv: [ip, addr, show, to, "{{ validation_fixture.ip_address | default('') }}"]
+      shell: |
+        ip addr show to {{ validation_fixture.ip_address | default('') | quote }}
+      args: {executable: /bin/bash}
       register: network_floating_ip
       changed_when: false
       failed_when: false
-      when: validation_group == 'network'
+      when: validation_group in ['network', 'all']
 
     - name: Network | verify Kloigos nftables table is active
-      ansible.builtin.command:
-        argv: [nft, list, table, inet, kloigos_compute_units]
+      shell: |
+        nft list table inet kloigos_compute_units
+      args: {executable: /bin/bash}
       register: network_nftables
       changed_when: false
       failed_when: false
-      when: validation_group == 'network'
+      when: validation_group in ['network', 'all']
 
     - name: Network | write collected evidence
       ansible.builtin.copy:
@@ -174,7 +178,7 @@
           ] | to_nice_json }}
         dest: "{{ validation_remote_evidence }}"
         mode: "0640"
-      when: validation_group == 'network'
+      when: validation_group in ['network', 'all']
 
     - name: Resources | verify selected allocation cgroup hierarchy
       shell: |
@@ -185,7 +189,7 @@
       register: resources_cgroup_hierarchy
       changed_when: false
       failed_when: false
-      when: validation_group == 'resources'
+      when: validation_group in ['resources', 'all']
 
     - name: Resources | inspect selected allocation CPU affinity
       shell: |
@@ -199,7 +203,7 @@
       register: resources_cpu_affinity_positive
       changed_when: false
       failed_when: false
-      when: validation_group == 'resources'
+      when: validation_group in ['resources', 'all']
 
     - name: Resources | verify allocation CPU-affinity escape is denied
       shell: |
@@ -212,7 +216,7 @@
       register: resources_cpu_affinity_escape
       changed_when: false
       failed_when: false
-      when: validation_group == 'resources'
+      when: validation_group in ['resources', 'all']
 
     - name: Resources | verify Kloigos systemd overrides are rendered
       shell: |
@@ -222,7 +226,7 @@
       register: resources_systemd_overrides
       changed_when: false
       failed_when: false
-      when: validation_group == 'resources'
+      when: validation_group in ['resources', 'all']
 
     - name: Resources | write cgroup-limit evidence
       ansible.builtin.copy:
@@ -246,15 +250,16 @@
           ] | to_nice_json }}
         dest: "{{ validation_remote_evidence }}"
         mode: "0640"
-      when: validation_group == 'resources'
+      when: validation_group in ['resources', 'all']
 
     - name: Workloads | verify selected fixture user exists
-      ansible.builtin.command:
-        argv: [id, -u, "{{ validation_fixture.login_user | default('') }}"]
+      shell: |
+        id -u {{ validation_fixture.login_user | default('') | quote }}
+      args: {executable: /bin/bash}
       register: workloads_fixture_user
       changed_when: false
       failed_when: false
-      when: validation_group == 'workloads'
+      when: validation_group in ['workloads', 'all']
 
     - name: Workloads | run bounded stress-ng workload
       shell: |
@@ -265,7 +270,7 @@
       register: workloads_stress_ng
       changed_when: false
       failed_when: false
-      when: validation_group == 'workloads' and workloads_fixture_user.rc == 0
+      when: validation_group in ['workloads', 'all'] and workloads_fixture_user.rc == 0
 
     - name: Workloads | run and clean bounded fio workload
       shell: |
@@ -282,15 +287,16 @@
       register: workloads_fio
       changed_when: false
       failed_when: false
-      when: validation_group == 'workloads'
+      when: validation_group in ['workloads', 'all']
 
     - name: Workloads | verify host responsiveness
-      ansible.builtin.command:
-        argv: [systemctl, is-system-running]
+      shell: |
+        systemctl is-system-running
+      args: {executable: /bin/bash}
       register: workloads_host_responsiveness
       changed_when: false
       failed_when: false
-      when: validation_group == 'workloads'
+      when: validation_group in ['workloads', 'all']
 
     - name: Workloads | write collected evidence
       ansible.builtin.copy:
@@ -303,19 +309,12 @@
           ] | to_nice_json }}
         dest: "{{ validation_remote_evidence }}"
         mode: "0640"
-      when: validation_group == 'workloads'
+      when: validation_group in ['workloads', 'all']
 
     - name: Archive collected validation data
-      ansible.builtin.command:
-        argv:
-          [
-            tar,
-            -C,
-            "{{ validation_remote_root }}",
-            -czf,
-            "{{ validation_remote_bundle }}",
-            .,
-          ]
+      shell: |
+        tar -C {{ validation_remote_root | quote }} -czf {{ validation_remote_bundle | quote }} .
+      args: {executable: /bin/bash}
       changed_when: false
 
     - name: Fetch collected validation bundle
