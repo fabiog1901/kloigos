@@ -19,27 +19,55 @@ def timestamp() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def load_evidence(bundle: Path) -> list[dict[str, str]]:
+def evidence_records(bundle: Path) -> list[dict[str, Any]]:
+    """Read remote per-group evidence records in deterministic archive order."""
+    import yaml
+
     try:
         with tarfile.open(bundle, "r:gz") as archive:
-            member = next(
+            members = sorted(
                 (
                     item
                     for item in archive.getmembers()
-                    if item.isfile() and item.name.lstrip("./") == "evidence.json"
+                    if item.isfile()
+                    and item.name.lstrip("./").startswith("evidence/")
+                    and item.name.lower().endswith((".yaml", ".yml"))
                 ),
-                None,
+                key=lambda item: item.name,
             )
-            if member is None:
-                raise ValueError("Evidence bundle does not contain evidence.json.")
-            source = archive.extractfile(member)
-            if source is None:
-                raise ValueError("Unable to read evidence.json from the bundle.")
-            value = json.loads(source.read())
-    except (OSError, tarfile.TarError, json.JSONDecodeError) as exc:
+            if not members:
+                raise ValueError("Evidence bundle contains no per-check YAML records.")
+            records: list[dict[str, Any]] = []
+            for member in members:
+                source = archive.extractfile(member)
+                if source is None:
+                    raise ValueError(f"Unable to read evidence record '{member.name}'.")
+                value = yaml.safe_load(source.read())
+                if not isinstance(value, list) or not all(
+                    isinstance(item, dict) for item in value
+                ):
+                    raise ValueError(
+                        f"Evidence record '{member.name}' must be a YAML list of objects."
+                    )
+                records.extend(value)
+            return records
+    except (OSError, tarfile.TarError, yaml.YAMLError) as exc:
         raise ValueError(f"Unable to read evidence bundle '{bundle}': {exc}") from exc
+
+
+def aggregate_evidence(bundle: Path) -> Path:
+    """Write the controller-owned aggregate evidence document for a bundle."""
+    import yaml
+
+    output = bundle.with_suffix("").with_suffix(".evidence.yaml")
+    output.write_text(yaml.safe_dump(evidence_records(bundle), sort_keys=False))
+    return output
+
+
+def load_evidence(bundle: Path) -> list[dict[str, str]]:
+    value = evidence_records(bundle)
     if not isinstance(value, list):
-        raise ValueError("Evidence must be a JSON array.")
+        raise ValueError("Evidence must be a YAML list.")
     records = []
     for index, item in enumerate(value, 1):
         if (
@@ -101,9 +129,11 @@ def summarize(results: list[dict[str, str]]) -> dict[str, int | str]:
 
 def evaluate(args: argparse.Namespace) -> int:
     started = timestamp()
+    aggregate_path: Path | None = None
     try:
         if args.group in DESTRUCTIVE_GROUPS and not args.allow_destructive:
             raise ValueError(f"{args.group} requires --allow-destructive.")
+        aggregate_path = aggregate_evidence(args.bundle)
         results = load_evidence(args.bundle)
     except ValueError as exc:
         results = [{"id": "runner.input", "status": "error", "summary": str(exc)}]
@@ -119,7 +149,14 @@ def evaluate(args: argparse.Namespace) -> int:
         },
         "summary": totals,
         "results": results,
-        "diagnostics": [{"name": "evidence-bundle", "path": str(args.bundle)}],
+        "diagnostics": [
+            {"name": "evidence-bundle", "path": str(args.bundle)},
+            *(
+                [{"name": "aggregate-evidence", "path": str(aggregate_path)}]
+                if aggregate_path is not None
+                else []
+            ),
+        ],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     import yaml

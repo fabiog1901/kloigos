@@ -5,7 +5,7 @@
   become: true
   vars:
     validation_remote_root: "/var/lib/kloigos-validation/runs/{{ validation_run_id }}"
-    validation_remote_evidence: "{{ validation_remote_root }}/evidence.json"
+    validation_remote_evidence_dir: "{{ validation_remote_root }}/evidence"
     validation_remote_bundle: "{{ validation_remote_root }}.tar.gz"
   tasks:
 
@@ -23,6 +23,12 @@
     - name: Create remote run workspace
       ansible.builtin.file:
         path: "{{ validation_remote_root }}"
+        state: directory
+        mode: "0750"
+
+    - name: Create remote evidence workspace
+      ansible.builtin.file:
+        path: "{{ validation_remote_evidence_dir }}"
         state: directory
         mode: "0750"
 
@@ -128,7 +134,7 @@
       failed_when: false
       when: validation_group in ['smoke', 'all']
 
-    - name: Smoke | write collected evidence
+    - name: Smoke | persist collected evidence
       ansible.builtin.copy:
         content: >-
           {{ [
@@ -141,8 +147,8 @@
           {'id': 'nftables.configuration', 'command': smoke_nftables_configuration.cmd, 'stdout': smoke_nftables_configuration.stdout, 'stderr': smoke_nftables_configuration.stderr, 'rc': smoke_nftables_configuration.rc},
           {'id': 'apparmor.profiles', 'status': 'skipped', 'summary': 'No Kloigos AppArmor profiles are present.'} if smoke_apparmor_profiles.stdout == '__KLOIGOS_SKIPPED__' else {'id': 'apparmor.profiles', 'command': smoke_apparmor_profiles.cmd, 'stdout': smoke_apparmor_profiles.stdout, 'stderr': smoke_apparmor_profiles.stderr, 'rc': smoke_apparmor_profiles.rc},
           {'id': 'resource-limits.nofile', 'status': 'skipped', 'summary': 'No allocation LimitNOFILE overrides are present.'} if smoke_resource_limits_nofile.stdout == '__KLOIGOS_SKIPPED__' else {'id': 'resource-limits.nofile', 'command': smoke_resource_limits_nofile.cmd, 'stdout': smoke_resource_limits_nofile.stdout, 'stderr': smoke_resource_limits_nofile.stderr, 'rc': smoke_resource_limits_nofile.rc}
-          ] | to_nice_json }}
-        dest: "{{ validation_remote_evidence }}"
+          ] | to_nice_yaml }}
+        dest: "{{ validation_remote_evidence_dir }}/010-smoke.yaml"
         mode: "0640"
       when: validation_group in ['smoke', 'all']
 
@@ -180,7 +186,7 @@
       failed_when: false
       when: validation_group in ['network', 'all']
 
-    - name: Network | write collected evidence
+    - name: Network | persist collected evidence
       ansible.builtin.copy:
         content: >-
           {{ [
@@ -190,8 +196,8 @@
           {'id': 'network.nftables', 'command': network_nftables.cmd,
           'stdout': network_nftables.stdout, 'stderr': network_nftables.stderr,
           'rc': network_nftables.rc}
-          ] | to_nice_json }}
-        dest: "{{ validation_remote_evidence }}"
+          ] | to_nice_yaml }}
+        dest: "{{ validation_remote_evidence_dir }}/030-network.yaml"
         mode: "0640"
       when: validation_group in ['network', 'all']
 
@@ -243,7 +249,7 @@
       failed_when: false
       when: validation_group in ['resources', 'all']
 
-    - name: Resources | write cgroup-limit evidence
+    - name: Resources | persist cgroup-limit evidence
       ansible.builtin.copy:
         content: >-
           {{ [
@@ -262,8 +268,8 @@
           , {'id': 'resources.systemd-overrides', 'command': resources_systemd_overrides.cmd,
           'stdout': resources_systemd_overrides.stdout, 'stderr': resources_systemd_overrides.stderr,
           'rc': resources_systemd_overrides.rc}
-          ] | to_nice_json }}
-        dest: "{{ validation_remote_evidence }}"
+          ] | to_nice_yaml }}
+        dest: "{{ validation_remote_evidence_dir }}/020-resources.yaml"
         mode: "0640"
       when: validation_group in ['resources', 'all']
 
@@ -315,7 +321,7 @@
       failed_when: false
       when: validation_group in ['workloads', 'all']
 
-    - name: Workloads | write collected evidence
+    - name: Workloads | persist collected evidence
       ansible.builtin.copy:
         content: >-
           {{ [
@@ -323,8 +329,8 @@
           {'id': 'workloads.stress-ng', 'command': workloads_stress_ng.cmd | default('not run'), 'stdout': workloads_stress_ng.stdout | default(''), 'stderr': workloads_stress_ng.stderr | default('fixture user is unavailable'), 'rc': workloads_stress_ng.rc | default(1)},
           {'id': 'workloads.fio', 'command': workloads_fio.cmd, 'stdout': workloads_fio.stdout, 'stderr': workloads_fio.stderr, 'rc': workloads_fio.rc},
           {'id': 'workloads.host-responsiveness', 'command': workloads_host_responsiveness.cmd, 'stdout': workloads_host_responsiveness.stdout, 'stderr': workloads_host_responsiveness.stderr, 'rc': workloads_host_responsiveness.rc}
-          ] | to_nice_json }}
-        dest: "{{ validation_remote_evidence }}"
+          ] | to_nice_yaml }}
+        dest: "{{ validation_remote_evidence_dir }}/040-workloads.yaml"
         mode: "0640"
       when: validation_group in ['workloads', 'all']
 
