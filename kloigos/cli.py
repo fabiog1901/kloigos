@@ -40,6 +40,12 @@ class KloigosCLI(ApplicationCLI):
         server.add_argument("--port", type=int, default=8000)
         server.add_argument("--reload", action="store_true")
         server.add_argument("--log-level", default="info")
+        server.add_argument(
+            "--log-output",
+            choices=("terminal", "journald", "both"),
+            default="journald",
+            help="Send application logs to the terminal, journald, or both.",
+        )
         server.set_defaults(handler=self.serve)
 
         demo = subparsers.add_parser(
@@ -56,8 +62,19 @@ class KloigosCLI(ApplicationCLI):
         demo.add_argument("--port", type=int, default=8000)
         demo.add_argument("--reload", action="store_true")
         demo.add_argument("--log-level", default="info")
+        demo.add_argument(
+            "--log-output",
+            choices=("terminal", "journald", "both"),
+            default="terminal",
+            help="Send application logs to the terminal, journald, or both.",
+        )
         demo.set_defaults(handler=self.demo)
         return parser
+
+    def serve(self, args: argparse.Namespace) -> int:
+        """Run the application with the requested interactive log destination."""
+        os.environ["KLOIGOS_LOG_OUTPUT"] = args.log_output
+        return super().serve(args)
 
     def demo(self, args: argparse.Namespace) -> int:
         """Run Kloigos against a local embedded Postgres instance."""
@@ -81,7 +98,6 @@ class KloigosCLI(ApplicationCLI):
             db_url=db_url,
             master_key=_read_or_create_master_key(key_path),
         )
-
         _init_demo_database(self)
         _print_demo_env(data_dir, pgdata, key_path, db_url)
         return self.serve(args)

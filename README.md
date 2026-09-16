@@ -72,6 +72,10 @@ The built-in demo mode starts an embedded Postgres database:
 kloigos demo
 ```
 
+Demo logs print to the terminal by default. Use `--log-output journald` or
+`--log-output both` to change the destination; add `--log-level debug` to see
+both inbound and completed API requests.
+
 For a production-style setup, export `KLOIGOS_DB_URL` and `KLOIGOS_MASTER_KEY`, for example, via a `.env` file,
 then run:
 

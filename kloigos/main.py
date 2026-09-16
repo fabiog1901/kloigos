@@ -1,3 +1,6 @@
+import logging
+import os
+import sys
 from importlib.resources import files
 from pathlib import Path
 
@@ -34,6 +37,33 @@ from .workers.remote.network_policy import run_network_policy_apply
 
 def _package_path(relative_path: str) -> Path:
     return Path(str(files("kloigos").joinpath(relative_path)))
+
+
+def configure_log_output() -> None:
+    """Mirror or redirect CPKit logging for the local CLI process.
+
+    CPKit configures journald automatically on Linux.  Kloigos exposes an
+    opt-in terminal handler for interactive debugging and demo sessions.
+    This hook deliberately runs after CPKit has configured its formatter and
+    request-id filter.
+    """
+    output = os.environ.get("KLOIGOS_LOG_OUTPUT", "journald").lower()
+    if output not in {"terminal", "both"}:
+        return
+
+    root_logger = logging.getLogger()
+    template = root_logger.handlers[0] if root_logger.handlers else None
+    terminal_handler = logging.StreamHandler(sys.stderr)
+    if template is not None:
+        terminal_handler.setFormatter(template.formatter)
+        for log_filter in template.filters:
+            terminal_handler.addFilter(log_filter)
+
+    if output == "terminal":
+        for handler in list(root_logger.handlers):
+            root_logger.removeHandler(handler)
+            handler.close()
+    root_logger.addHandler(terminal_handler)
 
 
 cpkit_bundle = create_cpkit_bundle(
@@ -82,4 +112,5 @@ app = create_cpkit_app(
     static_directory=template_webapp_directory(),
     app_static_directory=_package_path("webapp"),
     default_journald_identifier="kloigos",
+    startup_hooks=(configure_log_output,),
 )
