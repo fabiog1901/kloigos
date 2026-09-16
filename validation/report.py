@@ -20,7 +20,7 @@ def timestamp() -> str:
 
 
 def evidence_records(bundle: Path) -> list[dict[str, Any]]:
-    """Read remote per-group evidence records in deterministic archive order."""
+    """Read remote per-subsection evidence records in deterministic archive order."""
     import yaml
 
     try:

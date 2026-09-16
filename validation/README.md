@@ -19,19 +19,24 @@ make validate
    allocations and IP addresses declared in that manifest.
 3. [`ansible/RUN_VALIDATION.yaml`](ansible/RUN_VALIDATION.yaml) creates a per-run workspace on
    each explicitly inventoried host, performs Linux inspection or workload commands, and writes
-   per-group YAML evidence records immediately under `evidence/` in that workspace.
+   per-subsection YAML evidence records immediately under `evidence/` in that workspace. Each
+   filename is `<group>.<subsection>.yaml` and each record ID is
+   `<group>.<subsection>.<behavior>`. IDs describe the behavior being verified rather than the
+   implementation tool, so they remain stable if a workload tool changes. The matching Ansible
+   check task is named `<group> | <subsection> | <behavior>` and registers its result as
+   `<group>__<subsection>__<behavior>`.
 4. Ansible archives the complete workspace as a `.tar.gz` bundle and fetches it to the selected
    report directory (default: `validation/reports/controller`). The bundle is the immutable audit
    artifact for that host and run.
-5. The local `report.py` reads each fetched bundle, aggregates its ordered per-group records into
+5. The local `report.py` reads each fetched bundle, aggregates its ordered per-subsection records into
    adjacent `*.evidence.yaml`, evaluates them, and writes the human-readable YAML report (for
    example, `k01-<run-id>.report.yaml`). It determines the final validation exit status; no
    reporting code is copied to the remote host.
 
-Each remote evidence file is written as soon as its check group completes. This prevents an `all`
-run from replacing earlier results and preserves completed diagnostics in the archived workspace if
-a later group fails. The controller owns the aggregate evidence document, so it is derived only from
-the fetched immutable bundle.
+Each remote evidence file is written as soon as its check subsection completes. This prevents an
+`all` run from replacing earlier results, keeps individual evidence documents bounded, and preserves
+completed diagnostics in the archived workspace if a later check fails. The controller owns the
+aggregate evidence document, so it is derived only from the fetched immutable bundle.
 
 `ansible/PREPARE_VALIDATION_HOST.yaml` is an administrator preparation aid. It is not part of a
 normal validation run.

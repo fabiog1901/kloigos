@@ -12,7 +12,7 @@ summary:
   skipped: 0
   errors: 0
 results:
-  - id: cgroups.compute-unit-layout
+  - id: smoke.cgroups.compute-unit-layout
     status: passed
     summary: Compute Unit cgroup layout matches the requested configuration.
 diagnostics:
