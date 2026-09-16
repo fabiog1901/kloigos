@@ -41,7 +41,10 @@ normal validation run.
 `--group` defaults to `all`, which runs every check group: `smoke`, `resources`, `network`, and
 `workloads`. Set it to one of those individual groups to run only that bounded subset.
 `resources` uses the allocation selected from the fixture manifest to
-inspect cgroup limits and verify a CPU-affinity escape is denied. `workloads` runs bounded
+inspect cgroup limits and verify CPU-affinity, memory, and PID-limit enforcement. The memory and
+PID probes run in short-lived child scopes beneath the allocation slice, with deliberately small
+`MemoryMax` and `TasksMax` values; they verify kernel cgroup enforcement without attempting to
+consume the allocation's full configured limit. `workloads` runs bounded
 `stress-ng` CPU, memory, process, and disk work as that allocation user and creates a temporary
 fio file. Because `all` includes workloads, the default run requires explicit consent:
 
