@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from cpkit.audit import log_event
+from cpkit.jobs.types import JobID
 
 from kloigos.models import (
     AllocationInDB,
@@ -114,8 +115,8 @@ class SecurityGroupService:
         actor_id: str,
         security_group_id: str,
         req: SecurityGroupRuleCreateRequest,
-    ) -> SecurityGroupRuleInDB:
-        """Add one allow rule to a network security group."""
+    ) -> list[JobID]:
+        """Add one allow rule and return its reconciliation jobs."""
         self._get_security_group(security_group_id)
         self._ensure_unique_rule(security_group_id, req)
         rule = self.repo.create_security_group_rule(
@@ -129,23 +130,25 @@ class SecurityGroupService:
             Event.SECURITY_GROUP_RULE_ADDED,
             _model_details(rule),
         )
-        self._enqueue_attached_host_reconciliations(security_group_id, actor_id)
-        return rule
+        return self._enqueue_attached_host_reconciliations(
+            security_group_id,
+            actor_id,
+        )
 
     def delete_rule(
         self,
         actor_id: str,
         security_group_id: str,
         rule_id: str,
-    ) -> bool:
-        """Delete one rule from a network security group."""
+    ) -> list[JobID] | None:
+        """Delete one rule and return its reconciliation jobs, if found."""
         self._get_security_group(security_group_id)
         rules = self.repo.get_security_group_rules(
             security_group_id=security_group_id,
             rule_id=rule_id,
         )
         if not rules:
-            return False
+            return None
         deleted = self.repo.delete_security_group_rule(security_group_id, rule_id)
         if deleted:
             log_event(
@@ -154,8 +157,11 @@ class SecurityGroupService:
                 Event.SECURITY_GROUP_RULE_DELETED,
                 _model_details(rules[0]),
             )
-            self._enqueue_attached_host_reconciliations(security_group_id, actor_id)
-        return deleted
+            return self._enqueue_attached_host_reconciliations(
+                security_group_id,
+                actor_id,
+            )
+        return None
 
     def list_allocation_security_groups(
         self,
@@ -176,8 +182,8 @@ class SecurityGroupService:
         actor_id: str,
         allocation_id: str,
         security_group_id: str,
-    ) -> SecurityGroupAttachmentInDB:
-        """Attach a network security group to an allocation."""
+    ) -> list[JobID]:
+        """Attach a security group and return its reconciliation jobs."""
         allocation = self._get_allocation(allocation_id)
         security_group = self._get_security_group(security_group_id)
         attachment = self.repo.attach_security_group(
@@ -193,16 +199,16 @@ class SecurityGroupService:
                 "security_group_name": security_group.name,
             },
         )
-        self._enqueue_host_reconciliation(allocation.current_host, actor_id)
-        return attachment
+        job = self._enqueue_host_reconciliation(allocation.current_host, actor_id)
+        return [job] if job is not None else []
 
     def detach_from_allocation(
         self,
         actor_id: str,
         allocation_id: str,
         security_group_id: str,
-    ) -> bool:
-        """Detach a network security group from an allocation."""
+    ) -> list[JobID] | None:
+        """Detach a security group and return its reconciliation jobs, if found."""
         self._get_allocation(allocation_id)
         self._get_security_group(security_group_id)
         deleted = self.repo.detach_security_group(allocation_id, security_group_id)
@@ -217,8 +223,12 @@ class SecurityGroupService:
                 },
             )
             allocation = self._get_allocation(allocation_id)
-            self._enqueue_host_reconciliation(allocation.current_host, actor_id)
-        return deleted
+            job = self._enqueue_host_reconciliation(
+                allocation.current_host,
+                actor_id,
+            )
+            return [job] if job is not None else []
+        return None
 
     def _get_security_group(self, security_group_id: str) -> SecurityGroupInDB:
         matches = self.repo.get_security_groups(security_group_id=security_group_id)
@@ -272,7 +282,7 @@ class SecurityGroupService:
         self,
         security_group_id: str,
         actor_id: str,
-    ) -> None:
+    ) -> list[JobID]:
         hostnames = {
             allocation.current_host
             for attachment in self.repo.get_security_group_attachments(
@@ -283,20 +293,25 @@ class SecurityGroupService:
             )
             if allocation.current_host
         }
-        for hostname in sorted(hostnames):
-            self._enqueue_host_reconciliation(hostname, actor_id)
+        return [
+            job
+            for hostname in sorted(hostnames)
+            if (job := self._enqueue_host_reconciliation(hostname, actor_id))
+            is not None
+        ]
 
     def _enqueue_host_reconciliation(
         self,
         hostname: str | None,
         actor_id: str,
-    ) -> None:
+    ) -> JobID | None:
         if hostname:
-            self.repo.enqueue_command(
+            return self.repo.enqueue_command(
                 QueueCommand.NETWORK_POLICY_APPLY,
                 NetworkPolicyApplyCommand(hostname=hostname),
                 actor_id,
             )
+        return None
 
     def _security_group_detail(
         self,
