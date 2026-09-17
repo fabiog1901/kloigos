@@ -4,6 +4,14 @@ control_plane:
 servers:
   - hostname: validation-host-01
     tenancy: shared
+    region: validation-east
+    zone: validation-east-a
+    probe_source_ip: 192.0.2.100
+  - hostname: validation-host-02
+    tenancy: shared
+    region: validation-west
+    zone: validation-west-a
+    probe_source_ip: 192.0.2.101
 compute_units:
   - hostname: validation-host-01
     ordinal: 1
@@ -11,6 +19,9 @@ compute_units:
   - hostname: validation-host-01
     ordinal: 2
     cpu_range: 4-7
+  - hostname: validation-host-02
+    ordinal: 1
+    cpu_range: 0-3
 allocations:
   - allocation_id: validation-a
     login_user: validation_a
@@ -20,6 +31,8 @@ allocations:
     network_probe_ipv6: 2001:db8::100
     network_probe_port: 5201
     cpu_count: 1
+    region: validation-east
+    zone: validation-east-a
     ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDk65l+4HPbBZRt6mV7tHcvap3PrhCUo79iaCEdE1exx fabio@hp
     compute_unit: validation-host-01-cu01
     organization: validation-org-a
@@ -30,14 +43,121 @@ allocations:
     login_user: validation_b
     ip_address: 192.0.2.11
     cpu_count: 1
+    region: validation-east
+    zone: validation-east-a
     ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDk65l+4HPbBZRt6mV7tHcvap3PrhCUo79iaCEdE1exx fabio@hp
     compute_unit: validation-host-01-cu02
     organization: validation-org-a
     storage_mount_path: /mnt/kloigos/validation-host-01/cu02
     allocation_mount_path: /mnt/validation_b
+  - allocation_id: validation-c
+    login_user: validation_c
+    ip_address: 192.0.2.12
+    cpu_count: 1
+    region: validation-west
+    zone: validation-west-a
+    ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDk65l+4HPbBZRt6mV7tHcvap3PrhCUo79iaCEdE1exx fabio@hp
+    compute_unit: validation-host-02-cu01
+    organization: validation-org-a
+    storage_mount_path: /mnt/kloigos/validation-host-02/cu01
+    allocation_mount_path: /mnt/validation_c
 security_groups:
-  - name: validation-allow-http
-    attachments: [validation-a, validation-b]
+  - fixture_id: validation-a-connections
+    name: validation-a-connections
+    description: Disposable allow rules for validation-a connection probes.
+    attachments: [validation-a]
+    rules:
+      # Ingress probes use the same permitted port from three supported origins.
+      - fixture_rule_id: ingress-runner-host
+        direction: ingress
+        protocol: tcp
+        ip_version: ipv4
+        cidr: 192.0.2.100/32
+        port_from: 18080
+        port_to: 18080
+        description: Allow the validation-host-01 runner probe.
+      - fixture_rule_id: ingress-same-host-peer
+        direction: ingress
+        protocol: tcp
+        ip_version: ipv4
+        cidr: 192.0.2.11/32
+        port_from: 18080
+        port_to: 18080
+        description: Allow validation-b on the same server.
+      - fixture_rule_id: ingress-cross-host-peer
+        direction: ingress
+        protocol: tcp
+        ip_version: ipv4
+        cidr: 192.0.2.12/32
+        port_from: 18080
+        port_to: 18080
+        description: Allow validation-c on a separate server.
+      # Defining any egress rule activates default-deny egress for validation-a.
+      - fixture_rule_id: egress-runner-host
+        direction: egress
+        protocol: tcp
+        ip_version: ipv4
+        cidr: 192.0.2.100/32
+        port_from: 19080
+        port_to: 19080
+        description: Allow validation-a to reach the runner-host listener.
+      - fixture_rule_id: egress-cross-host-peer
+        direction: egress
+        protocol: tcp
+        ip_version: ipv4
+        cidr: 192.0.2.12/32
+        port_from: 19080
+        port_to: 19080
+        description: Allow validation-a to reach validation-c.
+network_connection_probes:
+  # The destination listener must run for both allow and deny probes. This makes a
+  # failed deny connection evidence of policy enforcement rather than a closed port.
+  - probe_id: ingress-allow-runner-host
+    direction: ingress
+    source: {kind: validation_host, hostname: validation-host-01}
+    destination: {kind: allocation, allocation_id: validation-a}
+    protocol: tcp
+    port: 18080
+    expected: allowed
+    fixture_rule_id: ingress-runner-host
+  - probe_id: ingress-deny-runner-host
+    direction: ingress
+    source: {kind: validation_host, hostname: validation-host-01}
+    destination: {kind: allocation, allocation_id: validation-a}
+    protocol: tcp
+    port: 18081
+    expected: denied
+  - probe_id: ingress-allow-same-host-peer
+    direction: ingress
+    source: {kind: allocation, allocation_id: validation-b}
+    destination: {kind: allocation, allocation_id: validation-a}
+    protocol: tcp
+    port: 18080
+    expected: allowed
+    fixture_rule_id: ingress-same-host-peer
+  - probe_id: ingress-allow-cross-host-peer
+    direction: ingress
+    source: {kind: allocation, allocation_id: validation-c}
+    destination: {kind: allocation, allocation_id: validation-a}
+    protocol: tcp
+    port: 18080
+    expected: allowed
+    fixture_rule_id: ingress-cross-host-peer
+  - probe_id: egress-allow-runner-host
+    direction: egress
+    source: {kind: allocation, allocation_id: validation-a}
+    destination: {kind: validation_host, hostname: validation-host-01}
+    protocol: tcp
+    port: 19080
+    expected: allowed
+    fixture_rule_id: egress-runner-host
+  - probe_id: egress-deny-runner-host
+    direction: egress
+    source: {kind: allocation, allocation_id: validation-a}
+    destination: {kind: validation_host, hostname: validation-host-01}
+    protocol: tcp
+    port: 19081
+    expected: denied
 tenancy_scenarios:
   - name: shared-same-organization
     organization: validation-org-a

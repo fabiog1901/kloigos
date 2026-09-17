@@ -82,6 +82,15 @@ an iperf3 server. The alternate source address must belong to the fixture enviro
 second allocation on the same host). The runner makes only bounded connections to those declared
 destinations and does not change host networking.
 
+Security Group connection validation additionally uses the manifest's `security_groups` and
+`network_connection_probes` lists. A probe endpoint is either a `validation_host` named under
+`servers` or an `allocation` named under `allocations`; allocation endpoints may reside on the same
+server or on a different declared server. Every probe names its direction, protocol, destination
+port, expected result, and (for an allowed connection) the fixture rule that permits it. The runner
+starts a bounded disposable listener for both allowed and denied probes, so denial is not confused
+with a closed destination port. Probe and fixture-rule IDs become stable report and diagnostic
+identities; generated Kloigos Security Group and rule IDs are recorded alongside them.
+
 For the local demo, provision and later remove those declared resources explicitly:
 
 ```bash
