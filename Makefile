@@ -1,6 +1,6 @@
 # Convenience commands for local development and documentation maintenance.
 
-.PHONY: help run serve migrate format refresh-cpkit pre-commit docs-write docs-check docs-build docs-serve docs-clean py-compile validate
+.PHONY: help run serve migrate format refresh-cpkit pre-commit test docs-write docs-check docs-build docs-serve docs-clean py-compile validate
 
 MKDOCS_SITE_DIR ?= /private/tmp/kloigos-mkdocs-site
 
@@ -26,6 +26,9 @@ codemap-check: ## Verify deterministic codemap outputs are current.
 	poetry run python tools/codemap.py --check
 
 pre-commit: format codemap-write py-compile ## Run required pre-commit maintenance.
+
+test: ## Run the unit test suite.
+	poetry run python -m unittest discover -s tests -v
 
 docs-check: ## Check generated docs are current and verify the MkDocs build.
 	poetry run mkdocs build --strict --site-dir $(MKDOCS_SITE_DIR)
