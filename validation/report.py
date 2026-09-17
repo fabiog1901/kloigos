@@ -10,6 +10,11 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+try:
+    from .fixture_manifest import FixtureManifestError, normalize_fixture_manifest
+except ImportError:  # Executed directly from the validation directory.
+    from fixture_manifest import FixtureManifestError, normalize_fixture_manifest
+
 SCHEMA_VERSION = 1
 GROUPS = frozenset({"all", "smoke", "resources", "network", "workloads"})
 DESTRUCTIVE_GROUPS = frozenset({"all", "workloads"})
@@ -183,14 +188,11 @@ def fixture_manifest(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         raise ValidationError(
             f"Unable to read fixture manifest '{path}': {exc}"
         ) from exc
-    if not isinstance(document, dict) or not isinstance(
-        document.get("allocations"), list
-    ):
-        raise ValidationError("Fixture manifest must contain an allocations list.")
-    allocations = document["allocations"]
-    if not all(isinstance(item, dict) for item in allocations):
-        raise ValidationError("Each fixture allocation must be an object.")
-    return document, allocations
+    try:
+        normalized = normalize_fixture_manifest(document)
+    except FixtureManifestError as exc:
+        raise ValidationError(f"Invalid fixture manifest '{path}': {exc}") from exc
+    return normalized, normalized["allocations"]
 
 
 def api_call(

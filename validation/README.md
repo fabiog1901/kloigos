@@ -91,6 +91,16 @@ starts a bounded disposable listener for both allowed and denied probes, so deni
 with a closed destination port. Probe and fixture-rule IDs become stable report and diagnostic
 identities; generated Kloigos Security Group and rule IDs are recorded alongside them.
 
+Before either fixture setup or a validation run performs external work, the controller validates
+and normalizes the complete manifest. Server hostnames, allocation IDs, Security Group fixture IDs,
+fixture-rule IDs, and probe IDs must be unique in their respective namespaces; fixture-rule IDs are
+global because probes refer to them without a Security Group qualifier. Attachments, compute units,
+and probe endpoints must reference declared fixtures. Ingress probes must target an allocation and
+egress probes must originate from one. An allowed probe must name an attached rule that covers its
+direction, protocol, port, IP version, and peer address; a denied probe must not name or be covered
+by such a rule. Validation errors identify the exact manifest path and occur before any API
+mutation.
+
 For the local demo, provision and later remove those declared resources explicitly:
 
 ```bash
