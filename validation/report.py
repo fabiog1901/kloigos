@@ -2,7 +2,7 @@
 """Run Kloigos real-host validation and evaluate its collected evidence."""
 
 from __future__ import annotations
-import argparse, json, os, sys, tarfile, time, uuid
+import argparse, ipaddress, json, os, sys, tarfile, time, uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -284,7 +284,11 @@ def manage_fixtures(args: argparse.Namespace) -> int:
 
 
 def selected_fixture(
-    manifest: Path, allocation_id: str, *, require_storage: bool = False
+    manifest: Path,
+    allocation_id: str,
+    *,
+    require_storage: bool = False,
+    require_network: bool = False,
 ) -> dict[str, Any]:
     _, allocations = fixture_manifest(manifest)
     fixture = next(
@@ -301,6 +305,52 @@ def selected_fixture(
                 raise ValidationError(
                     f"Selected fixture allocation requires a non-empty {field}."
                 )
+    if require_network:
+        for field in (
+            "ip_address",
+            "network_spoof_ip_address",
+            "network_probe_ipv4",
+            "network_probe_ipv6",
+        ):
+            if not isinstance(fixture.get(field), str) or not fixture[field]:
+                raise ValidationError(
+                    f"Selected fixture allocation requires a non-empty {field}."
+                )
+        try:
+            configured_ip = ipaddress.ip_address(fixture["ip_address"])
+            spoof_ip = ipaddress.ip_address(fixture["network_spoof_ip_address"])
+            probe_ipv4 = ipaddress.ip_address(fixture["network_probe_ipv4"])
+            probe_ipv6 = ipaddress.ip_address(fixture["network_probe_ipv6"])
+        except ValueError as exc:
+            raise ValidationError(f"Invalid network validation address: {exc}") from exc
+        if (
+            configured_ip.version != 4
+            or spoof_ip.version != 4
+            or probe_ipv4.version != 4
+        ):
+            raise ValidationError(
+                "ip_address, network_spoof_ip_address, and network_probe_ipv4 must be IPv4 addresses."
+            )
+        if probe_ipv6.version != 6:
+            raise ValidationError("network_probe_ipv6 must be an IPv6 address.")
+        if configured_ip == spoof_ip:
+            raise ValidationError(
+                "network_spoof_ip_address must differ from the selected allocation ip_address."
+            )
+        fixture_addresses = {item.get("ip_address") for item in allocations}
+        if fixture["network_spoof_ip_address"] not in fixture_addresses:
+            raise ValidationError(
+                "network_spoof_ip_address must be an ip_address declared by another fixture allocation."
+            )
+        port = fixture.get("network_probe_port")
+        if (
+            not isinstance(port, int)
+            or isinstance(port, bool)
+            or not 1 <= port <= 65535
+        ):
+            raise ValidationError(
+                "Selected fixture allocation requires network_probe_port between 1 and 65535."
+            )
     peer_id = fixture.get("filesystem_peer_allocation_id") if require_storage else None
     if peer_id is not None:
         if not isinstance(peer_id, str) or not peer_id:
@@ -314,9 +364,10 @@ def selected_fixture(
             raise ValidationError(
                 "Selected fixture filesystem_peer_allocation_id is absent from the manifest."
             )
-        if not isinstance(peer.get("allocation_mount_path"), str) or not peer[
-            "allocation_mount_path"
-        ]:
+        if (
+            not isinstance(peer.get("allocation_mount_path"), str)
+            or not peer["allocation_mount_path"]
+        ):
             raise ValidationError(
                 "Filesystem peer fixture requires a non-empty allocation_mount_path."
             )
@@ -382,6 +433,7 @@ def run_controller(args: argparse.Namespace) -> int:
             Path(manifest_value),
             allocation_id,
             require_storage=group in {"all", "resources", "workloads"},
+            require_network=group in {"all", "network"},
         )
         extravars["validation_fixture"] = fixture
         if "filesystem_peer" in fixture:

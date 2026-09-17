@@ -296,6 +296,66 @@
       failed_when: false
       when: validation_group in ['network', 'all']
 
+    # Exercise the policy with real packets from the allocation's systemd slice. The alternate
+    # IPv4 source is another fixture-owned address already present on the test host.
+    - name: network | fixture | allocation_uid
+      ansible.builtin.command:
+        argv:
+          - id
+          - -u
+          - "{{ validation_fixture.login_user }}"
+      register: network__fixture__allocation_uid
+      changed_when: false
+      failed_when: false
+      when: validation_group in ['network', 'all']
+
+    - name: network | source_ip | declared_source_allowed
+      shell: |
+        uid=$(id -u {{ validation_fixture.login_user | quote }}) &&
+        timeout --kill-after=2s 10s systemd-run --quiet --pipe --wait --collect \
+          --uid {{ validation_fixture.login_user | quote }} --slice=user-${uid}.slice \
+          iperf3 --client {{ validation_fixture.network_probe_ipv4 | quote }} \
+          --bind {{ validation_fixture.ip_address | quote }} \
+          --port {{ validation_fixture.network_probe_port | int }} --time 1 \
+          --connect-timeout 5000 --json
+      args:
+        executable: /bin/bash
+      register: network__source_ip__declared_source_allowed
+      changed_when: false
+      failed_when: false
+      when: validation_group in ['network', 'all']
+
+    - name: network | source_ip | spoofed_source_denied
+      shell: |
+        uid=$(id -u {{ validation_fixture.login_user | quote }}) &&
+        timeout --kill-after=2s 10s systemd-run --quiet --pipe --wait --collect \
+          --uid {{ validation_fixture.login_user | quote }} --slice=user-${uid}.slice \
+          iperf3 --client {{ validation_fixture.network_probe_ipv4 | quote }} \
+          --bind {{ validation_fixture.network_spoof_ip_address | quote }} \
+          --port {{ validation_fixture.network_probe_port | int }} --time 1 \
+          --connect-timeout 5000 --json
+      args:
+        executable: /bin/bash
+      register: network__source_ip__spoofed_source_denied
+      changed_when: false
+      failed_when: false
+      when: validation_group in ['network', 'all']
+
+    - name: network | source_ip | ipv6_denied
+      shell: |
+        uid=$(id -u {{ validation_fixture.login_user | quote }}) &&
+        timeout --kill-after=2s 10s systemd-run --quiet --pipe --wait --collect \
+          --uid {{ validation_fixture.login_user | quote }} --slice=user-${uid}.slice \
+          iperf3 --version6 --client {{ validation_fixture.network_probe_ipv6 | quote }} \
+          --port {{ validation_fixture.network_probe_port | int }} --time 1 \
+          --connect-timeout 5000 --json
+      args:
+        executable: /bin/bash
+      register: network__source_ip__ipv6_denied
+      changed_when: false
+      failed_when: false
+      when: validation_group in ['network', 'all']
+
     - name: Network | persist floating-IP evidence
       ansible.builtin.copy:
         content: >-
@@ -317,6 +377,41 @@
           'rc': network__nftables__table_active.rc}
           ] | to_nice_yaml }}
         dest: "{{ validation_remote_evidence_dir }}/network.nftables.yaml"
+        mode: "0640"
+      when: validation_group in ['network', 'all']
+
+    - name: Network | persist source-IP enforcement evidence
+      ansible.builtin.copy:
+        content: >-
+          {{ [
+          {'id': 'network.source-ip.declared-source-allowed',
+          'command': network__source_ip__declared_source_allowed.cmd,
+          'stdout': network__source_ip__declared_source_allowed.stdout,
+          'stderr': network__source_ip__declared_source_allowed.stderr,
+          'rc': network__source_ip__declared_source_allowed.rc,
+          'diagnostics': {'allocation_uid': network__fixture__allocation_uid.stdout,
+          'configured_ip': validation_fixture.ip_address,
+          'nft_table': network__nftables__table_active.stdout}},
+          {'id': 'network.source-ip.spoofed-source-denied',
+          'command': network__source_ip__spoofed_source_denied.cmd,
+          'stdout': network__source_ip__spoofed_source_denied.stdout,
+          'stderr': network__source_ip__spoofed_source_denied.stderr,
+          'rc': network__source_ip__spoofed_source_denied.rc, 'expect_failure': true,
+          'diagnostics': {'allocation_uid': network__fixture__allocation_uid.stdout,
+          'configured_ip': validation_fixture.ip_address,
+          'attempted_source_ip': validation_fixture.network_spoof_ip_address,
+          'nft_table': network__nftables__table_active.stdout}},
+          {'id': 'network.source-ip.ipv6-denied',
+          'command': network__source_ip__ipv6_denied.cmd,
+          'stdout': network__source_ip__ipv6_denied.stdout,
+          'stderr': network__source_ip__ipv6_denied.stderr,
+          'rc': network__source_ip__ipv6_denied.rc, 'expect_failure': true,
+          'diagnostics': {'allocation_uid': network__fixture__allocation_uid.stdout,
+          'configured_ip': validation_fixture.ip_address,
+          'probe_destination': validation_fixture.network_probe_ipv6,
+          'nft_table': network__nftables__table_active.stdout}}
+          ] | to_nice_yaml }}
+        dest: "{{ validation_remote_evidence_dir }}/network.source-ip.yaml"
         mode: "0640"
       when: validation_group in ['network', 'all']
 

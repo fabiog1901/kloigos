@@ -75,6 +75,13 @@ same manifest to enable the peer-access-denial test; without it, that one test i
 skipped. Paths are explicit fixture inputs—the runner does not discover or probe other allocation
 mounts.
 
+For network validation, the selected allocation must declare `ip_address`,
+`network_spoof_ip_address`, `network_probe_ipv4`, `network_probe_ipv6`, and
+`network_probe_port`. The probe destinations must be explicitly designated test endpoints running
+an iperf3 server. The alternate source address must belong to the fixture environment (normally a
+second allocation on the same host). The runner makes only bounded connections to those declared
+destinations and does not change host networking.
+
 For the local demo, provision and later remove those declared resources explicitly:
 
 ```bash
