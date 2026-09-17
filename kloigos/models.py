@@ -488,6 +488,10 @@ class SecurityGroupAttachmentInDB(BaseModel):
     attached_at: dt.datetime
 
 
+class SecurityGroupMutationResponse(BaseModel):
+    job_ids: list[int] = Field(default_factory=list)
+
+
 class SecurityGroupDetail(SecurityGroupInDB):
     ingress_rules: list[SecurityGroupRuleInDB] = Field(default_factory=list)
     egress_rules: list[SecurityGroupRuleInDB] = Field(default_factory=list)

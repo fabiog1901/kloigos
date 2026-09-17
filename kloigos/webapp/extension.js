@@ -346,6 +346,20 @@ window.cpkitWebappExtension = {
       return String(detail);
     },
 
+    showSecurityGroupMutationNotice(message, result) {
+      const jobIds = Array.isArray(result?.job_ids)
+        ? result.job_ids.filter((jobId) => jobId !== null && jobId !== undefined)
+        : [];
+      if (jobIds.length === 0) {
+        this.showNotice(`${message} No host reconciliation was required.`);
+        return;
+      }
+      const jobsMessage = jobIds.length === 1
+        ? "Reconciliation job queued."
+        : `Reconciliation jobs queued: ${jobIds.join(", ")}.`;
+      this.showNotice(`${message} ${jobsMessage}`, { jobId: jobIds[0] });
+    },
+
     restoreAllocationsLocalState() {
       const sortIndex = localStorage.getItem("kloigos_allocations_sort_index");
       const sortDir = localStorage.getItem("kloigos_allocations_sort_dir");
@@ -1192,9 +1206,9 @@ window.cpkitWebappExtension = {
           payload.port_from = null;
           payload.port_to = null;
         }
-        await this.apiFetch(`/security-groups/${encodeURIComponent(modal.security_group_id)}/rules`, { method: "POST", body: payload });
+        const result = await this.apiFetch(`/security-groups/${encodeURIComponent(modal.security_group_id)}/rules`, { method: "POST", body: payload });
         this.closeSecurityGroupRuleModal();
-        this.showNotice("Security group rule added.");
+        this.showSecurityGroupMutationNotice("Security group rule added.", result);
         await this.refreshSecurityGroups();
         await this.openSecurityGroupDetails({ security_group_id: modal.security_group_id });
       } catch (error) {
@@ -1207,8 +1221,8 @@ window.cpkitWebappExtension = {
     async deleteSecurityGroupRule(group, rule) {
       this.securityGroupsLoading.rule = true;
       try {
-        await this.apiFetch(`/security-groups/${encodeURIComponent(group.security_group_id)}/rules/${encodeURIComponent(rule.rule_id)}`, { method: "DELETE" });
-        this.showNotice("Security group rule deleted.");
+        const result = await this.apiFetch(`/security-groups/${encodeURIComponent(group.security_group_id)}/rules/${encodeURIComponent(rule.rule_id)}`, { method: "DELETE" });
+        this.showSecurityGroupMutationNotice("Security group rule deleted.", result);
         await this.refreshSecurityGroups();
         await this.openSecurityGroupDetails(group);
       } catch (error) {
@@ -1246,8 +1260,8 @@ window.cpkitWebappExtension = {
       this.modalError.allocationSecurityGroups = "";
       try {
         if (!modal.selected) throw new Error("Select a network security group.");
-        await this.apiFetch(`/allocations/${encodeURIComponent(modal.allocation.allocation_id)}/security-groups/${encodeURIComponent(modal.selected)}`, { method: "POST" });
-        this.showNotice("Network security group attached.");
+        const result = await this.apiFetch(`/allocations/${encodeURIComponent(modal.allocation.allocation_id)}/security-groups/${encodeURIComponent(modal.selected)}`, { method: "POST" });
+        this.showSecurityGroupMutationNotice("Network security group attached.", result);
         await this.openAllocationSecurityGroups(modal.allocation);
         await this.refreshSecurityGroups();
       } catch (error) {
@@ -1261,8 +1275,8 @@ window.cpkitWebappExtension = {
       const modal = this.modal.allocationSecurityGroups;
       this.securityGroupsLoading.attachment = true;
       try {
-        await this.apiFetch(`/allocations/${encodeURIComponent(modal.allocation.allocation_id)}/security-groups/${encodeURIComponent(group.security_group_id)}`, { method: "DELETE" });
-        this.showNotice("Network security group detached.");
+        const result = await this.apiFetch(`/allocations/${encodeURIComponent(modal.allocation.allocation_id)}/security-groups/${encodeURIComponent(group.security_group_id)}`, { method: "DELETE" });
+        this.showSecurityGroupMutationNotice("Network security group detached.", result);
         await this.openAllocationSecurityGroups(modal.allocation);
         await this.refreshSecurityGroups();
       } catch (error) {

@@ -5,13 +5,12 @@ from ..dep import get_security_group_service
 from ..models import (
     ComputeUnitNotFoundError,
     ComputeUnitOperationError,
-    SecurityGroupAttachmentInDB,
     SecurityGroupCreateRequest,
     SecurityGroupDetail,
     SecurityGroupInDB,
+    SecurityGroupMutationResponse,
     SecurityGroupNotFoundError,
     SecurityGroupRuleCreateRequest,
-    SecurityGroupRuleInDB,
     SecurityGroupUpdateRequest,
 )
 from ..services.security_group import SecurityGroupService
@@ -136,7 +135,7 @@ async def delete_security_group(
 
 @router.post(
     "/{security_group_id}/rules",
-    response_model=SecurityGroupRuleInDB,
+    response_model=SecurityGroupMutationResponse,
     dependencies=[Security(require_user)],
 )
 async def add_security_group_rule(
@@ -144,10 +143,13 @@ async def add_security_group_rule(
     req: SecurityGroupRuleCreateRequest,
     actor_id: str = Depends(get_audit_actor),
     service: SecurityGroupService = Depends(get_security_group_service),
-) -> SecurityGroupRuleInDB:
+) -> SecurityGroupMutationResponse:
     """Add an allow rule to a network security group."""
     try:
-        return service.add_rule(actor_id, security_group_id, req)
+        jobs = service.add_rule(actor_id, security_group_id, req)
+        return SecurityGroupMutationResponse(
+            job_ids=[job.job_id for job in jobs],
+        )
     except SecurityGroupNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -162,6 +164,7 @@ async def add_security_group_rule(
 
 @router.delete(
     "/{security_group_id}/rules/{rule_id}",
+    response_model=SecurityGroupMutationResponse,
     dependencies=[Security(require_user)],
 )
 async def delete_security_group_rule(
@@ -169,21 +172,23 @@ async def delete_security_group_rule(
     rule_id: str,
     actor_id: str = Depends(get_audit_actor),
     service: SecurityGroupService = Depends(get_security_group_service),
-) -> Response:
+) -> SecurityGroupMutationResponse:
     """Delete one rule from a network security group."""
     try:
-        deleted = service.delete_rule(actor_id, security_group_id, rule_id)
+        jobs = service.delete_rule(actor_id, security_group_id, rule_id)
     except SecurityGroupNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
-    if not deleted:
+    if jobs is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Security group rule '{rule_id}' was not found.",
         )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return SecurityGroupMutationResponse(
+        job_ids=[job.job_id for job in jobs],
+    )
 
 
 @allocation_router.get(
@@ -207,7 +212,7 @@ async def list_allocation_security_groups(
 
 @allocation_router.post(
     "/{allocation_id}/security-groups/{security_group_id}",
-    response_model=SecurityGroupAttachmentInDB,
+    response_model=SecurityGroupMutationResponse,
     dependencies=[Security(require_user)],
 )
 async def attach_security_group(
@@ -215,13 +220,16 @@ async def attach_security_group(
     security_group_id: str,
     actor_id: str = Depends(get_audit_actor),
     service: SecurityGroupService = Depends(get_security_group_service),
-) -> SecurityGroupAttachmentInDB:
+) -> SecurityGroupMutationResponse:
     """Attach a network security group to an allocation."""
     try:
-        return service.attach_to_allocation(
+        jobs = service.attach_to_allocation(
             actor_id,
             allocation_id,
             security_group_id,
+        )
+        return SecurityGroupMutationResponse(
+            job_ids=[job.job_id for job in jobs],
         )
     except (ComputeUnitNotFoundError, SecurityGroupNotFoundError) as exc:
         raise HTTPException(
@@ -232,6 +240,7 @@ async def attach_security_group(
 
 @allocation_router.delete(
     "/{allocation_id}/security-groups/{security_group_id}",
+    response_model=SecurityGroupMutationResponse,
     dependencies=[Security(require_user)],
 )
 async def detach_security_group(
@@ -239,10 +248,10 @@ async def detach_security_group(
     security_group_id: str,
     actor_id: str = Depends(get_audit_actor),
     service: SecurityGroupService = Depends(get_security_group_service),
-) -> Response:
+) -> SecurityGroupMutationResponse:
     """Detach a network security group from an allocation."""
     try:
-        deleted = service.detach_from_allocation(
+        jobs = service.detach_from_allocation(
             actor_id,
             allocation_id,
             security_group_id,
@@ -252,9 +261,11 @@ async def detach_security_group(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
-    if not deleted:
+    if jobs is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Security group attachment was not found.",
         )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return SecurityGroupMutationResponse(
+        job_ids=[job.job_id for job in jobs],
+    )
