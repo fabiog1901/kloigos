@@ -24,6 +24,7 @@ from kloigos.models import (
     NoFreeComputeUnitError,
     NoFreeIpAddressError,
     QueueCommand,
+    SSHKeyNotFoundError,
 )
 
 from ..repos import Repo
@@ -138,6 +139,7 @@ class AllocationService:
         req: AllocationCreateRequest,
     ) -> AllocationCreateResponse:
         """Reserve capacity, create allocation metadata, and queue preparation."""
+        ssh_public_key = self._resolve_ssh_public_key(req)
         cu: ComputeUnitOverview = self.repo.lock_compute_unit(
             compute_id=None,
             region=req.region,
@@ -215,7 +217,7 @@ class AllocationService:
                 AllocationCreateCommand(
                     allocation_id=allocation.allocation_id,
                     compute_id=cu.compute_id,
-                    ssh_public_key=req.ssh_public_key,
+                    ssh_public_key=ssh_public_key,
                 ),
                 actor_id,
             )
@@ -288,6 +290,21 @@ class AllocationService:
             allocation_id=allocation.allocation_id,
             job_id=job.job_id,
         )
+
+    def _resolve_ssh_public_key(self, req: AllocationCreateRequest) -> str:
+        if req.ssh_public_key is not None:
+            return req.ssh_public_key
+
+        ssh_key_name = req.ssh_key_name
+        if ssh_key_name is None:
+            raise ComputeUnitOperationError(
+                "Allocation request does not contain an SSH key source."
+            )
+
+        matches = self.repo.get_ssh_keys(name=ssh_key_name)
+        if not matches:
+            raise SSHKeyNotFoundError(f"SSH key '{ssh_key_name}' was not found.")
+        return matches[0].public_key
 
     def deallocate(
         self,

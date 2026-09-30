@@ -19,6 +19,7 @@ from ..models import (
     ComputeUnitStateError,
     NoFreeComputeUnitError,
     NoFreeIpAddressError,
+    SSHKeyNotFoundError,
 )
 from ..services.allocation import AllocationService
 
@@ -70,6 +71,11 @@ async def allocate(
         raise HTTPException(460, "No free Compute Unit found to match your request")
     except NoFreeIpAddressError:
         raise HTTPException(460, "No free IP address found to match your request")
+    except SSHKeyNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
     except ComputeUnitOperationError as exc:
         message = str(exc)
         if "already in use" in message or "already exists" in message:

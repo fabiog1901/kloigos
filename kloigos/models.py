@@ -391,12 +391,31 @@ class AllocationCreateRequest(BaseModel):
     region: str | None = None
     zone: str | None = None
     tags: dict[str, Any] | None = None
-    ssh_public_key: str
+    ssh_public_key: str | None = None
+    ssh_key_name: str | None = Field(default=None, max_length=50)
 
     @field_validator("ssh_public_key")
     @classmethod
-    def validate_ssh_public_key(cls, value: str) -> str:
+    def validate_ssh_public_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         return _validate_ssh_public_key(value)
+
+    @field_validator("ssh_key_name", mode="before")
+    @classmethod
+    def normalize_ssh_key_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        name = str(value).strip()
+        return name or None
+
+    @model_validator(mode="after")
+    def validate_ssh_key_source(self):
+        if (self.ssh_public_key is None) == (self.ssh_key_name is None):
+            raise ValueError(
+                "exactly one of ssh_public_key or ssh_key_name must be supplied."
+            )
+        return self
 
 
 class AllocationCreateCommand(BaseModel):
