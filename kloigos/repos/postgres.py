@@ -25,6 +25,8 @@ from ..models import (
     ServerInDB,
     ServerInitRequest,
     ServerStatus,
+    SSHKeyCreate,
+    SSHKeyInDB,
 )
 
 
@@ -435,6 +437,57 @@ class PostgresRepo(CPKitRepo):
             RETURNING 1
             """,
             (ip_address,),
+        )
+        return bool(deleted)
+
+    #
+    # SSH KEYS
+    #
+    def create_ssh_key(self, ssh_key: SSHKeyCreate) -> SSHKeyInDB:
+        return fetch_one(
+            """
+            INSERT INTO ssh_keys (
+                name, algorithm, public_key, fingerprint, creation_method
+            )
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING
+                name, algorithm, public_key, fingerprint, creation_method,
+                created_at, updated_at
+            """,
+            (
+                ssh_key.name,
+                ssh_key.algorithm,
+                ssh_key.public_key,
+                ssh_key.fingerprint,
+                ssh_key.creation_method,
+            ),
+            SSHKeyInDB,
+        )
+
+    def get_ssh_keys(self, name: str | None = None) -> list[SSHKeyInDB]:
+        sql = """
+            SELECT
+                name, algorithm, public_key, fingerprint, creation_method,
+                created_at, updated_at
+            FROM ssh_keys
+        """
+        params = ()
+        if name is not None:
+            sql += " WHERE name = %s"
+            params = (name,)
+        sql += " ORDER BY name"
+
+        return fetch_all(sql, params, SSHKeyInDB)
+
+    def delete_ssh_key(self, name: str) -> bool:
+        deleted = fetch_scalar(
+            """
+            DELETE
+            FROM ssh_keys
+            WHERE name = %s
+            RETURNING 1
+            """,
+            (name,),
         )
         return bool(deleted)
 

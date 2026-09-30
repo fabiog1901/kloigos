@@ -203,6 +203,11 @@ class SecurityGroupIpVersion(AutoNameStrEnum):
     IPV6 = "ipv6"
 
 
+class SSHKeyCreationMethod(AutoNameStrEnum):
+    IMPORTED = "imported"
+    GENERATED = "generated"
+
+
 RUNTIME_PROFILES = {"minimal", "standard", "build", "container"}
 DEFAULT_NOFILE_BY_RUNTIME_PROFILE = {
     "minimal": 65536,
@@ -244,6 +249,38 @@ def _validate_ssh_public_key(value: str) -> str:
         raise ValueError("ssh_public_key key material does not match its key type.")
 
     return text
+
+
+class SSHKeyCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=50)
+    algorithm: str
+    public_key: str
+    fingerprint: str = Field(min_length=1)
+    creation_method: SSHKeyCreationMethod
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        return str(value or "").strip()
+
+    @field_validator("public_key")
+    @classmethod
+    def validate_public_key(cls, value: str) -> str:
+        return _validate_ssh_public_key(value)
+
+    @model_validator(mode="after")
+    def validate_algorithm(self):
+        key_type = self.public_key.split(maxsplit=1)[0]
+        if self.algorithm != key_type:
+            raise ValueError("algorithm must match the OpenSSH public-key type.")
+        return self
+
+
+class SSHKeyInDB(SSHKeyCreate):
+    created_at: dt.datetime
+    updated_at: dt.datetime
 
 
 class ComputeUnitInDB(BaseModel):

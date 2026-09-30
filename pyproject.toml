@@ -53,6 +53,7 @@ playbooks = [
 schema_checks = [
     "public.servers",
     "public.compute_units",
+    "public.ssh_keys",
 ]
 
 [tool.black]

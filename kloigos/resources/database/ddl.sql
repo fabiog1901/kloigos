@@ -104,6 +104,19 @@ ALTER TABLE ip_pool DROP CONSTRAINT IF EXISTS ip_pool_allocation;
 ALTER TABLE ip_pool
 ADD CONSTRAINT ip_pool_allocation FOREIGN KEY (allocation_id) REFERENCES allocations(allocation_id) ON UPDATE CASCADE ON DELETE SET NULL;
 
+CREATE TABLE IF NOT EXISTS ssh_keys (
+    name VARCHAR(50) NOT NULL,
+    algorithm TEXT NOT NULL,
+    public_key TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    creation_method TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_ssh_keys PRIMARY KEY (name),
+    CONSTRAINT ck_ssh_keys_name CHECK (name = btrim(name) AND name <> ''),
+    CONSTRAINT ck_ssh_keys_creation_method CHECK (creation_method IN ('imported', 'generated'))
+);
+
 CREATE TABLE IF NOT EXISTS security_groups (
     security_group_id TEXT NOT NULL,
     name TEXT NOT NULL,

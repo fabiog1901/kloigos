@@ -161,6 +161,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         app_schema_checks=(
             "public.servers",
             "public.compute_units",
+            "public.ssh_keys",
         ),
     )
     try:
