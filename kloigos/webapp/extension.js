@@ -23,6 +23,14 @@ window.cpkitWebappExtension = {
       icon: "network",
       countKey: "securityGroups",
     },
+    {
+      view: "ssh_keys",
+      label: "SSH Keys",
+      kicker: "Access",
+      description: "Manage reusable SSH public keys for allocations.",
+      icon: "key",
+      countKey: "sshKeys",
+    },
   ],
   routes: {
     allocations: {
@@ -55,6 +63,13 @@ window.cpkitWebappExtension = {
       label: "Network Security Groups",
       subtitle: "Reusable allocation network policies",
       ensure: "ensureSecurityGroupsView",
+      adminOnly: true,
+    },
+    ssh_keys: {
+      path: "/admin/ssh-keys",
+      label: "SSH Keys",
+      subtitle: "Reusable allocation access keys",
+      ensure: "ensureSSHKeysView",
       adminOnly: true,
     },
   },
@@ -157,6 +172,11 @@ window.cpkitWebappExtension = {
     securityGroupsAutoRefreshEnabled: true,
     _securityGroupsAutoTimer: null,
     securityGroupsBusyKey: null,
+    sshKeys: [],
+    sshKeysLastUpdatedUtc: null,
+    sshKeysLoading: { list: false, save: false, delete: false },
+    sshKeysAutoRefreshEnabled: true,
+    _sshKeysAutoTimer: null,
     _allocationDetailsAce: null,
     _serverDetailsAce: null,
     modal: {
@@ -167,6 +187,8 @@ window.cpkitWebappExtension = {
         cpu_count: "",
         location: "",
         tagPairs: [{ key: "", value: "" }],
+        ssh_key_source: "stored",
+        ssh_key_name: "",
         ssh_public_key: "",
       },
       allocationDetails: { open: false, row: null },
@@ -209,6 +231,16 @@ window.cpkitWebappExtension = {
         ip_version: "ipv4", cidr: "0.0.0.0/0", port_from: "", port_to: "", description: "",
       },
       allocationSecurityGroups: { open: false, allocation: null, attached: [], available: [], selected: "" },
+      sshKeyCreate: {
+        open: false,
+        mode: "import",
+        name: "",
+        public_key: "",
+        algorithm: "ssh-ed25519",
+        private_key: "",
+        created: null,
+      },
+      sshKeyDeleteConfirm: { open: false, name: "" },
     },
     modalError: {
       allocate: "",
@@ -222,6 +254,8 @@ window.cpkitWebappExtension = {
       securityGroupDeleteConfirm: "",
       securityGroupRule: "",
       allocationSecurityGroups: "",
+      sshKeyCreate: "",
+      sshKeyDeleteConfirm: "",
     },
   },
   async init() {
@@ -235,6 +269,10 @@ window.cpkitWebappExtension = {
     if (this.view === "kloigos_servers") await this.ensureKloigosServersView();
     if (this.view === "ip_pool") await this.ensureIpPoolView();
     if (this.view === "security_groups") await this.ensureSecurityGroupsView();
+    if (this.view === "ssh_keys") await this.ensureSSHKeysView();
+    this.$watch("view", () => {
+      if (this.modal.sshKeyCreate.private_key) this.closeSSHKeyCreateModal();
+    });
     this.setManagedInterval("_allocationsAutoTimer", () => {
       if (this.allocationsAutoRefreshEnabled && this.view === "allocations") {
         this.refreshAllocations();
@@ -258,6 +296,11 @@ window.cpkitWebappExtension = {
     this.setManagedInterval("_securityGroupsAutoTimer", () => {
       if (this.securityGroupsAutoRefreshEnabled && this.view === "security_groups") {
         this.refreshSecurityGroups();
+      }
+    }, 5000);
+    this.setManagedInterval("_sshKeysAutoTimer", () => {
+      if (this.sshKeysAutoRefreshEnabled && this.view === "ssh_keys") {
+        this.refreshSSHKeys();
       }
     }, 5000);
   },
@@ -420,6 +463,7 @@ window.cpkitWebappExtension = {
       if (this.canViewKloigosAdmin() && !this.serversLoading.list) {
         await this.refreshServers();
       }
+      if (!this.sshKeysLoading.list) await this.refreshSSHKeys();
     },
 
     async ensureComputeUnitsView() {
@@ -448,6 +492,14 @@ window.cpkitWebappExtension = {
         return;
       }
       if (!this.securityGroupsLoading.list) await this.refreshSecurityGroups();
+    },
+
+    async ensureSSHKeysView() {
+      if (!this.canViewKloigosAdmin()) {
+        this.showNotice("SSH Keys requires CP_ADMIN.");
+        return;
+      }
+      if (!this.sshKeysLoading.list) await this.refreshSSHKeys();
     },
 
     async refreshAllocations() {
@@ -505,6 +557,19 @@ window.cpkitWebappExtension = {
         this.showNotice(this.errorMessage(error, "Failed to load network security groups."));
       } finally {
         this.securityGroupsLoading.list = false;
+      }
+    },
+
+    async refreshSSHKeys() {
+      this.sshKeysLoading.list = true;
+      try {
+        const keys = await this.apiFetch("/ssh-keys/", { method: "GET" });
+        this.sshKeys = Array.isArray(keys) ? keys : [];
+        this.sshKeysLastUpdatedUtc = this.utcNowString();
+      } catch (error) {
+        this.showNotice(this.errorMessage(error, "Failed to load SSH keys."));
+      } finally {
+        this.sshKeysLoading.list = false;
       }
     },
 
@@ -1080,6 +1145,124 @@ window.cpkitWebappExtension = {
       }
     },
 
+    openSSHKeyCreateModal() {
+      this.modal.sshKeyCreate = {
+        open: true,
+        mode: "import",
+        name: "",
+        public_key: "",
+        algorithm: "ssh-ed25519",
+        private_key: "",
+        created: null,
+      };
+      this.modalError.sshKeyCreate = "";
+    },
+
+    closeSSHKeyCreateModal() {
+      this.modal.sshKeyCreate = {
+        open: false,
+        mode: "import",
+        name: "",
+        public_key: "",
+        algorithm: "ssh-ed25519",
+        private_key: "",
+        created: null,
+      };
+      this.modalError.sshKeyCreate = "";
+    },
+
+    async saveSSHKey() {
+      const modal = this.modal.sshKeyCreate;
+      const name = String(modal.name || "").trim();
+      this.sshKeysLoading.save = true;
+      this.modalError.sshKeyCreate = "";
+      try {
+        if (!name) throw new Error("Name is required.");
+        if (name.length > 50) throw new Error("Name must not exceed 50 characters.");
+        const body = { name };
+        if (modal.mode === "generate") {
+          body.generate = true;
+          body.algorithm = modal.algorithm;
+        } else {
+          const publicKey = String(modal.public_key || "").trim();
+          if (!publicKey) throw new Error("Public key is required.");
+          body.public_key = publicKey;
+        }
+        const result = await this.apiFetch("/ssh-keys/", { method: "POST", body });
+        await this.refreshSSHKeys();
+        if (modal.mode === "generate") {
+          if (!result?.private_key) throw new Error("The generated private key was not returned.");
+          const { private_key: privateKey, ...metadata } = result;
+          modal.created = metadata;
+          modal.private_key = privateKey;
+          modal.public_key = "";
+          this.showNotice("SSH key created. Save the private key before closing this dialog.");
+        } else {
+          this.closeSSHKeyCreateModal();
+          this.showNotice("SSH public key imported.");
+        }
+      } catch (error) {
+        this.modalError.sshKeyCreate = this.errorMessage(error, "Failed to create SSH key.");
+      } finally {
+        this.sshKeysLoading.save = false;
+      }
+    },
+
+    async copyGeneratedPrivateKey() {
+      const privateKey = String(this.modal.sshKeyCreate.private_key || "");
+      if (!privateKey) return;
+      try {
+        await navigator.clipboard.writeText(privateKey);
+        this.showNotice("Private key copied to clipboard.");
+      } catch {
+        this.showNotice("Unable to copy automatically. Select and copy the private key manually.");
+      }
+    },
+
+    downloadGeneratedPrivateKey() {
+      const modal = this.modal.sshKeyCreate;
+      const privateKey = String(modal.private_key || "");
+      if (!privateKey) return;
+      const blob = new Blob([privateKey], { type: "application/x-pem-file" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${modal.created?.name || "kloigos-key"}.pem`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    },
+
+    openSSHKeyDeleteConfirm(sshKey) {
+      this.modal.sshKeyDeleteConfirm = {
+        open: true,
+        name: String(sshKey?.name || ""),
+      };
+      this.modalError.sshKeyDeleteConfirm = "";
+    },
+
+    closeSSHKeyDeleteConfirm() {
+      this.modal.sshKeyDeleteConfirm = { open: false, name: "" };
+      this.modalError.sshKeyDeleteConfirm = "";
+    },
+
+    async deleteSSHKey() {
+      const name = String(this.modal.sshKeyDeleteConfirm.name || "");
+      this.sshKeysLoading.delete = true;
+      this.modalError.sshKeyDeleteConfirm = "";
+      try {
+        await this.apiFetch(`/ssh-keys/${encodeURIComponent(name)}`, { method: "DELETE" });
+        this.closeSSHKeyDeleteConfirm();
+        this.showNotice("SSH key deleted. Existing allocations are unchanged.");
+        await this.refreshSSHKeys();
+      } catch (error) {
+        this.modalError.sshKeyDeleteConfirm = this.errorMessage(error, "Failed to delete SSH key.");
+      } finally {
+        this.sshKeysLoading.delete = false;
+      }
+    },
+
     openSecurityGroupCreateModal() {
       this.modal.securityGroupEdit = { open: true, security_group_id: "", name: "", description: "" };
       this.modalError.securityGroupEdit = "";
@@ -1405,13 +1588,18 @@ window.cpkitWebappExtension = {
       this.modal.allocate.cpu_count = "";
       this.modal.allocate.location = "";
       this.modal.allocate.tagPairs = [{ key: "", value: "" }];
+      this.modal.allocate.ssh_key_source = this.sshKeys.length ? "stored" : "inline";
+      this.modal.allocate.ssh_key_name = "";
       this.modal.allocate.ssh_public_key = "";
       this.modalError.allocate = "";
       this.modal.allocate.open = true;
+      if (!this.sshKeysLoading.list) this.refreshSSHKeys();
     },
 
     closeAllocateModal() {
       this.modal.allocate.open = false;
+      this.modal.allocate.ssh_key_name = "";
+      this.modal.allocate.ssh_public_key = "";
       this.modalError.allocate = "";
     },
 
@@ -1452,10 +1640,6 @@ window.cpkitWebappExtension = {
         const cpuCount = rawCpuCount === "" || rawCpuCount === null
           ? null
           : Number(rawCpuCount);
-        const sshPublicKey = (this.modal.allocate.ssh_public_key || "").trim();
-        if (!sshPublicKey) {
-          throw new Error("SSH Public Key is required.");
-        }
         const payload = {
           allocation_id: allocationId || null,
           login_user: (this.modal.allocate.login_user || "").trim() || null,
@@ -1463,8 +1647,16 @@ window.cpkitWebappExtension = {
           region: location.region,
           zone: location.zone,
           tags,
-          ssh_public_key: sshPublicKey,
         };
+        if (this.modal.allocate.ssh_key_source === "stored") {
+          const sshKeyName = String(this.modal.allocate.ssh_key_name || "").trim();
+          if (!sshKeyName) throw new Error("Select a stored SSH key.");
+          payload.ssh_key_name = sshKeyName;
+        } else {
+          const sshPublicKey = String(this.modal.allocate.ssh_public_key || "").trim();
+          if (!sshPublicKey) throw new Error("SSH Public Key is required.");
+          payload.ssh_public_key = sshPublicKey;
+        }
         const result = await this.apiFetch("/allocations/", { method: "POST", body: payload });
         this.closeAllocateModal();
         this.showNotice("Allocation queued.", { jobId: result?.job_id });

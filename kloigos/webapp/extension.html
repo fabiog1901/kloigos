@@ -704,6 +704,39 @@
 
 <main class="layout" x-show="view === 'security_groups' && !canViewKloigosAdmin()"><section class="main"><div class="metric kloigos-empty-state"><h2>Not authorized</h2><p class="muted">Network Security Groups are available only to CP_ADMIN users.</p></div></section></main>
 
+<main class="layout" x-show="view === 'ssh_keys' && canViewKloigosAdmin()">
+  <aside class="sidebar">
+    <section><h2>Summary</h2><div class="metric"><div class="metric-label">SSH Keys</div><div class="metric-value" x-text="sshKeys.length"></div></div></section>
+    <section><h2>Actions</h2><div class="metric button-stack">
+      <button class="btn" @click="refreshSSHKeys()" :disabled="sshKeysLoading.list">Refresh</button>
+      <button class="btn primary" @click="openSSHKeyCreateModal()">Add New</button>
+      <label class="check-row"><input type="checkbox" x-model="sshKeysAutoRefreshEnabled" /> Auto-refresh (5s)</label>
+    </div></section>
+  </aside>
+  <section class="main events-main">
+    <div class="main-header">
+      <div class="main-header-left"><div class="main-title">SSH Keys</div><div class="main-subtitle">Reusable public keys for Allocation access.</div></div>
+      <div class="main-actions"><div class="pill">Updated (UTC): <span x-text="sshKeysLastUpdatedUtc || '-'"></span></div></div>
+    </div>
+    <div class="table-container events-table-container"><div class="table-scroll events-table-scroll"><table class="data-table events-table kloigos-ssh-keys-table">
+      <thead><tr><th>Name</th><th>Algorithm</th><th>Fingerprint</th><th>Source</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody>
+        <template x-for="sshKey in sshKeys" :key="sshKey.name"><tr>
+          <td><span class="kloigos-chip" x-text="sshKey.name"></span></td>
+          <td x-text="sshKey.algorithm"></td>
+          <td><span class="kloigos-fingerprint" x-text="sshKey.fingerprint"></span></td>
+          <td x-text="sshKey.creation_method"></td>
+          <td x-text="formatDateTime(sshKey.created_at)"></td>
+          <td><button class="btn danger" :disabled="sshKeysLoading.delete" @click="openSSHKeyDeleteConfirm(sshKey)">Delete</button></td>
+        </tr></template>
+        <tr x-show="!sshKeysLoading.list && sshKeys.length === 0"><td colspan="6" class="empty-cell">No SSH keys found.</td></tr>
+      </tbody>
+    </table></div></div>
+  </section>
+</main>
+
+<main class="layout" x-show="view === 'ssh_keys' && !canViewKloigosAdmin()"><section class="main"><div class="metric kloigos-empty-state"><h2>Not authorized</h2><p class="muted">SSH Keys are available only to CP_ADMIN users.</p></div></section></main>
+
 <div class="modal-backdrop" x-show="modal.allocate.open" @click.self="closeAllocateModal()">
   <div class="modal kloigos-wide-modal">
     <div class="modal-head">
@@ -742,8 +775,29 @@
       </div>
     </div>
 
-    <label class="field-label required">SSH Public Key</label>
-    <textarea class="input kloigos-textarea kloigos-ssh-key-input" required x-model="modal.allocate.ssh_public_key" placeholder="ssh-ed25519 AAAA... user@host"></textarea>
+    <div class="kloigos-form-grid kloigos-subhead">
+      <div>
+        <label class="field-label required">SSH Key Source</label>
+        <select class="input" x-model="modal.allocate.ssh_key_source">
+          <option value="stored">Stored key</option>
+          <option value="inline">Paste public key</option>
+        </select>
+      </div>
+      <div x-show="modal.allocate.ssh_key_source === 'stored'">
+        <label class="field-label required">Stored SSH Key</label>
+        <select class="input" x-model="modal.allocate.ssh_key_name">
+          <option value="">Select an SSH key</option>
+          <template x-for="sshKey in sshKeys" :key="sshKey.name">
+            <option :value="sshKey.name" x-text="`${sshKey.name} (${sshKey.fingerprint})`"></option>
+          </template>
+        </select>
+        <div class="muted" x-show="!sshKeysLoading.list && sshKeys.length === 0">No stored keys are available. Choose “Paste public key” or create one from Admin.</div>
+      </div>
+    </div>
+    <div x-show="modal.allocate.ssh_key_source === 'inline'">
+      <label class="field-label required">SSH Public Key</label>
+      <textarea class="input kloigos-textarea kloigos-ssh-key-input" x-model="modal.allocate.ssh_public_key" placeholder="ssh-ed25519 AAAA... user@host"></textarea>
+    </div>
 
     <div class="kloigos-tags-head">
       <label class="field-label">Tags</label>
@@ -1113,6 +1167,46 @@
     <div class="modal-actions">
       <button class="btn" @click="closeComputeDetails()">Close</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" x-show="modal.sshKeyCreate.open" @click.self="closeSSHKeyCreateModal()">
+  <div class="modal kloigos-wide-modal">
+    <div class="modal-head">
+      <h2 x-text="modal.sshKeyCreate.private_key ? 'Save Generated Private Key' : 'Add SSH Key'"></h2>
+      <button class="icon-btn" @click="closeSSHKeyCreateModal()">x</button>
+    </div>
+    <div class="notice danger" x-show="modalError.sshKeyCreate" x-text="modalError.sshKeyCreate"></div>
+
+    <div x-show="!modal.sshKeyCreate.private_key">
+      <div class="kloigos-form-grid">
+        <label><span class="field-label required">Name</span><input class="input" maxlength="50" x-model="modal.sshKeyCreate.name" placeholder="fabio-laptop" /></label>
+        <label><span class="field-label required">Method</span><select class="input" x-model="modal.sshKeyCreate.mode"><option value="import">Import public key</option><option value="generate">Generate key pair</option></select></label>
+        <label x-show="modal.sshKeyCreate.mode === 'generate'"><span class="field-label required">Algorithm</span><select class="input" x-model="modal.sshKeyCreate.algorithm"><option value="ssh-ed25519">Ed25519</option><option value="ssh-rsa">RSA 4096</option></select></label>
+      </div>
+      <label x-show="modal.sshKeyCreate.mode === 'import'"><span class="field-label required">Public Key</span><textarea class="input kloigos-textarea kloigos-ssh-key-input" x-model="modal.sshKeyCreate.public_key" placeholder="ssh-ed25519 AAAA... user@host"></textarea></label>
+      <p class="muted" x-show="modal.sshKeyCreate.mode === 'generate'">Kloigos stores only the public key. The private key will be shown once after creation.</p>
+      <div class="modal-actions"><button class="btn" @click="closeSSHKeyCreateModal()">Cancel</button><button class="btn primary" :disabled="sshKeysLoading.save" @click="saveSSHKey()"><span x-show="!sshKeysLoading.save">Create</span><span x-show="sshKeysLoading.save">Working...</span></button></div>
+    </div>
+
+    <div x-show="modal.sshKeyCreate.private_key">
+      <div class="notice danger kloigos-private-key-warning"><strong>Save this private key now.</strong> It cannot be displayed or downloaded again after this dialog closes or you navigate away.</div>
+      <dl class="details-list">
+        <dt>Name</dt><dd x-text="modal.sshKeyCreate.created?.name || '-'"></dd>
+        <dt>Fingerprint</dt><dd class="kloigos-fingerprint" x-text="modal.sshKeyCreate.created?.fingerprint || '-'"></dd>
+      </dl>
+      <label><span class="field-label">Private Key</span><textarea class="input kloigos-textarea kloigos-private-key-output" readonly x-model="modal.sshKeyCreate.private_key"></textarea></label>
+      <div class="modal-actions"><button class="btn" @click="copyGeneratedPrivateKey()">Copy</button><button class="btn" @click="downloadGeneratedPrivateKey()">Download</button><button class="btn primary" @click="closeSSHKeyCreateModal()">I Have Saved It</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" x-show="modal.sshKeyDeleteConfirm.open" @click.self="closeSSHKeyDeleteConfirm()">
+  <div class="modal">
+    <div class="modal-head"><h2>Confirm Delete</h2><button class="icon-btn" @click="closeSSHKeyDeleteConfirm()">x</button></div>
+    <div class="notice danger" x-show="modalError.sshKeyDeleteConfirm" x-text="modalError.sshKeyDeleteConfirm"></div>
+    <p class="muted">Delete the stored key <span class="kloigos-chip" x-text="modal.sshKeyDeleteConfirm.name"></span>? Existing Allocations are unchanged.</p>
+    <div class="modal-actions"><button class="btn" @click="closeSSHKeyDeleteConfirm()">Cancel</button><button class="btn danger" :disabled="sshKeysLoading.delete" @click="deleteSSHKey()">Delete</button></div>
   </div>
 </div>
 
