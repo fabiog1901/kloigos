@@ -3,12 +3,64 @@ import unittest
 
 from pydantic import ValidationError
 
-from kloigos.models import SSHKeyCreate, SSHKeyInDB
+from kloigos.models import (
+    SSHKeyAlgorithm,
+    SSHKeyCreate,
+    SSHKeyCreateRequest,
+    SSHKeyGenerationAlgorithm,
+    SSHKeyInDB,
+)
 
 PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDk65l+4HPbBZRt6mV7tHcvap3PrhCUo79iaCEdE1exx fabio@hp"
 
 
 class SSHKeyModelTests(unittest.TestCase):
+    def test_create_request_requires_exactly_one_creation_mode(self) -> None:
+        imported = SSHKeyCreateRequest(name="imported", public_key=PUBLIC_KEY)
+        generated = SSHKeyCreateRequest(name="generated", generate=True)
+
+        self.assertEqual(imported.public_key, PUBLIC_KEY)
+        self.assertTrue(generated.generate)
+
+        with self.assertRaises(ValidationError):
+            SSHKeyCreateRequest(name="missing")
+        with self.assertRaises(ValidationError):
+            SSHKeyCreateRequest(
+                name="ambiguous",
+                public_key=PUBLIC_KEY,
+                generate=True,
+            )
+
+    def test_generation_algorithm_is_a_small_enum(self) -> None:
+        self.assertEqual(
+            {algorithm.value for algorithm in SSHKeyGenerationAlgorithm},
+            {"ssh-ed25519", "ssh-rsa"},
+        )
+        request = SSHKeyCreateRequest(
+            name="compatible",
+            generate=True,
+            algorithm="ssh-rsa",
+        )
+        self.assertIs(request.algorithm, SSHKeyGenerationAlgorithm.RSA)
+
+        with self.assertRaises(ValidationError):
+            SSHKeyCreateRequest(
+                name="unsupported-generation",
+                generate=True,
+                algorithm="ecdsa-sha2-nistp256",
+            )
+
+    def test_import_derives_algorithm_from_the_public_key(self) -> None:
+        with self.assertRaisesRegex(
+            ValidationError,
+            "algorithm may be supplied only when generate is true",
+        ):
+            SSHKeyCreateRequest(
+                name="imported",
+                public_key=PUBLIC_KEY,
+                algorithm="ssh-ed25519",
+            )
+
     def test_name_is_trimmed_and_creation_method_is_normalized(self) -> None:
         key = SSHKeyCreate(
             name="  workstation  ",
@@ -19,6 +71,7 @@ class SSHKeyModelTests(unittest.TestCase):
         )
 
         self.assertEqual(key.name, "workstation")
+        self.assertIs(key.algorithm, SSHKeyAlgorithm.ED25519)
         self.assertEqual(key.creation_method.value, "imported")
 
     def test_name_must_not_exceed_fifty_characters_after_trimming(self) -> None:

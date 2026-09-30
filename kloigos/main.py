@@ -12,7 +12,7 @@ from cpkit import (
 )
 
 from . import KLOIGOS_DB_URL
-from .api import admin, allocation, compute_unit, security_group
+from .api import admin, allocation, compute_unit, security_group, ssh_key
 from .models import (
     AllocationCreateCommand,
     AllocationDeallocateCommand,
@@ -99,6 +99,7 @@ app = create_cpkit_app(
         compute_unit.router,
         security_group.router,
         security_group.allocation_router,
+        ssh_key.router,
     ),
     recurring_messages=(
         RecurringMessage(

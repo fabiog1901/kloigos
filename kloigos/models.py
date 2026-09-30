@@ -37,6 +37,10 @@ class SecurityGroupNotFoundError(Exception):
     pass
 
 
+class SSHKeyNotFoundError(Exception):
+    pass
+
+
 class ServerNotFoundError(Exception):
     pass
 
@@ -98,6 +102,8 @@ class Event(AutoNameStrEnum):
     SECURITY_GROUP_RULE_DELETED = auto()
     SECURITY_GROUP_ATTACHED = auto()
     SECURITY_GROUP_DETACHED = auto()
+    SSH_KEY_CREATED = auto()
+    SSH_KEY_DELETED = auto()
     NETWORK_POLICY_APPLY_DONE = auto()
     NETWORK_POLICY_APPLY_FAILED = auto()
 
@@ -208,6 +214,19 @@ class SSHKeyCreationMethod(AutoNameStrEnum):
     GENERATED = "generated"
 
 
+class SSHKeyAlgorithm(AutoNameStrEnum):
+    ED25519 = "ssh-ed25519"
+    RSA = "ssh-rsa"
+    ECDSA_NISTP256 = "ecdsa-sha2-nistp256"
+    ECDSA_NISTP384 = "ecdsa-sha2-nistp384"
+    ECDSA_NISTP521 = "ecdsa-sha2-nistp521"
+
+
+class SSHKeyGenerationAlgorithm(AutoNameStrEnum):
+    ED25519 = SSHKeyAlgorithm.ED25519
+    RSA = SSHKeyAlgorithm.RSA
+
+
 RUNTIME_PROFILES = {"minimal", "standard", "build", "container"}
 DEFAULT_NOFILE_BY_RUNTIME_PROFILE = {
     "minimal": 65536,
@@ -215,13 +234,7 @@ DEFAULT_NOFILE_BY_RUNTIME_PROFILE = {
     "build": 65536,
     "container": 1048576,
 }
-SSH_PUBLIC_KEY_TYPES = {
-    "ssh-ed25519",
-    "ssh-rsa",
-    "ecdsa-sha2-nistp256",
-    "ecdsa-sha2-nistp384",
-    "ecdsa-sha2-nistp521",
-}
+SSH_PUBLIC_KEY_TYPES = {algorithm.value for algorithm in SSHKeyAlgorithm}
 
 
 def _validate_ssh_public_key(value: str) -> str:
@@ -255,7 +268,7 @@ class SSHKeyCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=50)
-    algorithm: str
+    algorithm: SSHKeyAlgorithm
     public_key: str
     fingerprint: str = Field(min_length=1)
     creation_method: SSHKeyCreationMethod
@@ -281,6 +294,41 @@ class SSHKeyCreate(BaseModel):
 class SSHKeyInDB(SSHKeyCreate):
     created_at: dt.datetime
     updated_at: dt.datetime
+
+
+class SSHKeyCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=50)
+    public_key: str | None = None
+    generate: bool = False
+    algorithm: SSHKeyGenerationAlgorithm | None = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        return str(value or "").strip()
+
+    @field_validator("public_key")
+    @classmethod
+    def validate_public_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _validate_ssh_public_key(value)
+
+    @model_validator(mode="after")
+    def validate_creation_mode(self):
+        if self.generate and self.public_key is not None:
+            raise ValueError("public_key must not be supplied when generate is true.")
+        if not self.generate and self.public_key is None:
+            raise ValueError("public_key is required unless generate is true.")
+        if not self.generate and self.algorithm is not None:
+            raise ValueError("algorithm may be supplied only when generate is true.")
+        return self
+
+
+class SSHKeyCreateResponse(SSHKeyInDB):
+    private_key: str | None = None
 
 
 class ComputeUnitInDB(BaseModel):
