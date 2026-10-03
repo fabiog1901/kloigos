@@ -27,6 +27,10 @@ class SSHKeyApiTests(unittest.IsolatedAsyncioTestCase):
         }
         create_route = methods_by_path[("/ssh-keys/", "POST")]
         self.assertEqual(create_route.status_code, status.HTTP_201_CREATED)
+        self.assertIn("non-idempotent", create_route.description)
+        self.assertIn("must not retry", create_route.description)
+        self.assertIn("delete it if present", create_route.description)
+        self.assertIn(status.HTTP_409_CONFLICT, create_route.responses)
         self.assertIn(("/ssh-keys/", "GET"), methods_by_path)
         self.assertIn(("/ssh-keys/{name}", "GET"), methods_by_path)
         self.assertIn(("/ssh-keys/{name}", "DELETE"), methods_by_path)

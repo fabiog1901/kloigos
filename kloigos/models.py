@@ -328,6 +328,8 @@ class SSHKeyCreateRequest(BaseModel):
 
 
 class SSHKeyCreateResponse(SSHKeyInDB):
+    """One-time creation response; only a generated key includes private material."""
+
     private_key: str | None = None
 
 

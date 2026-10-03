@@ -1188,6 +1188,9 @@ window.cpkitWebappExtension = {
           if (!publicKey) throw new Error("Public key is required.");
           body.public_key = publicKey;
         }
+        // This non-idempotent request is deliberately attempted once. A client-side
+        // retry could create a public-key resource after the first response was lost
+        // without recovering the corresponding private key.
         const result = await this.apiFetch("/ssh-keys/", { method: "POST", body });
         await this.refreshSSHKeys();
         if (modal.mode === "generate") {

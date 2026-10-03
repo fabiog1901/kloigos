@@ -22,13 +22,29 @@ router = APIRouter(
     response_model=SSHKeyCreateResponse,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Security(require_user)],
+    description=(
+        "Create an imported public key or generate a new key pair. This POST is "
+        "non-idempotent and clients must not retry it automatically. For generated "
+        "keys, the private key is returned only in the initial successful response. "
+        "Reusing a key name returns 409 without private-key material. If the outcome "
+        "is unknown because the response was lost, inspect the named public-key "
+        "resource, delete it if present, and generate a replacement."
+    ),
+    responses={
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The SSH key name already exists; the existing private key is never "
+                "returned."
+            )
+        }
+    },
 )
 async def create_ssh_key(
     req: SSHKeyCreateRequest,
     actor_id: str = Depends(get_audit_actor),
     service: SSHKeyService = Depends(get_ssh_key_service),
 ) -> SSHKeyCreateResponse:
-    """Import an SSH public key or generate a new key pair."""
+    """Create an SSH key without supporting automatic retry or response replay."""
     try:
         return service.create_ssh_key(actor_id, req)
     except ComputeUnitOperationError as exc:

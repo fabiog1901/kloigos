@@ -4,6 +4,7 @@ import hashlib
 from cpkit.audit import log_event
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, rsa
+from psycopg.errors import UniqueViolation
 
 from kloigos.models import (
     ComputeUnitOperationError,
@@ -83,15 +84,22 @@ class SSHKeyService:
             algorithm = public_key.split(maxsplit=1)[0]
             creation_method = SSHKeyCreationMethod.IMPORTED
 
-        record = self.repo.create_ssh_key(
-            SSHKeyCreate(
-                name=req.name,
-                algorithm=algorithm,
-                public_key=public_key,
-                fingerprint=_fingerprint(public_key),
-                creation_method=creation_method,
+        try:
+            record = self.repo.create_ssh_key(
+                SSHKeyCreate(
+                    name=req.name,
+                    algorithm=algorithm,
+                    public_key=public_key,
+                    fingerprint=_fingerprint(public_key),
+                    creation_method=creation_method,
+                )
             )
-        )
+        except UniqueViolation as exc:
+            # The pre-check keeps ordinary duplicates from generating a key. The
+            # database constraint remains the authority when requests race.
+            raise ComputeUnitOperationError(
+                f"SSH key name '{req.name}' already exists."
+            ) from exc
         log_event(
             self.repo,
             actor_id,

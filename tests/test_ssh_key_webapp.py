@@ -1,7 +1,6 @@
 import unittest
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = (PROJECT_ROOT / "kloigos/webapp/extension.js").read_text()
 MARKUP = (PROJECT_ROOT / "kloigos/webapp/extension.html").read_text()
@@ -33,9 +32,14 @@ class SSHKeyWebappContractTests(unittest.TestCase):
         self.assertIn("downloadGeneratedPrivateKey()", MARKUP)
         self.assertIn("I Have Saved It", MARKUP)
 
+    def test_key_creation_post_is_attempted_only_once(self) -> None:
+        creation_call = 'this.apiFetch("/ssh-keys/", { method: "POST", body })'
+        self.assertEqual(SCRIPT.count(creation_call), 1)
+        self.assertIn("non-idempotent request is deliberately attempted once", SCRIPT)
+
     def test_allocation_form_supports_named_and_inline_keys(self) -> None:
-        self.assertIn('payload.ssh_key_name = sshKeyName;', SCRIPT)
-        self.assertIn('payload.ssh_public_key = sshPublicKey;', SCRIPT)
+        self.assertIn("payload.ssh_key_name = sshKeyName;", SCRIPT)
+        self.assertIn("payload.ssh_public_key = sshPublicKey;", SCRIPT)
         self.assertIn('value="stored"', MARKUP)
         self.assertIn('value="inline"', MARKUP)
 

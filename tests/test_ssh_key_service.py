@@ -2,6 +2,8 @@ import datetime as dt
 import unittest
 from unittest.mock import MagicMock, patch
 
+from psycopg.errors import UniqueViolation
+
 from kloigos.models import (
     ComputeUnitOperationError,
     Event,
@@ -72,7 +74,11 @@ class SSHKeyServiceTests(unittest.TestCase):
         self.assertNotIn("private_key", stored.model_dump())
         self.assertNotIn("private_key", log_event.call_args.args[3])
 
-    def test_duplicate_name_is_rejected_before_key_generation(self) -> None:
+    @patch("kloigos.services.ssh_key._generate_private_key")
+    def test_duplicate_name_is_rejected_before_key_generation(
+        self,
+        generate_private_key,
+    ) -> None:
         self.repo.get_ssh_keys.return_value = [MagicMock()]
 
         with self.assertRaisesRegex(ComputeUnitOperationError, "already exists"):
@@ -81,7 +87,49 @@ class SSHKeyServiceTests(unittest.TestCase):
                 SSHKeyCreateRequest(name="duplicate", generate=True),
             )
 
+        generate_private_key.assert_not_called()
         self.repo.create_ssh_key.assert_not_called()
+
+    @patch("kloigos.services.ssh_key.log_event")
+    def test_repeated_generated_request_never_replays_private_key(
+        self,
+        _log_event,
+    ) -> None:
+        created = []
+        self.repo.get_ssh_keys.side_effect = lambda **_kwargs: list(created)
+
+        def create(source):
+            stored = _stored_key(source)
+            created.append(stored)
+            return stored
+
+        self.repo.create_ssh_key.side_effect = create
+        request = SSHKeyCreateRequest(name="generated", generate=True)
+
+        initial = self.service.create_ssh_key("actor", request)
+        with self.assertRaisesRegex(
+            ComputeUnitOperationError, "already exists"
+        ) as raised:
+            self.service.create_ssh_key("actor", request)
+
+        self.assertIsNotNone(initial.private_key)
+        self.assertNotIn(initial.private_key, str(raised.exception))
+        self.repo.create_ssh_key.assert_called_once()
+
+    @patch("kloigos.services.ssh_key.log_event")
+    def test_concurrent_duplicate_is_reported_without_a_response(
+        self,
+        log_event,
+    ) -> None:
+        self.repo.create_ssh_key.side_effect = UniqueViolation("duplicate key")
+
+        with self.assertRaisesRegex(ComputeUnitOperationError, "already exists"):
+            self.service.create_ssh_key(
+                "actor",
+                SSHKeyCreateRequest(name="racing", generate=True),
+            )
+
+        log_event.assert_not_called()
 
     def test_list_and_get_return_stored_public_records(self) -> None:
         stored = SSHKeyInDB(

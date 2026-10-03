@@ -22,7 +22,7 @@ python tools/codemap.py --write
 
 | Package | Modules | Classes | Functions | Routes |
 | --- | ---: | ---: | ---: | ---: |
-| `kloigos` | 31 | 66 | 40 | 20 |
+| `kloigos` | 33 | 75 | 45 | 24 |
 
 ## API Routes
 
@@ -48,6 +48,10 @@ python tools/codemap.py --write
 | `POST` | `/servers` | `kloigos.api.admin.servers.init_server` | `JobID` |
 | `PUT` | `/servers` | `kloigos.api.admin.servers.decommission_server` | `JobID` |
 | `DELETE` | `/servers/{hostname}` | `kloigos.api.admin.servers.delete_server` | `-` |
+| `GET` | `/ssh-keys` | `kloigos.api.ssh_key.list_ssh_keys` | `list[SSHKeyInDB]` |
+| `POST` | `/ssh-keys` | `kloigos.api.ssh_key.create_ssh_key` | `SSHKeyCreateResponse` |
+| `DELETE` | `/ssh-keys/{name}` | `kloigos.api.ssh_key.delete_ssh_key` | `-` |
+| `GET` | `/ssh-keys/{name}` | `kloigos.api.ssh_key.get_ssh_key` | `SSHKeyInDB` |
 
 ## Command Handlers
 
@@ -65,11 +69,12 @@ python tools/codemap.py --write
 | `kloigos/api/allocation.py` | functions: list_allocations, allocate, get_allocation, deallocate_allocation, scale_allocation; routes: 5 |
 | `kloigos/api/compute_unit.py` | functions: list_compute_units; routes: 1 |
 | `kloigos/api/security_group.py` | functions: create_security_group, list_security_groups, get_security_group, update_security_group, delete_security_group, add_security_group_rule, delete_security_group_rule, list_allocation_security_groups, attach_security_group, detach_security_group; routes: 7 |
+| `kloigos/api/ssh_key.py` | functions: create_ssh_key, list_ssh_keys, get_ssh_key, delete_ssh_key; routes: 4 |
 | `kloigos/cli.py` | Kloigos command-line entrypoint.; classes: KloigosCLI; functions: main |
-| `kloigos/dep.py` | functions: get_allocation_service, get_compute_unit_service, get_admin_service, get_security_group_service |
+| `kloigos/dep.py` | functions: get_allocation_service, get_compute_unit_service, get_admin_service, get_security_group_service, get_ssh_key_service |
 | `kloigos/hooks.py` | Application extension hooks.; functions: run_periodic_hook |
 | `kloigos/main.py` | functions: configure_log_output |
-| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, SecurityGroupNotFoundError, ServerNotFoundError, ServerStateError, Event, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ServerHealthStatus, AlertType, AlertSeverity, AlertStatus, SecurityGroupDirection, SecurityGroupProtocol, SecurityGroupIpVersion, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, AllocationCreateRequest, AllocationCreateCommand, AllocationCreateResponse, ServerHealthCheckCommand, NetworkPolicyApplyCommand, AllocationDeallocateCommand, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolInsertRequest, SecurityGroupCreateRequest, SecurityGroupUpdateRequest, SecurityGroupInDB, SecurityGroupRuleCreateRequest, SecurityGroupRuleInDB, SecurityGroupAttachmentInDB, SecurityGroupMutationResponse, SecurityGroupDetail, EffectiveNetworkRule, AllocationNetworkPolicy, HostNetworkPolicy, BaseServer, ServerInDB, AlertInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
+| `kloigos/models.py` | classes: AutoNameStrEnum, NoFreeComputeUnitError, NoFreeIpAddressError, ComputeUnitNotFoundError, ComputeUnitStateError, ComputeUnitOperationError, SecurityGroupNotFoundError, SSHKeyNotFoundError, ServerNotFoundError, ServerStateError, Event, Playbook, QueueCommand, ComputeUnitStatus, AllocationStatus, IpAddressStatus, ServerStatus, ServerHealthStatus, AlertType, AlertSeverity, AlertStatus, SecurityGroupDirection, SecurityGroupProtocol, SecurityGroupIpVersion, SSHKeyCreationMethod, SSHKeyAlgorithm, SSHKeyGenerationAlgorithm, SSHKeyCreate, SSHKeyInDB, SSHKeyCreateRequest, SSHKeyCreateResponse, ComputeUnitInDB, InitComputeUnit, ComputeUnitOverview, AllocationCreateRequest, AllocationCreateCommand, AllocationCreateResponse, ServerHealthCheckCommand, NetworkPolicyApplyCommand, AllocationDeallocateCommand, AllocationScaleRequest, AllocationScaleCommand, AllocationInDB, IpPoolAddressInDB, IpPoolInsertRequest, SecurityGroupCreateRequest, SecurityGroupUpdateRequest, SecurityGroupInDB, SecurityGroupRuleCreateRequest, SecurityGroupRuleInDB, SecurityGroupAttachmentInDB, SecurityGroupMutationResponse, SecurityGroupDetail, EffectiveNetworkRule, AllocationNetworkPolicy, HostNetworkPolicy, BaseServer, ServerInDB, AlertInDB, ServerComputeUnitInitSpec, ServerInitRequest, ServerDecommRequest |
 | `kloigos/repos/__init__.py` | classes: Repo |
 | `kloigos/repos/postgres.py` | classes: PostgresRepo |
 | `kloigos/services/__init__.py` | no public surface |
@@ -81,6 +86,7 @@ python tools/codemap.py --write
 | `kloigos/services/compute_unit.py` | classes: ComputeUnitService |
 | `kloigos/services/network_policy.py` | classes: NetworkPolicyService; functions: render_nftables_policy |
 | `kloigos/services/security_group.py` | classes: SecurityGroupService |
+| `kloigos/services/ssh_key.py` | classes: SSHKeyService |
 | `kloigos/util.py` | functions: to_cpu_set, parse_cpu_range |
 | `kloigos/workers/__init__.py` | Job worker entry points for Kloigos. |
 | `kloigos/workers/health.py` | Server health check queue handler.; classes: HealthProbeResult; functions: run_server_health_check |
