@@ -1,5 +1,5 @@
 site_name: kloigos
-site_description: Turn bare-metal Linux servers into a programmable internal compute cloud.
+site_description: A Linux-native platform for managing isolated workloads on bare-metal infrastructure.
 repo_name: fabiog1901/kloigos
 repo_url: https://github.com/fabiog1901/kloigos
 
