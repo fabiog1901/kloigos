@@ -1,7 +1,10 @@
+import datetime as dt
+import json
 import unittest
 from unittest.mock import MagicMock
 
 from fastapi import HTTPException, Response, status
+from fastapi.routing import serialize_response
 
 from kloigos.api.ssh_key import (
     create_ssh_key,
@@ -13,7 +16,14 @@ from kloigos.api.ssh_key import (
 from kloigos.models import (
     ComputeUnitOperationError,
     SSHKeyCreateRequest,
+    SSHKeyCreateResponse,
     SSHKeyNotFoundError,
+)
+
+PRIVATE_KEY_SENTINEL = "KLOIGOS-PRIVATE-KEY-SENTINEL"
+PUBLIC_KEY = (
+    "ssh-ed25519 "
+    "AAAAC3NzaC1lZDI1NTE5AAAAIDk65l+4HPbBZRt6mV7tHcvap3PrhCUo79iaCEdE1exx"
 )
 
 
@@ -94,6 +104,37 @@ class SSHKeyApiTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIs(await list_ssh_keys(self.service), records)
         self.assertIs(await get_ssh_key("workstation", self.service), records[0])
+
+    async def test_get_and_list_response_models_strip_private_key_material(
+        self,
+    ) -> None:
+        record = SSHKeyCreateResponse(
+            name="generated",
+            algorithm="ssh-ed25519",
+            public_key=PUBLIC_KEY,
+            fingerprint="SHA256:example",
+            creation_method="generated",
+            created_at=dt.datetime(2026, 1, 1, tzinfo=dt.UTC),
+            updated_at=dt.datetime(2026, 1, 1, tzinfo=dt.UTC),
+            private_key=PRIVATE_KEY_SENTINEL,
+        )
+        routes = {
+            (route.path, next(iter(route.methods))): route for route in router.routes
+        }
+
+        cases = (
+            (routes[("/ssh-keys/", "GET")], [record]),
+            (routes[("/ssh-keys/{name}", "GET")], record),
+        )
+        for route, content in cases:
+            with self.subTest(path=route.path):
+                serialized = await serialize_response(
+                    field=route.response_field,
+                    response_content=content,
+                )
+                encoded = json.dumps(serialized)
+                self.assertNotIn("private_key", encoded)
+                self.assertNotIn(PRIVATE_KEY_SENTINEL, encoded)
 
     async def test_missing_get_and_delete_return_not_found(self) -> None:
         self.service.get_ssh_key.side_effect = SSHKeyNotFoundError("missing")

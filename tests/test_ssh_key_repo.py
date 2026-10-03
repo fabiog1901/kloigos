@@ -28,6 +28,7 @@ class SSHKeyRepoTests(unittest.TestCase):
         self.assertIs(result, expected)
         args = fetch_one.call_args.args
         self.assertIn("INSERT INTO ssh_keys", args[0])
+        self.assertNotIn("private_key", args[0])
         self.assertEqual(
             args[1],
             (

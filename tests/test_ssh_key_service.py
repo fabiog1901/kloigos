@@ -15,6 +15,7 @@ from kloigos.models import (
 from kloigos.services.ssh_key import SSHKeyService
 
 PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDk65l+4HPbBZRt6mV7tHcvap3PrhCUo79iaCEdE1exx fabio@hp"
+PRIVATE_KEY_SENTINEL = "KLOIGOS-PRIVATE-KEY-SENTINEL"
 NOW = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
 
 
@@ -32,6 +33,16 @@ class SSHKeyServiceTests(unittest.TestCase):
         self.repo.get_ssh_keys.return_value = []
         self.repo.create_ssh_key.side_effect = _stored_key
         self.service = SSHKeyService(self.repo)
+
+    def _sentinel_private_key(self) -> MagicMock:
+        private_key = MagicMock()
+        private_key.public_key.return_value.public_bytes.return_value = (
+            PUBLIC_KEY.encode("ascii")
+        )
+        private_key.private_bytes.return_value = PRIVATE_KEY_SENTINEL.encode(
+            "ascii"
+        )
+        return private_key
 
     @patch("kloigos.services.ssh_key.log_event")
     def test_import_calculates_metadata_and_returns_no_private_key(
@@ -73,6 +84,46 @@ class SSHKeyServiceTests(unittest.TestCase):
         self.assertIn("BEGIN OPENSSH PRIVATE KEY", result.private_key)
         self.assertNotIn("private_key", stored.model_dump())
         self.assertNotIn("private_key", log_event.call_args.args[3])
+
+    @patch("kloigos.services.ssh_key._generate_private_key")
+    @patch("kloigos.services.ssh_key.log_event")
+    def test_private_key_plaintext_exists_only_in_initial_response(
+        self,
+        log_event,
+        generate_private_key,
+    ) -> None:
+        private_key = self._sentinel_private_key()
+
+        def serialize_private_key(*_args):
+            self.repo.create_ssh_key.assert_called_once()
+            self.assertTrue(log_event.called)
+            return PRIVATE_KEY_SENTINEL.encode("ascii")
+
+        private_key.private_bytes.side_effect = serialize_private_key
+        generate_private_key.return_value = private_key
+
+        with self.assertNoLogs("kloigos.services.ssh_key", level="DEBUG"):
+            result = self.service.create_ssh_key(
+                "actor",
+                SSHKeyCreateRequest(name="sentinel", generate=True),
+            )
+
+        persisted = self.repo.create_ssh_key.call_args.args[0]
+        audit_details = log_event.call_args.args[3]
+        self.assertEqual(result.private_key, PRIVATE_KEY_SENTINEL)
+        self.assertNotIn(PRIVATE_KEY_SENTINEL, persisted.model_dump_json())
+        self.assertNotIn(PRIVATE_KEY_SENTINEL, repr(audit_details))
+        self.repo.enqueue_command.assert_not_called()
+
+        self.repo.get_ssh_keys.return_value = [_stored_key(persisted)]
+        self.assertNotIn(
+            PRIVATE_KEY_SENTINEL,
+            repr(self.service.list_ssh_keys()),
+        )
+        self.assertNotIn(
+            PRIVATE_KEY_SENTINEL,
+            repr(self.service.get_ssh_key("sentinel")),
+        )
 
     @patch("kloigos.services.ssh_key._generate_private_key")
     def test_duplicate_name_is_rejected_before_key_generation(
@@ -121,14 +172,17 @@ class SSHKeyServiceTests(unittest.TestCase):
         self,
         log_event,
     ) -> None:
-        self.repo.create_ssh_key.side_effect = UniqueViolation("duplicate key")
+        self.repo.create_ssh_key.side_effect = UniqueViolation(PRIVATE_KEY_SENTINEL)
 
-        with self.assertRaisesRegex(ComputeUnitOperationError, "already exists"):
+        with self.assertRaisesRegex(
+            ComputeUnitOperationError, "already exists"
+        ) as raised:
             self.service.create_ssh_key(
                 "actor",
                 SSHKeyCreateRequest(name="racing", generate=True),
             )
 
+        self.assertNotIn(PRIVATE_KEY_SENTINEL, str(raised.exception))
         log_event.assert_not_called()
 
     def test_list_and_get_return_stored_public_records(self) -> None:

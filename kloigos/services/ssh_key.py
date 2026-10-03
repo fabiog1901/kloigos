@@ -61,23 +61,18 @@ class SSHKeyService:
                 f"SSH key name '{req.name}' already exists."
             )
 
-        private_key_text: str | None = None
+        generated_private_key = None
         if req.generate:
             algorithm = req.algorithm or DEFAULT_GENERATED_KEY_ALGORITHM
-            private_key = _generate_private_key(algorithm)
+            generated_private_key = _generate_private_key(algorithm)
             public_key = (
-                private_key.public_key()
+                generated_private_key.public_key()
                 .public_bytes(
                     serialization.Encoding.OpenSSH,
                     serialization.PublicFormat.OpenSSH,
                 )
                 .decode("ascii")
             )
-            private_key_text = private_key.private_bytes(
-                serialization.Encoding.PEM,
-                serialization.PrivateFormat.OpenSSH,
-                serialization.NoEncryption(),
-            ).decode("ascii")
             creation_method = SSHKeyCreationMethod.GENERATED
         else:
             public_key = req.public_key
@@ -106,10 +101,16 @@ class SSHKeyService:
             Event.SSH_KEY_CREATED,
             _public_metadata(record),
         )
-        return SSHKeyCreateResponse(
-            **record.model_dump(),
-            private_key=private_key_text,
-        )
+        response = SSHKeyCreateResponse(**record.model_dump())
+        if generated_private_key is not None:
+            # Materialize plaintext only after every persistence and audit operation
+            # and response validation that could be captured by exception tracing.
+            response.private_key = generated_private_key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.OpenSSH,
+                serialization.NoEncryption(),
+            ).decode("ascii")
+        return response
 
     def list_ssh_keys(self) -> list[SSHKeyInDB]:
         """Return all stored public SSH keys."""

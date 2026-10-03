@@ -12,6 +12,7 @@ from kloigos.models import (
 )
 
 PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDk65l+4HPbBZRt6mV7tHcvap3PrhCUo79iaCEdE1exx fabio@hp"
+PRIVATE_KEY_SENTINEL = "KLOIGOS-PRIVATE-KEY-SENTINEL"
 
 
 class SSHKeyModelTests(unittest.TestCase):
@@ -120,6 +121,17 @@ class SSHKeyModelTests(unittest.TestCase):
 
         self.assertEqual(key.created_at, now)
         self.assertEqual(key.updated_at, now)
+
+    def test_persistence_model_rejects_private_key_material(self) -> None:
+        with self.assertRaisesRegex(ValidationError, "private_key"):
+            SSHKeyCreate(
+                name="generated",
+                algorithm="ssh-ed25519",
+                public_key=PUBLIC_KEY,
+                fingerprint="SHA256:example",
+                creation_method="generated",
+                private_key=PRIVATE_KEY_SENTINEL,
+            )
 
 
 if __name__ == "__main__":
