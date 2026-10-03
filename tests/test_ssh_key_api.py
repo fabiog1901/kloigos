@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Response, status
 
 from kloigos.api.ssh_key import (
     create_ssh_key,
@@ -30,6 +30,11 @@ class SSHKeyApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("non-idempotent", create_route.description)
         self.assertIn("must not retry", create_route.description)
         self.assertIn("delete it if present", create_route.description)
+        documented_headers = create_route.responses[status.HTTP_201_CREATED]["headers"]
+        self.assertEqual(
+            set(documented_headers),
+            {"Cache-Control", "Pragma", "Expires"},
+        )
         self.assertIn(status.HTTP_409_CONFLICT, create_route.responses)
         self.assertIn(("/ssh-keys/", "GET"), methods_by_path)
         self.assertIn(("/ssh-keys/{name}", "GET"), methods_by_path)
@@ -39,11 +44,35 @@ class SSHKeyApiTests(unittest.IsolatedAsyncioTestCase):
         expected = MagicMock()
         self.service.create_ssh_key.return_value = expected
         request = SSHKeyCreateRequest(name="generated", generate=True)
+        response = Response()
 
-        result = await create_ssh_key(request, "actor", self.service)
+        result = await create_ssh_key(request, response, "actor", self.service)
 
         self.assertIs(result, expected)
         self.service.create_ssh_key.assert_called_once_with("actor", request)
+
+    async def test_create_response_disables_caching_for_all_creation_modes(
+        self,
+    ) -> None:
+        requests = (
+            SSHKeyCreateRequest(name="generated", generate=True),
+            SSHKeyCreateRequest(
+                name="imported",
+                public_key=(
+                    "ssh-ed25519 "
+                    "AAAAC3NzaC1lZDI1NTE5AAAAIDk65l+4HPbBZRt6mV7tHcvap3PrhCUo79iaCEdE1exx"
+                ),
+            ),
+        )
+
+        for request in requests:
+            with self.subTest(name=request.name):
+                response = Response()
+                await create_ssh_key(request, response, "actor", self.service)
+
+                self.assertEqual(response.headers["cache-control"], "no-store")
+                self.assertEqual(response.headers["pragma"], "no-cache")
+                self.assertEqual(response.headers["expires"], "0")
 
     async def test_duplicate_name_returns_conflict(self) -> None:
         self.service.create_ssh_key.side_effect = ComputeUnitOperationError(
@@ -52,6 +81,7 @@ class SSHKeyApiTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(HTTPException) as raised:
             await create_ssh_key(
                 SSHKeyCreateRequest(name="duplicate", generate=True),
+                Response(),
                 "actor",
                 self.service,
             )

@@ -11,6 +11,12 @@ from ..models import (
 )
 from ..services.ssh_key import SSHKeyService
 
+_SSH_KEY_CREATION_CACHE_HEADERS = {
+    "Cache-Control": "no-store",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
 router = APIRouter(
     prefix="/ssh-keys",
     tags=["ssh-keys"],
@@ -28,9 +34,28 @@ router = APIRouter(
         "keys, the private key is returned only in the initial successful response. "
         "Reusing a key name returns 409 without private-key material. If the outcome "
         "is unknown because the response was lost, inspect the named public-key "
-        "resource, delete it if present, and generate a replacement."
+        "resource, delete it if present, and generate a replacement. Every successful "
+        "creation response includes cache-prevention headers that intermediaries must "
+        "preserve."
     ),
     responses={
+        status.HTTP_201_CREATED: {
+            "description": "SSH key created; the response must not be cached.",
+            "headers": {
+                "Cache-Control": {
+                    "description": "Prevents storage of the creation response.",
+                    "schema": {"type": "string", "example": "no-store"},
+                },
+                "Pragma": {
+                    "description": "Legacy HTTP cache-prevention directive.",
+                    "schema": {"type": "string", "example": "no-cache"},
+                },
+                "Expires": {
+                    "description": "Marks the response as already expired.",
+                    "schema": {"type": "string", "example": "0"},
+                },
+            },
+        },
         status.HTTP_409_CONFLICT: {
             "description": (
                 "The SSH key name already exists; the existing private key is never "
@@ -41,10 +66,13 @@ router = APIRouter(
 )
 async def create_ssh_key(
     req: SSHKeyCreateRequest,
+    response: Response,
     actor_id: str = Depends(get_audit_actor),
     service: SSHKeyService = Depends(get_ssh_key_service),
 ) -> SSHKeyCreateResponse:
     """Create an SSH key without supporting automatic retry or response replay."""
+    for header, value in _SSH_KEY_CREATION_CACHE_HEADERS.items():
+        response.headers[header] = value
     try:
         return service.create_ssh_key(actor_id, req)
     except ComputeUnitOperationError as exc:
