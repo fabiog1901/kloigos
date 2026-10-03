@@ -1,0 +1,2831 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Linux-native platform for managing isolated workloads on bare-metal infrastructure.">
+      
+      
+      
+      
+        <link rel="prev" href="../Dynamic_Compute_Unit_Provisioner/">
+      
+      
+        <link rel="next" href="../Scheduling_and_Placement_Model/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>CPU resource model - kloigos</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cpu-resource-model" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="kloigos" class="md-header__button md-logo" aria-label="kloigos" data-md-component="logo">
+      
+  <img src="../../assets/favicon.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            kloigos
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              CPU resource model
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 2C5.13 2 2 5.13 2 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7M6 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H6zm13-8h-2l-3.2 9h1.9l.7-2h3.2l.7 2h1.9zm-2.15 5.65L18 15l1.15 3.65z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fabiog1901/kloigos" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fabiog1901/kloigos
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../product-positioning/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Product positioning
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Docs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../product_context_snapshots/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../about/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  About
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="kloigos" class="md-nav__button md-logo" aria-label="kloigos" data-md-component="logo">
+      
+  <img src="../../assets/favicon.png" alt="logo">
+
+    </a>
+    kloigos
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fabiog1901/kloigos" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fabiog1901/kloigos
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../product-positioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product positioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Docs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/ssh-keys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH keys
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/server-preparation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server preparation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/playbooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playbooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../product_context_snapshots/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product context
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Product context
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../product_context_snapshots/2026-10-03/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-10-03 snapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../product_context_snapshots/2026-09-14/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-09-14 snapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Architecture_Overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Compute_Unit_and_Allocation_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compute Unit and allocation model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Host_Families/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Host Families
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Instance_Classes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instance Classes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CPU_Policy_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CPU Policy model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Logical_CPU_Manager/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logical CPU Manager
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Shared_and_Burstable_CPU/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shared and Burstable CPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Dynamic_Compute_Unit_Allocator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamic Compute Unit Allocator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Dynamic_Compute_Unit_Provisioner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamic Compute Unit Provisioner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CPU resource model
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CPU resource model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-capacity-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU Capacity Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dedicated-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated CPU
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Dedicated CPU">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dedicated-capacity-accounting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Capacity Accounting
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared CPU
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-cpu-entitlement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared CPU Entitlement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-weight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU Weight
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-quotas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU Quotas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-cpu-overcommit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared CPU Overcommit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#physical-and-logical-capacity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Physical and Logical Capacity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pool-isolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pool Isolation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dynamic-compute-unit-provisioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dynamic Compute Unit Provisioning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-topology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU Topology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#numa-awareness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NUMA Awareness
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fragmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fragmentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failure-and-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure and Cleanup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reconciliation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciliation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Validation Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dedicated-cpu_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-cpu_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#contention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contention
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architectural-invariants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural Invariants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-design-areas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Design Areas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-design-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related Design Documents
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Scheduling_and_Placement_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduling and placement model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Networking_and_IP_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Networking and IP model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Security_and_Isolation_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security and isolation model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Storage_and_Persistence_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage and persistence model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Tenancy_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenancy model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-capacity-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU Capacity Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dedicated-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated CPU
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Dedicated CPU">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dedicated-capacity-accounting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Capacity Accounting
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared CPU
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-cpu-entitlement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared CPU Entitlement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-weight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU Weight
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-quotas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU Quotas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-cpu-overcommit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared CPU Overcommit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#physical-and-logical-capacity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Physical and Logical Capacity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pool-isolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pool Isolation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dynamic-compute-unit-provisioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dynamic Compute Unit Provisioning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-topology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU Topology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#numa-awareness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NUMA Awareness
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fragmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fragmentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failure-and-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure and Cleanup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reconciliation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciliation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Validation Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dedicated-cpu_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-cpu_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#contention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contention
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architectural-invariants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural Invariants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-design-areas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Design Areas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-design-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related Design Documents
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../../product_context_snapshots/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Reference
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Design
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="cpu-resource-model">CPU Resource Model</h1>
+<h2 id="purpose">Purpose</h2>
+<p>Kloigos exposes physical CPU capacity through two explicit resource models:</p>
+<ul>
+<li><strong>Dedicated CPU</strong> — physical CPU execution resources are reserved exclusively for a Compute Unit.</li>
+<li><strong>Shared CPU</strong> — multiple Compute Units execute within a controlled shared CPU pool and are scheduled by Linux.</li>
+</ul>
+<p>The core principle is:</p>
+<blockquote>
+<p><strong>Dedicated CPU provides exclusivity. Shared CPU provides controlled statistical multiplexing. Kloigos never silently converts one into the other.</strong></p>
+</blockquote>
+<p>This document defines the CPU capacity model, host CPU pools, allocation semantics, topology considerations, and the boundaries between CPU policy and Linux enforcement.</p>
+<p>Detailed provisioning, placement, metering, and validation behavior belongs in their respective design documents.</p>
+<hr />
+<h2 id="cpu-capacity-model">CPU Capacity Model</h2>
+<p>A physical host contributes CPU capacity to Kloigos.</p>
+<p>That capacity may be divided into two pools:</p>
+<div class="highlight"><pre><span></span><code>Physical Host CPUs
+        │
+        ├────────────────────────┐
+        │                        │
+        ▼                        ▼
+Dedicated CPU Pool         Shared CPU Pool
+        │                        │
+        ▼                        ▼
+Exclusive CPU sets        Shared scheduling
+        │                        │
+        ▼                        ▼
+Dedicated CUs             Shared CUs
+</code></pre></div>
+<p>Administrators determine how much of a host's CPU capacity belongs to each pool.</p>
+<p>A host may therefore be:</p>
+<ul>
+<li>entirely Dedicated CPU</li>
+<li>entirely Shared CPU</li>
+<li>a mixture of Dedicated and Shared CPU</li>
+</ul>
+<p>The two pools must remain explicitly distinguishable in capacity accounting and scheduling.</p>
+<hr />
+<h2 id="dedicated-cpu">Dedicated CPU</h2>
+<p>Dedicated CPU provides exclusive physical execution resources to a Compute Unit.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Dedicated Pool
+
+CPU 0  ─┐
+CPU 1   │
+CPU 2   ├── CU-A
+CPU 3  ─┘
+
+CPU 4  ─┐
+CPU 5   │
+CPU 6   ├── CU-B
+CPU 7  ─┘
+</code></pre></div>
+<p>Once CPUs are assigned to CU-A, those same CPU resources must not simultaneously be assigned to another active Compute Unit.</p>
+<p>Kloigos uses Linux CPU affinity and cgroup/cpuset mechanisms to enforce this boundary.</p>
+<p>The architectural guarantee is exclusivity, not merely preferential scheduling.</p>
+<h3 id="dedicated-capacity-accounting">Dedicated Capacity Accounting</h3>
+<p>Dedicated CPU capacity is based on actual available physical execution resources.</p>
+<p>If a host has 32 CPU units assigned to its Dedicated Pool and 24 are currently allocated:</p>
+<div class="highlight"><pre><span></span><code>Dedicated physical capacity: 32
+Allocated:                   24
+Available:                    8
+</code></pre></div>
+<p>A request for 12 Dedicated CPUs cannot be satisfied on that host even if the Linux scheduler could technically run additional processes there.</p>
+<p>Dedicated capacity is not overcommitted.</p>
+<hr />
+<h2 id="shared-cpu">Shared CPU</h2>
+<p>Shared CPU allows multiple Compute Units to execute within the same physical CPU pool.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Shared CPU Pool
+CPUs 32-63
+     │
+     ├── CU-C
+     ├── CU-D
+     ├── CU-E
+     └── CU-F
+</code></pre></div>
+<p>Linux schedules runnable processes from these Compute Units across the shared pool.</p>
+<p>Unlike Dedicated CPU, purchasing or requesting a Shared CPU does not imply ownership of a specific physical CPU.</p>
+<p>Instead, it represents an entitlement to shared execution capacity.</p>
+<p>This allows Kloigos to benefit from statistical multiplexing: workloads that are not simultaneously CPU-bound can share physical processors efficiently.</p>
+<hr />
+<h2 id="shared-cpu-entitlement">Shared CPU Entitlement</h2>
+<p>The intended Shared CPU model is primarily <strong>burstable</strong>.</p>
+<p>A Compute Unit receives a proportional entitlement under contention but may consume additional otherwise-unused capacity when the Shared Pool is idle.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>No contention
+
+CU-A entitlement: 2
+CU-B entitlement: 2
+
+CU-A busy
+CU-B idle
+
+        ↓
+
+CU-A may use additional idle
+Shared Pool capacity
+</code></pre></div>
+<p>Under contention:</p>
+<div class="highlight"><pre><span></span><code>CU-A busy
+CU-B busy
+CU-C busy
+
+        ↓
+
+Linux scheduler distributes
+capacity according to their
+relative entitlements
+</code></pre></div>
+<p>This is fundamentally different from enforcing a hard CPU execution ceiling at all times.</p>
+<hr />
+<h2 id="cpu-weight">CPU Weight</h2>
+<p>Linux cgroup v2 provides <code>cpu.weight</code>, exposed by systemd through controls such as <code>CPUWeight=</code>.</p>
+<p>Kloigos can use relative CPU weights to represent Shared CPU entitlement.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>CU-A: 1 Shared CPU
+CU-B: 2 Shared CPUs
+CU-C: 4 Shared CPUs
+
+Relative entitlement:
+
+CU-A   █
+CU-B   ██
+CU-C   ████
+</code></pre></div>
+<p>The exact numerical mapping between Kloigos Shared CPU units and Linux CPU weights is an implementation and validation concern.</p>
+<p>The architectural requirement is that relative entitlements behave predictably under sustained contention.</p>
+<p>Kloigos should not expose raw Linux scheduler weights as its user-facing resource model.</p>
+<p>Users request Shared CPU capacity; Kloigos translates that request into appropriate Linux scheduling controls.</p>
+<hr />
+<h2 id="cpu-quotas">CPU Quotas</h2>
+<p>Linux cgroup v2 also supports CPU bandwidth limits through <code>cpu.max</code>, commonly exposed through systemd as <code>CPUQuota=</code>.</p>
+<p>CPU quotas can impose a hard maximum amount of CPU time over a scheduling period.</p>
+<p>For example, a configuration equivalent to:</p>
+<div class="highlight"><pre><span></span><code>CPUQuota=200%
+</code></pre></div>
+<p>can limit a workload to approximately two CPUs worth of execution time.</p>
+<p>Quotas may be useful when Kloigos needs to enforce an explicit upper bound.</p>
+<p>However, hard quota enforcement introduces throttling semantics that differ from the burstable Shared CPU model.</p>
+<p>Therefore:</p>
+<blockquote>
+<p><strong>CPU weight is the primary mechanism for proportional Shared CPU entitlement. CPU quota is an optional mechanism for policies that explicitly require a hard execution ceiling.</strong></p>
+</blockquote>
+<p>Kloigos should not introduce quota-based throttling into Shared CPU behavior accidentally.</p>
+<hr />
+<h2 id="shared-cpu-overcommit">Shared CPU Overcommit</h2>
+<p>Shared CPU capacity may be exposed at a ratio greater than the number of physical CPUs in the Shared Pool.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Shared Pool physical CPUs: 32
+Configured overcommit:     2:1
+
+Logical Shared CPU capacity: 64
+</code></pre></div>
+<p>Kloigos may therefore allocate up to 64 Shared CPU units from those 32 physical CPUs.</p>
+<p>This does not mean 64 physical CPUs exist.</p>
+<p>It means Kloigos permits logical CPU entitlements to exceed physical capacity because those workloads are expected to share execution time.</p>
+<p>Overcommit is an administrator-controlled capacity policy.</p>
+<p>It is not a property of Dedicated CPU.</p>
+<hr />
+<h2 id="physical-and-logical-capacity">Physical and Logical Capacity</h2>
+<p>Kloigos must distinguish between physical Shared Pool capacity and logical allocatable Shared CPU capacity.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host CPU Capacity
+
+Physical CPUs:                  64
+
+Dedicated Pool:                 32 physical CPUs
+
+Shared Pool:                    32 physical CPUs
+Shared overcommit ratio:         2:1
+Logical Shared CPU capacity:    64
+</code></pre></div>
+<p>Capacity reporting should not collapse these into a single misleading CPU number.</p>
+<p>The control plane should be able to represent at least:</p>
+<ul>
+<li>Dedicated physical capacity</li>
+<li>Dedicated allocated capacity</li>
+<li>Shared physical capacity</li>
+<li>Shared logical capacity</li>
+<li>Shared logical allocated capacity</li>
+</ul>
+<p>This distinction is important for scheduling, administration, metering, and troubleshooting.</p>
+<hr />
+<h2 id="pool-isolation">Pool Isolation</h2>
+<p>Dedicated and Shared CPU pools must not unintentionally overlap.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>CPUs 0-31
+Dedicated Pool
+
+CPUs 32-63
+Shared Pool
+</code></pre></div>
+<p>A Shared Compute Unit must not execute on CPUs reserved for the Dedicated Pool.</p>
+<p>Likewise, general Shared Pool workloads must not consume CPU resources promised exclusively to Dedicated Compute Units.</p>
+<p>Linux cpuset boundaries provide a natural mechanism for enforcing this separation.</p>
+<p>The exact CPU numbering is host-specific and must respect hardware topology.</p>
+<hr />
+<h2 id="dynamic-compute-unit-provisioning">Dynamic Compute Unit Provisioning</h2>
+<p>CPU resources are allocated when Kloigos materializes a Compute Unit.</p>
+<p>For Dedicated CPU:</p>
+<div class="highlight"><pre><span></span><code>Allocation requests 4 Dedicated CPUs
+        ↓
+Scheduler selects host
+        ↓
+Reserve 4 suitable CPUs
+        ↓
+Create CU cpuset
+        ↓
+Materialize enforcement
+        ↓
+Activate Allocation
+</code></pre></div>
+<p>For Shared CPU:</p>
+<div class="highlight"><pre><span></span><code>Allocation requests 4 Shared CPUs
+        ↓
+Scheduler selects host with
+logical Shared capacity
+        ↓
+Reserve 4 logical Shared units
+        ↓
+Place CU in Shared Pool
+        ↓
+Configure scheduling entitlement
+        ↓
+Activate Allocation
+</code></pre></div>
+<p>The Compute Unit does not need to exist before the request.</p>
+<p>CPU configuration is part of CU materialization.</p>
+<p>Detailed reservation and rollback behavior belongs in the <strong>Dynamic Compute Unit Provisioning</strong> design.</p>
+<hr />
+<h2 id="cpu-topology">CPU Topology</h2>
+<p>Logical CPU identifiers do not necessarily represent equivalent independent physical resources.</p>
+<p>Modern systems may include:</p>
+<ul>
+<li>multiple sockets</li>
+<li>multiple NUMA nodes</li>
+<li>physical cores</li>
+<li>simultaneous multithreading (SMT) siblings</li>
+<li>heterogeneous core types</li>
+</ul>
+<p>Kloigos must therefore understand enough host topology to avoid making incorrect exclusivity claims.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Physical Core 0
+    ├── CPU 0
+    └── CPU 1
+</code></pre></div>
+<p>If CPU 0 and CPU 1 are SMT siblings, assigning them independently to unrelated Dedicated Compute Units may provide different isolation characteristics from assigning complete physical cores.</p>
+<p>The administrator-facing and user-facing meaning of a "Dedicated CPU" must therefore correspond to the topology policy Kloigos actually enforces.</p>
+<p>Kloigos should not assume that Linux logical CPU IDs are always equivalent to independent physical cores.</p>
+<hr />
+<h2 id="numa-awareness">NUMA Awareness</h2>
+<p>On multi-socket and NUMA systems, CPU placement affects memory locality and performance.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>NUMA Node 0
+├── CPUs 0-31
+└── Local Memory
+
+NUMA Node 1
+├── CPUs 32-63
+└── Local Memory
+</code></pre></div>
+<p>Where practical, Kloigos should construct CPU pools and Dedicated CPU assignments that respect NUMA topology.</p>
+<p>A large Compute Unit should preferably receive a coherent CPU set rather than an arbitrary collection of CPU IDs scattered across the machine.</p>
+<p>CPU placement may also influence memory placement.</p>
+<p>Detailed cross-resource placement policy belongs in the <strong>Scheduling and Placement Model</strong> design.</p>
+<hr />
+<h2 id="fragmentation">Fragmentation</h2>
+<p>Dynamic Dedicated CPU allocation can create fragmentation.</p>
+<p>For example, a host may have eight unallocated CPUs but lack a suitable contiguous or topology-compatible group of eight CPUs for a particular request.</p>
+<p>Therefore:</p>
+<div class="highlight"><pre><span></span><code>total free CPU
+</code></pre></div>
+<p>is not always equivalent to:</p>
+<div class="highlight"><pre><span></span><code>CPU capacity capable of
+satisfying this request
+</code></pre></div>
+<p>Initial scheduling may prioritize correctness and topology safety over sophisticated optimization.</p>
+<p>More advanced fragmentation-aware placement can evolve later without changing the fundamental CPU model.</p>
+<hr />
+<h2 id="resource-changes">Resource Changes</h2>
+<p>Changing an Allocation's CPU configuration may require changing its Compute Unit.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Allocation A
+
+4 Dedicated CPUs
+       │
+       ▼
+CU-1
+
+resize to
+
+8 Dedicated CPUs
+       │
+       ▼
+CU-2
+</code></pre></div>
+<p>Kloigos may construct a replacement Compute Unit rather than attempting to mutate every execution boundary in place.</p>
+<p>The Allocation remains the durable workload identity.</p>
+<p>Whether particular CPU changes can be performed in place is an implementation decision and must not weaken resource guarantees.</p>
+<hr />
+<h2 id="metering">Metering</h2>
+<p>CPU metering is based on allocated resources rather than measured CPU utilization.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Allocation A
+4 Dedicated CPUs
+10 hours
+</code></pre></div>
+<p>is metered as four Dedicated CPUs for ten hours regardless of whether the workload used those CPUs continuously.</p>
+<p>Likewise:</p>
+<div class="highlight"><pre><span></span><code>Allocation B
+4 Shared CPUs
+10 hours
+</code></pre></div>
+<p>is metered according to four allocated Shared CPU units, not according to accumulated scheduler runtime.</p>
+<p>Dedicated and Shared CPU may have different administrator-defined prices because they provide different resource guarantees.</p>
+<p>Detailed accounting behavior belongs in the <strong>Metering and Pricing Model</strong> design.</p>
+<hr />
+<h2 id="failure-and-cleanup">Failure and Cleanup</h2>
+<p>CPU reservation participates in the overall Compute Unit provisioning transaction.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Reserve Dedicated CPUs
+        ↓
+Reserve Memory
+        ↓
+Reserve IP
+        ↓
+Storage provisioning FAILED
+</code></pre></div>
+<p>The reserved CPUs must be returned safely to the host's available capacity.</p>
+<p>A CPU must not become available for another Compute Unit while stale host configuration still permits the previous CU to execute on it.</p>
+<p>Likewise, Shared CPU logical capacity must be returned when provisioning fails or the Compute Unit is destroyed.</p>
+<hr />
+<h2 id="reconciliation">Reconciliation</h2>
+<p>Kloigos must be able to compare control-plane CPU assignments with actual Linux host state.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Control Plane
+
+CU-A → CPUs 4-7
+        │
+        │ compare
+        ▼
+Linux Host
+
+cpuset / cgroup / systemd state
+</code></pre></div>
+<p>A database record claiming exclusive CPU ownership is insufficient if Linux does not enforce the corresponding boundary.</p>
+<p>Unexpected divergence must be detectable and recoverable.</p>
+<hr />
+<h2 id="validation-requirements">Validation Requirements</h2>
+<p>CPU guarantees must be validated on real physical hosts.</p>
+<p>Validation should include at minimum:</p>
+<h3 id="dedicated-cpu_1">Dedicated CPU</h3>
+<ul>
+<li>requested CPU count</li>
+<li>correct cpuset assignment</li>
+<li>exclusivity between Compute Units</li>
+<li>separation from Shared Pool CPUs</li>
+<li>topology policy</li>
+<li>NUMA placement where applicable</li>
+<li>capacity exhaustion</li>
+<li>release after teardown</li>
+<li>cleanup after failed provisioning</li>
+<li>concurrent reservation safety</li>
+</ul>
+<h3 id="shared-cpu_1">Shared CPU</h3>
+<ul>
+<li>execution restricted to Shared Pool CPUs</li>
+<li>logical capacity accounting</li>
+<li>configured overcommit policy</li>
+<li>relative entitlement under contention</li>
+<li>ability to consume idle capacity where burstable behavior is expected</li>
+<li>optional hard caps where explicitly configured</li>
+<li>capacity release after teardown</li>
+</ul>
+<h3 id="contention">Contention</h3>
+<p>Tests should create real CPU pressure across multiple Compute Units.</p>
+<p>Configuration inspection alone is insufficient.</p>
+<p>Kloigos must demonstrate that the Linux scheduler and cgroup configuration produce the resource behavior promised by the control plane.</p>
+<p>Detailed test execution belongs in the <strong>Validation Architecture</strong> design.</p>
+<hr />
+<h2 id="architectural-invariants">Architectural Invariants</h2>
+<p>The Kloigos CPU model is governed by the following invariants:</p>
+<ol>
+<li>
+<p><strong>Dedicated CPU and Shared CPU are distinct resource types with different guarantees.</strong></p>
+</li>
+<li>
+<p><strong>Dedicated CPU provides exclusive CPU execution resources and must not be silently overcommitted.</strong></p>
+</li>
+<li>
+<p><strong>The same Dedicated CPU resource must not simultaneously belong to multiple active Compute Units.</strong></p>
+</li>
+<li>
+<p><strong>Shared CPU uses an explicitly defined physical Shared Pool.</strong></p>
+</li>
+<li>
+<p><strong>Shared Compute Units must not consume CPUs reserved for the Dedicated Pool.</strong></p>
+</li>
+<li>
+<p><strong>Shared CPU may be logically overcommitted only according to administrator-defined policy.</strong></p>
+</li>
+<li>
+<p><strong>Physical Shared CPU capacity and logical Shared CPU capacity must remain distinguishable.</strong></p>
+</li>
+<li>
+<p><strong>Shared CPU entitlement should primarily use proportional scheduling and permit bursting into unused Shared Pool capacity unless a policy explicitly defines a hard cap.</strong></p>
+</li>
+<li>
+<p><strong>Hard CPU quotas must not be introduced in a way that silently changes Shared CPU semantics.</strong></p>
+</li>
+<li>
+<p><strong>Kloigos must account for hardware topology when making CPU isolation guarantees.</strong></p>
+</li>
+<li>
+<p><strong>NUMA and CPU topology may constrain whether apparently free CPU capacity can satisfy a request.</strong></p>
+</li>
+<li>
+<p><strong>CPU reservations must be concurrency-safe.</strong></p>
+</li>
+<li>
+<p><strong>Failed provisioning and CU teardown must return CPU capacity without leaving stale execution access.</strong></p>
+</li>
+<li>
+<p><strong>Control-plane CPU assignments must correspond to actual Linux enforcement.</strong></p>
+</li>
+<li>
+<p><strong>CPU metering is based on allocated capacity, not instantaneous CPU utilization.</strong></p>
+</li>
+</ol>
+<hr />
+<h2 id="open-design-areas">Open Design Areas</h2>
+<p>Several details intentionally remain subject to implementation and validation:</p>
+<ul>
+<li>the exact user-facing definition of a Dedicated CPU on SMT-enabled hardware</li>
+<li>the mapping between Shared CPU units and <code>cpu.weight</code></li>
+<li>default Shared CPU overcommit ratios</li>
+<li>whether overcommit is configured globally, per Host Family, per Instance Class, or per host</li>
+<li>whether Shared CPU offerings support optional hard caps</li>
+<li>exact NUMA placement policy</li>
+<li>fragmentation-aware scheduling strategy</li>
+<li>behavior on heterogeneous CPU architectures</li>
+</ul>
+<p>These decisions should be made through measurement and validation rather than encoded prematurely into the architectural model.</p>
+<p>They may refine the implementation without changing the fundamental distinction between Dedicated and Shared CPU.</p>
+<hr />
+<h2 id="related-design-documents">Related Design Documents</h2>
+<p>This document defines CPU resource semantics.</p>
+<p>Related behavior is defined in:</p>
+<ul>
+<li><strong>Compute Unit and Allocation Model</strong> — CPU enforcement as part of the Compute Unit and CPU resource intent as part of the Allocation.</li>
+<li><strong>Dynamic Compute Unit Provisioning</strong> — runtime CPU reservation, CU materialization, teardown, and rollback.</li>
+<li><strong>Scheduling and Placement Model</strong> — CPU availability, topology, NUMA, fragmentation, and host selection.</li>
+<li><strong>Metering and Pricing Model</strong> — accounting and pricing for Dedicated and Shared CPU.</li>
+<li><strong>Security and Isolation Model</strong> — CPU isolation as part of the Compute Unit boundary.</li>
+<li><strong>Validation Architecture</strong> — contention testing and verification of actual CPU enforcement.</li>
+</ul>
+<p>The central CPU principle is:</p>
+<blockquote>
+<p><strong>Dedicated CPU reserves physical execution capacity. Shared CPU deliberately multiplexes a controlled physical pool. The distinction is explicit throughout scheduling, enforcement, capacity reporting, and metering.</strong></p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../Dynamic_Compute_Unit_Provisioner/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Dynamic Compute Unit Provisioner">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Dynamic Compute Unit Provisioner
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../Scheduling_and_Placement_Model/" class="md-footer__link md-footer__link--next" aria-label="Next: Scheduling and placement model">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Scheduling and placement model
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/fabiog1901/kloigos" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/fabiog1901/kloigos/discussions" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M384 144c0 97.2-86 176-192 176-26.7 0-52.1-5-75.2-14l-81.6 43.2c-9.3 4.9-20.7 3.2-28.2-4.2s-9.2-18.9-4.2-28.2l35.6-67.2C14.3 220.2 0 183.6 0 144 0 46.8 86-32 192-32s192 78.8 192 176m0 368c-94.1 0-172.4-62.1-188.8-144 120-1.5 224.3-86.9 235.8-202.7 83.3 19.2 145 88.3 145 170.7 0 39.6-14.3 76.2-38.4 105.6l35.6 67.2c4.9 9.3 3.2 20.7-4.2 28.2s-18.9 9.2-28.2 4.2L459.2 498c-23.1 9-48.5 14-75.2 14"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.footnote.tooltips", "content.tabs.link", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.progress", "navigation.path", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

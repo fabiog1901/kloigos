@@ -1,0 +1,8 @@
+/* Make content use full width */
+.md-grid {
+  max-width: 80%;
+}
+
+.md-content {
+  max-width: none;
+}

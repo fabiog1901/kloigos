@@ -1,0 +1,3316 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Linux-native platform for managing isolated workloads on bare-metal infrastructure.">
+      
+      
+      
+      
+        <link rel="prev" href="../CPU_Resource_Model/">
+      
+      
+        <link rel="next" href="../Networking_and_IP_Model/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Scheduling and placement model - kloigos</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#scheduling-and-placement-model" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="kloigos" class="md-header__button md-logo" aria-label="kloigos" data-md-component="logo">
+      
+  <img src="../../assets/favicon.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            kloigos
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Scheduling and placement model
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 2C5.13 2 2 5.13 2 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7M6 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H6zm13-8h-2l-3.2 9h1.9l.7-2h3.2l.7 2h1.9zm-2.15 5.65L18 15l1.15 3.65z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fabiog1901/kloigos" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fabiog1901/kloigos
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../product-positioning/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Product positioning
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Docs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../product_context_snapshots/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../about/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  About
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="kloigos" class="md-nav__button md-logo" aria-label="kloigos" data-md-component="logo">
+      
+  <img src="../../assets/favicon.png" alt="logo">
+
+    </a>
+    kloigos
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fabiog1901/kloigos" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fabiog1901/kloigos
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../product-positioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product positioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Docs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/ssh-keys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH keys
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/server-preparation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server preparation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/playbooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playbooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../product_context_snapshots/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product context
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Product context
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../product_context_snapshots/2026-10-03/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-10-03 snapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../product_context_snapshots/2026-09-14/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-09-14 snapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Architecture_Overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Compute_Unit_and_Allocation_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compute Unit and allocation model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Host_Families/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Host Families
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Instance_Classes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instance Classes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CPU_Policy_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CPU Policy model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Logical_CPU_Manager/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logical CPU Manager
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Shared_and_Burstable_CPU/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shared and Burstable CPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Dynamic_Compute_Unit_Allocator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamic Compute Unit Allocator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Dynamic_Compute_Unit_Provisioner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamic Compute Unit Provisioner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CPU_Resource_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CPU resource model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduling and placement model
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduling and placement model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduling-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduling Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-cu-scheduling-to-capacity-scheduling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From CU Scheduling to Capacity Scheduling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#allocation-requests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allocation Requests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#instance-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instance Classes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#host-families" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host Families
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#host-eligibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host Eligibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multidimensional-capacity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multidimensional Capacity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU Placement
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CPU Placement">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dedicated-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#numa-and-topology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NUMA and Topology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#storage-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#network-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#existing-allocation-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Existing Allocation Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#candidate-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Candidate Selection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fragmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fragmentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reservation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reservation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#atomicity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Atomicity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduling-and-provisioning-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduling and Provisioning Boundary
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scheduling and Provisioning Boundary">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduler
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provisioner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provisioner
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#provisioning-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provisioning Failure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#host-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host State
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#capacity-reporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capacity Reporting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility-with-pre-created-compute-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compatibility with Pre-Created Compute Units
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Validation Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Placement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#networking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Networking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concurrency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concurrency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architectural-invariants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural Invariants
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Networking_and_IP_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Networking and IP model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Security_and_Isolation_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security and isolation model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Storage_and_Persistence_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage and persistence model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Tenancy_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenancy model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduling-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduling Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-cu-scheduling-to-capacity-scheduling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From CU Scheduling to Capacity Scheduling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#allocation-requests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allocation Requests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#instance-classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instance Classes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#host-families" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host Families
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#host-eligibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host Eligibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multidimensional-capacity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multidimensional Capacity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU Placement
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CPU Placement">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dedicated-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#numa-and-topology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NUMA and Topology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#storage-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#network-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Network Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#existing-allocation-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Existing Allocation Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#candidate-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Candidate Selection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fragmentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fragmentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reservation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reservation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#atomicity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Atomicity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduling-and-provisioning-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduling and Provisioning Boundary
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scheduling and Provisioning Boundary">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scheduler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduler
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provisioner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provisioner
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#provisioning-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provisioning Failure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#host-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host State
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#capacity-reporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capacity Reporting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility-with-pre-created-compute-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compatibility with Pre-Created Compute Units
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Validation Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Placement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#networking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Networking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concurrency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concurrency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architectural-invariants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural Invariants
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../../product_context_snapshots/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Reference
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Design
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="scheduling-and-placement-model">Scheduling and Placement Model</h1>
+<h2 id="purpose">Purpose</h2>
+<p>Kloigos schedules Allocation requests onto physical hosts based on infrastructure compatibility, current capacity, resource topology, tenancy, networking, storage, and other placement constraints.</p>
+<p>The scheduling model is built around a fundamental principle:</p>
+<blockquote>
+<p><strong>The scheduler does not search for a pre-existing Compute Unit. It finds a physical host from whose available capacity Kloigos can construct the required Compute Unit.</strong></p>
+</blockquote>
+<p>This is a consequence of the Dynamic Compute Unit Provisioning architecture.</p>
+<p>Physical hosts own allocatable capacity. Compute Units are materialized from that capacity when an Allocation requires execution resources.</p>
+<p>The scheduler therefore answers:</p>
+<blockquote>
+<p><strong>Can this Allocation be realized on this host right now?</strong></p>
+</blockquote>
+<p>This document defines host eligibility, capacity evaluation, placement constraints, resource reservation, and the boundary between scheduling and provisioning.</p>
+<hr />
+<h2 id="scheduling-model">Scheduling Model</h2>
+<p>At a high level:</p>
+<div class="highlight"><pre><span></span><code>Allocation Request
+        │
+        ▼
+Resolve Instance Class
+and Allocation Constraints
+        │
+        ▼
+Determine Eligible Host Families
+        │
+        ▼
+Find Candidate Hosts
+        │
+        ▼
+Apply Placement Constraints
+        │
+        ├── Tenancy
+        ├── CPU Model
+        ├── CPU Topology / NUMA
+        ├── Memory
+        ├── Storage / Locality
+        ├── Network / IP
+        └── Specialized Resources
+        │
+        ▼
+Evaluate Available Capacity
+        │
+        ▼
+Select Host
+        │
+        ▼
+Atomically Reserve Resources
+        │
+        ▼
+Dynamic CU Provisioning
+</code></pre></div>
+<p>Scheduling determines <strong>where</strong> the Allocation can run and which host resources should be reserved.</p>
+<p>Provisioning then creates the actual Compute Unit.</p>
+<hr />
+<h2 id="from-cu-scheduling-to-capacity-scheduling">From CU Scheduling to Capacity Scheduling</h2>
+<p>An earlier Kloigos model relied on administrator-created Compute Units with predefined shapes.</p>
+<p>Scheduling therefore resembled:</p>
+<div class="highlight"><pre><span></span><code>Request:
+4 CPU
+16 GB Memory
+
+       │
+       ▼
+
+Find unused CU
+with matching shape
+</code></pre></div>
+<p>This creates stranded capacity.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host
+
+CU-1: 4 CPU   FREE
+CU-2: 4 CPU   FREE
+</code></pre></div>
+<p>An 8-CPU request cannot be satisfied even though eight CPUs are physically available.</p>
+<p>The target architecture instead treats the host as the capacity owner:</p>
+<div class="highlight"><pre><span></span><code>Host
+
+8 suitable CPUs available
+        │
+        ▼
+Request: 8 CPUs
+        │
+        ▼
+Reserve CPUs
+        │
+        ▼
+Create 8-CPU CU
+</code></pre></div>
+<p>The scheduling unit is therefore <strong>host capacity</strong>, not an inventory of predefined execution slots.</p>
+<hr />
+<h2 id="allocation-requests">Allocation Requests</h2>
+<p>An Allocation request describes the resources and infrastructure characteristics required by the workload.</p>
+<p>Depending on the request and Instance Class, constraints may include:</p>
+<ul>
+<li>Instance Class</li>
+<li>CPU count</li>
+<li>Dedicated or Shared CPU</li>
+<li>memory</li>
+<li>storage capacity or class</li>
+<li>network requirements</li>
+<li>tenancy</li>
+<li>GPU or specialized resources</li>
+<li>topology requirements</li>
+<li>other administrator-defined policy</li>
+</ul>
+<p>The request describes desired logical resources.</p>
+<p>It does not need to identify a physical host or hardware model.</p>
+<p>Kloigos resolves those requirements against the infrastructure known to the control plane.</p>
+<hr />
+<h2 id="instance-classes">Instance Classes</h2>
+<p>Instance Classes provide the user-facing abstraction over heterogeneous infrastructure.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Instance Class
+compute-optimized
+        │
+        ├── Host Family A
+        ├── Host Family B
+        └── Host Family C
+</code></pre></div>
+<p>Different Host Families may contain different:</p>
+<ul>
+<li>processor generations</li>
+<li>CPU counts</li>
+<li>memory capacities</li>
+<li>storage devices</li>
+<li>network hardware</li>
+<li>GPU models</li>
+<li>server vendors</li>
+</ul>
+<p>An Instance Class defines which infrastructure characteristics are appropriate for a category of workload.</p>
+<p>It does not require every underlying physical server to be identical.</p>
+<hr />
+<h2 id="host-families">Host Families</h2>
+<p>Host Families describe groups of physical servers with common infrastructure characteristics.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>Instance Class
+&quot;compute-optimized&quot;
+       │
+       ├── AMD-high-frequency-v2
+       │       ├── Host-1
+       │       └── Host-2
+       │
+       └── Intel-high-frequency-v3
+               ├── Host-7
+               └── Host-8
+</code></pre></div>
+<p>Administrators determine which Host Families satisfy each Instance Class.</p>
+<p>This allows Kloigos to hide hardware complexity from application users while retaining enough infrastructure knowledge for correct scheduling.</p>
+<hr />
+<h2 id="host-eligibility">Host Eligibility</h2>
+<p>Scheduling begins by eliminating hosts that cannot satisfy hard constraints.</p>
+<p>A host may be ineligible because of:</p>
+<ul>
+<li>incompatible Instance Class</li>
+<li>incompatible Host Family</li>
+<li>insufficient CPU capacity</li>
+<li>unsuitable Dedicated CPU topology</li>
+<li>insufficient Shared CPU logical capacity</li>
+<li>insufficient memory</li>
+<li>insufficient storage</li>
+<li>incompatible storage locality</li>
+<li>unavailable compatible IP addresses</li>
+<li>tenancy conflict</li>
+<li>unavailable GPU or specialized hardware</li>
+<li>administrative state</li>
+<li>host health or maintenance state</li>
+</ul>
+<p>A host must satisfy all mandatory constraints before it can become a placement candidate.</p>
+<hr />
+<h2 id="multidimensional-capacity">Multidimensional Capacity</h2>
+<p>Host capacity is multidimensional.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host-A
+
+Dedicated CPU:    12 available
+Shared CPU:       20 logical units available
+Memory:           96 GB available
+Storage:          800 GB available
+IP addresses:     4 available
+GPU:              0 available
+</code></pre></div>
+<p>A request for:</p>
+<div class="highlight"><pre><span></span><code>8 Dedicated CPUs
+32 GB Memory
+200 GB Storage
+1 IP
+</code></pre></div>
+<p>may fit.</p>
+<p>A request for:</p>
+<div class="highlight"><pre><span></span><code>4 Dedicated CPUs
+16 GB Memory
+100 GB Storage
+1 GPU
+</code></pre></div>
+<p>does not.</p>
+<p>Therefore Kloigos should not reduce capacity to a single generic number such as:</p>
+<div class="highlight"><pre><span></span><code>Host-A has 37 capacity units
+</code></pre></div>
+<p>Whether capacity is available depends on the request being evaluated.</p>
+<hr />
+<h2 id="cpu-placement">CPU Placement</h2>
+<p>CPU placement depends on the requested CPU model.</p>
+<h3 id="dedicated-cpu">Dedicated CPU</h3>
+<p>A Dedicated CPU request requires suitable exclusive physical execution resources.</p>
+<p>The scheduler must determine whether the host contains an appropriate free CPU set.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Request:
+8 Dedicated CPUs
+
+        │
+        ▼
+
+Host topology
+        │
+        ▼
+
+Find suitable exclusive
+8-CPU placement
+</code></pre></div>
+<p>Aggregate free CPU count may be insufficient to determine eligibility because CPU topology, SMT policy, NUMA placement, and fragmentation may matter.</p>
+<h3 id="shared-cpu">Shared CPU</h3>
+<p>A Shared CPU request consumes logical capacity from the host's Shared CPU Pool.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Shared physical pool:          32 CPUs
+Logical capacity at 2:1:       64 Shared CPUs
+Already allocated:             40
+Available logical capacity:    24
+</code></pre></div>
+<p>A request for 8 Shared CPUs may therefore fit even though no eight physical CPUs are exclusively reserved for it.</p>
+<p>Dedicated and Shared capacity must remain distinct throughout scheduling.</p>
+<p>Detailed semantics belong in the <strong>CPU Resource Model</strong> design.</p>
+<hr />
+<h2 id="numa-and-topology">NUMA and Topology</h2>
+<p>Physical CPU and memory topology may constrain placement.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>NUMA Node 0
+├── CPUs 0-31
+└── Local Memory
+
+NUMA Node 1
+├── CPUs 32-63
+└── Local Memory
+</code></pre></div>
+<p>A request may theoretically fit based on aggregate CPU and memory while producing an undesirable or invalid placement across NUMA boundaries.</p>
+<p>The scheduler should understand enough topology to preserve the guarantees defined by the CPU and memory resource models.</p>
+<p>Topology-aware placement may consider:</p>
+<ul>
+<li>NUMA nodes</li>
+<li>sockets</li>
+<li>physical cores</li>
+<li>SMT siblings</li>
+<li>CPU pools</li>
+<li>memory locality</li>
+</ul>
+<p>Initial implementations may use relatively simple topology rules.</p>
+<p>Correctness takes precedence over sophisticated optimization.</p>
+<hr />
+<h2 id="memory-placement">Memory Placement</h2>
+<p>Memory is tracked as host capacity.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Physical Memory:     512 GB
+Reserved:            320 GB
+Available:           192 GB
+</code></pre></div>
+<p>A request requiring 256 GB cannot be placed on that host.</p>
+<p>Where NUMA policy requires memory locality, aggregate free memory may not be sufficient.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>NUMA Node 0: 40 GB available
+NUMA Node 1: 40 GB available
+
+Total: 80 GB
+</code></pre></div>
+<p>A request requiring 64 GB on one NUMA node cannot be satisfied even though total free memory is 80 GB.</p>
+<p>The scheduler must evaluate capacity according to the actual resource guarantees being offered.</p>
+<hr />
+<h2 id="storage-placement">Storage Placement</h2>
+<p>Storage is a first-class placement constraint.</p>
+<p>The scheduler must consider:</p>
+<ul>
+<li>available capacity</li>
+<li>storage class</li>
+<li>physical locality</li>
+<li>required performance characteristics</li>
+<li>existing persistent storage</li>
+</ul>
+<p>For a new Allocation:</p>
+<div class="highlight"><pre><span></span><code>Request
+500 GB high-performance storage
+        │
+        ▼
+Candidate Host
+        │
+        ▼
+Compatible storage pool?
+        │
+        ▼
+Enough available capacity?
+</code></pre></div>
+<p>For an existing Allocation, persistent local storage may constrain placement to the host where that storage currently resides.</p>
+<p>Moving the Allocation elsewhere may first require an explicit storage migration mechanism.</p>
+<p>The scheduler must not treat local persistent storage as transparently portable.</p>
+<p>Detailed behavior belongs in the <strong>Storage and Persistence Model</strong> design.</p>
+<hr />
+<h2 id="network-placement">Network Placement</h2>
+<p>IP addresses are schedulable infrastructure resources.</p>
+<p>A host with sufficient CPU, memory, and storage is not eligible if Kloigos cannot assign a compatible IP address to the Allocation.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host-A
+
+CPU:       available
+Memory:    available
+Storage:   available
+IP:        unavailable
+
+Result: ineligible
+</code></pre></div>
+<p>IP compatibility may depend on:</p>
+<ul>
+<li>IP pool</li>
+<li>subnet</li>
+<li>network</li>
+<li>VLAN</li>
+<li>site</li>
+<li>host network attachment</li>
+</ul>
+<p>The scheduler must evaluate network compatibility before committing placement.</p>
+<p>Detailed behavior belongs in the <strong>Networking and IP Model</strong> design.</p>
+<hr />
+<h2 id="tenancy-placement">Tenancy Placement</h2>
+<p>Tenancy is a hard host eligibility constraint.</p>
+<p>Under Shared Tenancy, Allocations belonging to multiple organizations may share a host.</p>
+<p>Under Dedicated Server Tenancy, only Allocations belonging to the owning organization may use the host.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host-7
+Dedicated to Organization A
+
+Request from Organization A
+        ✓ eligible
+
+Request from Organization B
+        ✗ ineligible
+</code></pre></div>
+<p>A host with substantial unused resources remains unavailable to another organization while dedicated tenancy is active.</p>
+<p>A request for Dedicated Server Tenancy may also require Kloigos to acquire an eligible unowned host or use a host already dedicated to the requesting organization.</p>
+<p>Detailed semantics belong in the <strong>Tenancy Model</strong> design.</p>
+<hr />
+<h2 id="existing-allocation-placement">Existing Allocation Placement</h2>
+<p>Scheduling is not limited to initial Allocation creation.</p>
+<p>It may also occur when an existing Allocation needs a new Compute Unit because of:</p>
+<ul>
+<li>resizing</li>
+<li>host maintenance</li>
+<li>recovery</li>
+<li>placement changes</li>
+<li>infrastructure replacement</li>
+<li>future migration workflows</li>
+</ul>
+<p>In these cases, the Allocation may already own durable resources such as:</p>
+<ul>
+<li>persistent storage</li>
+<li>IP identity</li>
+<li>security configuration</li>
+</ul>
+<p>Those resources may constrain destination eligibility.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Allocation A
+├── IP requiring Network X
+└── Storage currently local to Host-A
+</code></pre></div>
+<p>A destination host must satisfy the constraints required to preserve those resources, or the placement workflow must explicitly migrate or replace them.</p>
+<hr />
+<h2 id="candidate-selection">Candidate Selection</h2>
+<p>After hard constraints are applied, multiple hosts may remain eligible.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Eligible Hosts
+
+Host-A
+Host-B
+Host-C
+Host-D
+</code></pre></div>
+<p>Kloigos then selects one candidate.</p>
+<p>Initial selection policy should remain intentionally simple and deterministic.</p>
+<p>Possible considerations include:</p>
+<ul>
+<li>preserving large contiguous CPU sets</li>
+<li>avoiding unnecessary NUMA fragmentation</li>
+<li>consolidating Shared CPU workloads</li>
+<li>preserving hosts suitable for large requests</li>
+<li>minimizing stranded capacity</li>
+<li>using already-dedicated hosts for their owning organization</li>
+</ul>
+<p>However, sophisticated global optimization is not required for the initial architecture.</p>
+<p>The primary scheduler goal is:</p>
+<blockquote>
+<p><strong>Produce a correct placement that satisfies all requested guarantees without violating existing reservations.</strong></p>
+</blockquote>
+<p>Optimization can evolve independently.</p>
+<hr />
+<h2 id="fragmentation">Fragmentation</h2>
+<p>Dynamic provisioning removes much of the shape fragmentation caused by pre-created Compute Units, but physical resource fragmentation still exists.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host
+
+8 CPUs free in total
+</code></pre></div>
+<p>does not necessarily mean:</p>
+<div class="highlight"><pre><span></span><code>Any 8-CPU Dedicated request fits
+</code></pre></div>
+<p>The free CPUs may be distributed across:</p>
+<ul>
+<li>NUMA nodes</li>
+<li>sockets</li>
+<li>fragmented cpusets</li>
+<li>incompatible CPU pools</li>
+</ul>
+<p>Likewise, storage or other specialized resources may be fragmented.</p>
+<p>The scheduler must therefore evaluate whether a specific request can be constructed from available resources rather than relying only on aggregate totals.</p>
+<hr />
+<h2 id="reservation">Reservation</h2>
+<p>Host selection alone is not sufficient.</p>
+<p>Once Kloigos determines that a host can satisfy a request, the required resources must be reserved before provisioning begins.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>Select Host
+     │
+     ▼
+Atomic Resource Reservation
+     │
+     ├── CPU
+     ├── Memory
+     ├── Storage
+     ├── IP
+     ├── Tenancy
+     └── Specialized Resources
+            │
+            ▼
+       Provision Compute Unit
+</code></pre></div>
+<p>Reservation prevents another concurrent scheduling operation from consuming the same capacity.</p>
+<hr />
+<h2 id="atomicity">Atomicity</h2>
+<p>Resource reservation is a multi-resource operation.</p>
+<p>Consider two simultaneous requests that both observe:</p>
+<div class="highlight"><pre><span></span><code>8 Dedicated CPUs available
+1 compatible IP available
+</code></pre></div>
+<p>Both must not successfully reserve the same CPUs or IP.</p>
+<p>Likewise, Kloigos must avoid partial reservations such as:</p>
+<div class="highlight"><pre><span></span><code>CPU reserved
+Memory reserved
+IP reservation FAILED
+
+Result:
+CPU and memory permanently leaked
+</code></pre></div>
+<p>The reservation operation must either successfully secure the resources required for the placement or safely release resources acquired during the failed attempt.</p>
+<p>The exact transaction mechanism is an implementation concern.</p>
+<p>The atomicity guarantee is architectural.</p>
+<hr />
+<h2 id="scheduling-and-provisioning-boundary">Scheduling and Provisioning Boundary</h2>
+<p>Scheduling and provisioning are separate responsibilities.</p>
+<h3 id="scheduler">Scheduler</h3>
+<p>The scheduler determines:</p>
+<ul>
+<li>which hosts are eligible</li>
+<li>whether sufficient compatible capacity exists</li>
+<li>which host should be selected</li>
+<li>which resources must be reserved</li>
+</ul>
+<h3 id="provisioner">Provisioner</h3>
+<p>The provisioner takes the reservation and materializes the Compute Unit.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Scheduler
+   │
+   │ placement decision
+   ▼
+Host-7
+CPUs 12-19
+32 GB Memory
+200 GB Storage
+IP 10.20.30.41
+   │
+   ▼
+Provisioner
+   │
+   ├── create cgroups
+   ├── configure cpuset
+   ├── configure memory
+   ├── create/attach storage
+   ├── configure networking
+   ├── apply security policy
+   └── configure workload identity
+   │
+   ▼
+Compute Unit
+</code></pre></div>
+<p>The scheduler decides <strong>what should be reserved and where</strong>.</p>
+<p>The provisioner makes that decision real.</p>
+<hr />
+<h2 id="provisioning-failure">Provisioning Failure</h2>
+<p>A valid scheduling decision does not guarantee that provisioning will succeed.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Placement selected
+        │
+        ▼
+Resources reserved
+        │
+        ▼
+Provisioning
+        │
+        ├── CPU configured
+        ├── Memory configured
+        ├── Storage configured
+        └── Network FAILED
+</code></pre></div>
+<p>The Allocation must not become ACTIVE.</p>
+<p>The failed Compute Unit must be cleaned up and reusable capacity returned safely.</p>
+<p>Depending on failure policy, Kloigos may later attempt another placement.</p>
+<p>A host must not immediately regain capacity in scheduler state while stale host-side configuration still consumes or controls that resource.</p>
+<p>Detailed rollback belongs in the <strong>Dynamic Compute Unit Provisioning</strong> design.</p>
+<hr />
+<h2 id="host-state">Host State</h2>
+<p>Not every host with free resources should necessarily accept new placements.</p>
+<p>Administrative or operational state may make a host unavailable.</p>
+<p>Examples include:</p>
+<ul>
+<li>maintenance</li>
+<li>draining</li>
+<li>provisioning</li>
+<li>degraded health</li>
+<li>unavailable</li>
+<li>dedicated tenancy transition</li>
+</ul>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>Host Capacity Available
+        │
+        ▼
+Host Accepting Placements?
+        │
+       No
+        │
+        ▼
+     Ineligible
+</code></pre></div>
+<p>Host operational state is therefore independent from raw resource availability.</p>
+<p>The exact host state machine may evolve.</p>
+<hr />
+<h2 id="capacity-reporting">Capacity Reporting</h2>
+<p>Kloigos should expose capacity in terms that preserve meaningful resource distinctions.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host-7
+
+Dedicated CPU
+  Physical:    32
+  Allocated:   24
+  Available:    8
+
+Shared CPU
+  Physical:    32
+  Logical:     64
+  Allocated:   40
+  Available:   24
+
+Memory
+  Physical:   512 GB
+  Allocated:  320 GB
+  Available:  192 GB
+
+Storage
+  Available:  1.4 TB
+
+IP
+  Available:  12
+</code></pre></div>
+<p>However, capacity reporting must not imply that every combination of these available values can necessarily be allocated together.</p>
+<p>Topology, locality, tenancy, and compatibility may still prevent a particular request.</p>
+<p>The authoritative capacity question remains:</p>
+<blockquote>
+<p><strong>Can this host satisfy this specific request?</strong></p>
+</blockquote>
+<hr />
+<h2 id="compatibility-with-pre-created-compute-units">Compatibility with Pre-Created Compute Units</h2>
+<p>Existing Kloigos deployments may contain pre-created Compute Units.</p>
+<p>Migration to dynamic scheduling does not require active Allocations to be disrupted.</p>
+<p>A transition strategy may allow:</p>
+<ul>
+<li>active existing CUs to remain until released</li>
+<li>free static CU inventory to be converted back into host capacity</li>
+<li>new hosts to use dynamic provisioning exclusively</li>
+<li>static and dynamic models to coexist temporarily during migration</li>
+</ul>
+<p>The target architecture remains host-capacity scheduling.</p>
+<p>Pre-created Compute Units are a compatibility concern rather than the long-term scheduling abstraction.</p>
+<hr />
+<h2 id="validation-requirements">Validation Requirements</h2>
+<p>Scheduling must be validated against real resource state and concurrent operations.</p>
+<p>Validation should include at minimum:</p>
+<h3 id="basic-placement">Basic Placement</h3>
+<ul>
+<li>eligible host selected</li>
+<li>incompatible Instance Classes rejected</li>
+<li>Host Family constraints honored</li>
+<li>sufficient CPU required</li>
+<li>sufficient memory required</li>
+<li>sufficient storage required</li>
+<li>compatible IP required</li>
+</ul>
+<h3 id="cpu">CPU</h3>
+<ul>
+<li>Dedicated CPU availability</li>
+<li>Shared CPU logical capacity</li>
+<li>Dedicated and Shared Pool separation</li>
+<li>topology constraints</li>
+<li>NUMA constraints</li>
+<li>fragmented capacity behavior</li>
+</ul>
+<h3 id="storage">Storage</h3>
+<ul>
+<li>storage capacity</li>
+<li>storage class</li>
+<li>local persistent-storage constraints</li>
+</ul>
+<h3 id="networking">Networking</h3>
+<ul>
+<li>compatible IP pool</li>
+<li>IP exhaustion</li>
+<li>network incompatibility</li>
+</ul>
+<h3 id="tenancy">Tenancy</h3>
+<ul>
+<li>Shared Tenancy placement</li>
+<li>Dedicated Server Tenancy ownership</li>
+<li>foreign organizations rejected from dedicated hosts</li>
+<li>unused dedicated capacity excluded from general availability</li>
+</ul>
+<h3 id="concurrency">Concurrency</h3>
+<ul>
+<li>CPUs cannot be double-reserved</li>
+<li>IPs cannot be double-reserved</li>
+<li>storage cannot be oversubscribed accidentally</li>
+<li>dedicated host ownership cannot be acquired concurrently by different organizations</li>
+</ul>
+<h3 id="failure">Failure</h3>
+<ul>
+<li>failed reservation releases partial reservations</li>
+<li>failed provisioning eventually returns reusable capacity</li>
+<li>stale host state prevents premature reuse</li>
+<li>scheduler state remains consistent with physical enforcement</li>
+</ul>
+<p>Detailed execution belongs in the <strong>Validation Architecture</strong> design.</p>
+<hr />
+<h2 id="architectural-invariants">Architectural Invariants</h2>
+<p>The Kloigos scheduling and placement model is governed by the following invariants:</p>
+<ol>
+<li>
+<p><strong>Physical hosts own allocatable infrastructure capacity.</strong></p>
+</li>
+<li>
+<p><strong>The scheduler selects host capacity from which a Compute Unit can be materialized rather than requiring a pre-existing matching Compute Unit.</strong></p>
+</li>
+<li>
+<p><strong>Instance Classes describe user-facing infrastructure characteristics and may map to multiple Host Families.</strong></p>
+</li>
+<li>
+<p><strong>Placement is multidimensional and must consider all mandatory resource and policy constraints.</strong></p>
+</li>
+<li>
+<p><strong>Dedicated CPU and Shared CPU capacity must remain distinct during scheduling.</strong></p>
+</li>
+<li>
+<p><strong>Aggregate free CPU does not imply that a particular Dedicated CPU request can be satisfied.</strong></p>
+</li>
+<li>
+<p><strong>CPU topology and NUMA may constrain placement.</strong></p>
+</li>
+<li>
+<p><strong>Storage capacity and locality are placement constraints.</strong></p>
+</li>
+<li>
+<p><strong>Compatible IP availability is a placement constraint.</strong></p>
+</li>
+<li>
+<p><strong>Tenancy is a hard host eligibility constraint.</strong></p>
+</li>
+<li>
+<p><strong>Unused capacity on a dedicated host must not be considered available to other organizations.</strong></p>
+</li>
+<li>
+<p>**Existing durable Allocation resources may constrain fu</p>
+</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../CPU_Resource_Model/" class="md-footer__link md-footer__link--prev" aria-label="Previous: CPU resource model">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                CPU resource model
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../Networking_and_IP_Model/" class="md-footer__link md-footer__link--next" aria-label="Next: Networking and IP model">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Networking and IP model
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/fabiog1901/kloigos" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/fabiog1901/kloigos/discussions" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M384 144c0 97.2-86 176-192 176-26.7 0-52.1-5-75.2-14l-81.6 43.2c-9.3 4.9-20.7 3.2-28.2-4.2s-9.2-18.9-4.2-28.2l35.6-67.2C14.3 220.2 0 183.6 0 144 0 46.8 86-32 192-32s192 78.8 192 176m0 368c-94.1 0-172.4-62.1-188.8-144 120-1.5 224.3-86.9 235.8-202.7 83.3 19.2 145 88.3 145 170.7 0 39.6-14.3 76.2-38.4 105.6l35.6 67.2c4.9 9.3 3.2 20.7-4.2 28.2s-18.9 9.2-28.2 4.2L459.2 498c-23.1 9-48.5 14-75.2 14"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.footnote.tooltips", "content.tabs.link", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.progress", "navigation.path", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

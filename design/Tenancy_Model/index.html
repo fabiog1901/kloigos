@@ -1,0 +1,3054 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Linux-native platform for managing isolated workloads on bare-metal infrastructure.">
+      
+      
+      
+      
+        <link rel="prev" href="../Storage_and_Persistence_Model/">
+      
+      
+        <link rel="next" href="../../about/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Tenancy model - kloigos</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#tenancy-model" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="kloigos" class="md-header__button md-logo" aria-label="kloigos" data-md-component="logo">
+      
+  <img src="../../assets/favicon.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            kloigos
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Tenancy model
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 2C5.13 2 2 5.13 2 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7M6 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H6zm13-8h-2l-3.2 9h1.9l.7-2h3.2l.7 2h1.9zm-2.15 5.65L18 15l1.15 3.65z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="cyan" data-md-color-accent="cyan"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/fabiog1901/kloigos" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fabiog1901/kloigos
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../product-positioning/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Product positioning
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../docs/getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Docs
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../product_context_snapshots/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../about/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  About
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="kloigos" class="md-nav__button md-logo" aria-label="kloigos" data-md-component="logo">
+      
+  <img src="../../assets/favicon.png" alt="logo">
+
+    </a>
+    kloigos
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/fabiog1901/kloigos" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    fabiog1901/kloigos
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../product-positioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product positioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Docs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/ssh-keys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH keys
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/server-preparation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server preparation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/playbooks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playbooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../product_context_snapshots/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product context
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Product context
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../product_context_snapshots/2026-10-03/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-10-03 snapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../product_context_snapshots/2026-09-14/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-09-14 snapshot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Architecture_Overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Compute_Unit_and_Allocation_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compute Unit and allocation model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Host_Families/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Host Families
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Instance_Classes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instance Classes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CPU_Policy_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CPU Policy model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Logical_CPU_Manager/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logical CPU Manager
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Shared_and_Burstable_CPU/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shared and Burstable CPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Dynamic_Compute_Unit_Allocator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamic Compute Unit Allocator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Dynamic_Compute_Unit_Provisioner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dynamic Compute Unit Provisioner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CPU_Resource_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CPU resource model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Scheduling_and_Placement_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduling and placement model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Networking_and_IP_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Networking and IP model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Security_and_Isolation_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security and isolation model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Storage_and_Persistence_Model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage and persistence model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenancy model
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenancy model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy Boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#organization-as-the-tenancy-owner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Organization as the Tenancy Owner
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dedicated-server-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Server Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-dedicated-tenancy-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Dedicated Tenancy Exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy-as-a-scheduling-constraint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy as a Scheduling Constraint
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#host-tenancy-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host Tenancy State
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acquiring-a-dedicated-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acquiring a Dedicated Host
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#existing-dedicated-hosts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Existing Dedicated Hosts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dedicated-tenancy-and-dynamic-compute-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy and Dynamic Compute Units
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dedicated-tenancy-and-cpu-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy and CPU Models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dedicated-tenancy-and-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy and Storage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dedicated-tenancy-and-networking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy and Networking
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy-reservation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy Reservation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#releasing-dedicated-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Releasing Dedicated Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#concurrency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concurrency
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failure-and-rollback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure and Rollback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reconciliation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciliation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Validation Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#shared-tenancy_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dedicated-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cpu-independence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU Independence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concurrency_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concurrency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architectural-invariants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural Invariants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-design-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related Design Documents
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    About
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy Boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#organization-as-the-tenancy-owner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Organization as the Tenancy Owner
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dedicated-server-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Server Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-dedicated-tenancy-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Dedicated Tenancy Exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy-as-a-scheduling-constraint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy as a Scheduling Constraint
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#host-tenancy-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host Tenancy State
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acquiring-a-dedicated-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acquiring a Dedicated Host
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#existing-dedicated-hosts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Existing Dedicated Hosts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dedicated-tenancy-and-dynamic-compute-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy and Dynamic Compute Units
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dedicated-tenancy-and-cpu-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy and CPU Models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dedicated-tenancy-and-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy and Storage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dedicated-tenancy-and-networking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy and Networking
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy-reservation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy Reservation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#releasing-dedicated-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Releasing Dedicated Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#concurrency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concurrency
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#failure-and-rollback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure and Rollback
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reconciliation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciliation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Validation Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#shared-tenancy_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dedicated-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dedicated Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cpu-independence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU Independence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concurrency_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concurrency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Failure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architectural-invariants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architectural Invariants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-design-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related Design Documents
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../../product_context_snapshots/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Reference
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Design
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="tenancy-model">Tenancy Model</h1>
+<h2 id="purpose">Purpose</h2>
+<p>Kloigos allows organizations to choose whether physical servers are shared with other organizations or reserved exclusively for their workloads.</p>
+<p>The tenancy model operates at the <strong>physical host boundary</strong>.</p>
+<p>Kloigos supports two primary tenancy modes:</p>
+<ul>
+<li><strong>Shared Tenancy</strong> — Compute Units belonging to different organizations may run on the same physical host.</li>
+<li><strong>Dedicated Server Tenancy</strong> — a physical host is reserved for a single organization and no Compute Units belonging to another organization may be placed on it.</li>
+</ul>
+<p>The core principle is:</p>
+<blockquote>
+<p><strong>Tenancy determines who may share a physical host. Compute Unit isolation determines how workloads are separated within that host.</strong></p>
+</blockquote>
+<p>Dedicated Server Tenancy does not create a different Compute Unit implementation. It changes the placement and capacity rules governing which organizations may use the physical server.</p>
+<p>This document defines tenancy ownership, scheduling constraints, host lifecycle, isolation implications, and the architectural invariants of the Kloigos tenancy model.</p>
+<hr />
+<h2 id="tenancy-boundary">Tenancy Boundary</h2>
+<p>Kloigos Compute Units share the Linux kernel of their physical host.</p>
+<p>Under Shared Tenancy:</p>
+<div class="highlight"><pre><span></span><code>Physical Host
+┌───────────────────────────────────────────┐
+│               Linux Kernel                │
+│                                           │
+│   Organization A       Organization B     │
+│                                           │
+│   ┌───────────┐        ┌───────────┐      │
+│   │   CU-A1   │        │   CU-B1   │      │
+│   └───────────┘        └───────────┘      │
+│                                           │
+│   ┌───────────┐        ┌───────────┐      │
+│   │   CU-A2   │        │   CU-B2   │      │
+│   └───────────┘        └───────────┘      │
+│                                           │
+└───────────────────────────────────────────┘
+</code></pre></div>
+<p>Under Dedicated Server Tenancy:</p>
+<div class="highlight"><pre><span></span><code>Physical Host
+┌───────────────────────────────────────────┐
+│               Linux Kernel                │
+│                                           │
+│             Organization A                │
+│                                           │
+│   ┌───────────┐        ┌───────────┐      │
+│   │   CU-A1   │        │   CU-A2   │      │
+│   └───────────┘        └───────────┘      │
+│                                           │
+│   ┌───────────┐                           │
+│   │   CU-A3   │       Free Capacity       │
+│   └───────────┘                           │
+│                                           │
+└───────────────────────────────────────────┘
+
+Organization B cannot use this host.
+</code></pre></div>
+<p>The remaining unused capacity belongs to the dedicated tenancy reservation and cannot be consumed by another organization.</p>
+<hr />
+<h2 id="organization-as-the-tenancy-owner">Organization as the Tenancy Owner</h2>
+<p>Tenancy is evaluated at the organization boundary.</p>
+<p>Multiple Allocations belonging to the same organization may share a dedicated physical host.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Organization A
+      │
+      ├── Allocation A1
+      ├── Allocation A2
+      └── Allocation A3
+              │
+              ▼
+       Dedicated Host
+</code></pre></div>
+<p>The dedicated host is not necessarily dedicated to one Allocation.</p>
+<p>It is dedicated to one organization.</p>
+<p>This distinction allows an organization to efficiently use the capacity of its reserved physical servers while preventing cross-organization sharing.</p>
+<hr />
+<h2 id="shared-tenancy">Shared Tenancy</h2>
+<p>Shared Tenancy allows Kloigos to place Allocations from different organizations on the same physical host.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host-1
+
+Organization A
+├── CU-A1
+└── CU-A2
+
+Organization B
+└── CU-B1
+
+Organization C
+└── CU-C1
+</code></pre></div>
+<p>Each Compute Unit still receives its normal resource and security boundaries.</p>
+<p>These may include:</p>
+<ul>
+<li>Linux identity</li>
+<li>CPU controls</li>
+<li>memory controls</li>
+<li>filesystem ownership</li>
+<li>storage isolation</li>
+<li>network identity</li>
+<li>nftables enforcement</li>
+<li>AppArmor policy</li>
+</ul>
+<p>Shared Tenancy therefore depends on the standard Kloigos Compute Unit isolation model.</p>
+<p>Detailed enforcement belongs in the <strong>Security and Isolation Model</strong> design.</p>
+<hr />
+<h2 id="dedicated-server-tenancy">Dedicated Server Tenancy</h2>
+<p>Dedicated Server Tenancy prevents workloads from other organizations from sharing the physical server.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host-7
+Tenancy Owner: Organization A
+
+Allowed:
+
+Organization A / Allocation A1
+Organization A / Allocation A2
+Organization A / Allocation A3
+
+Not Allowed:
+
+Organization B / Allocation B1
+Organization C / Allocation C1
+</code></pre></div>
+<p>This restriction applies regardless of how much unused capacity remains on the host.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host-7
+
+Total CPU:       64
+Allocated:       16
+Unused:          48
+
+Tenancy Owner: Organization A
+</code></pre></div>
+<p>The remaining 48 CPUs cannot be allocated to Organization B while the dedicated tenancy reservation remains active.</p>
+<p>This is intentional stranded capacity created by the tenancy guarantee.</p>
+<hr />
+<h2 id="why-dedicated-tenancy-exists">Why Dedicated Tenancy Exists</h2>
+<p>Compute Units on a Kloigos host share the host Linux kernel.</p>
+<p>Shared Tenancy therefore means organizations share a kernel even though their individual workloads are isolated using Linux security and resource-control mechanisms.</p>
+<p>Dedicated Server Tenancy changes that exposure:</p>
+<div class="highlight"><pre><span></span><code>Shared Tenancy
+
+Org A ─┐
+Org B ─┼── shared kernel
+Org C ─┘
+
+
+Dedicated Tenancy
+
+Org A ─── shared kernel
+
+No other organization
+shares that kernel
+</code></pre></div>
+<p>Dedicated Server Tenancy therefore limits the kernel-sharing boundary to workloads belonging to the same organization.</p>
+<p>It does not provide:</p>
+<ul>
+<li>separate kernels between Compute Units</li>
+<li>VM-style isolation</li>
+<li>protection from the physical-host administrator</li>
+<li>protection between mutually hostile workloads inside the same organization</li>
+</ul>
+<p>It provides an <strong>organization-level physical-host exclusivity guarantee</strong>.</p>
+<hr />
+<h2 id="tenancy-as-a-scheduling-constraint">Tenancy as a Scheduling Constraint</h2>
+<p>Tenancy is a first-class placement constraint.</p>
+<p>Before selecting a host, the scheduler must determine whether the requested Allocation is compatible with the host's current tenancy state.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>Allocation Request
+        │
+        ├── Organization
+        ├── Tenancy Mode
+        └── Resource Requirements
+                │
+                ▼
+          Candidate Hosts
+                │
+                ▼
+          Tenancy Filter
+                │
+                ▼
+         Capacity Evaluation
+                │
+                ▼
+           Host Selection
+</code></pre></div>
+<p>A host with sufficient CPU, memory, storage, and IP capacity may still be ineligible because of tenancy.</p>
+<hr />
+<h2 id="host-tenancy-state">Host Tenancy State</h2>
+<p>A physical host may conceptually exist in states such as:</p>
+<div class="highlight"><pre><span></span><code>SHARED
+</code></pre></div>
+<p>or:</p>
+<div class="highlight"><pre><span></span><code>DEDICATED
+Owner: Organization A
+</code></pre></div>
+<p>A host may also need transitional states while becoming dedicated or returning to shared service.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>SHARED
+   │
+   │ reserve for Organization A
+   ▼
+DRAINING
+   │
+   │ incompatible Allocations removed
+   ▼
+DEDICATED
+Owner: Organization A
+</code></pre></div>
+<p>and later:</p>
+<div class="highlight"><pre><span></span><code>DEDICATED
+Owner: Organization A
+   │
+   │ release tenancy
+   ▼
+CLEANUP
+   │
+   │ host verified reusable
+   ▼
+SHARED
+</code></pre></div>
+<p>The exact state machine may evolve.</p>
+<p>The architectural requirement is that transitions never temporarily violate the tenancy guarantee.</p>
+<hr />
+<h2 id="acquiring-a-dedicated-host">Acquiring a Dedicated Host</h2>
+<p>A host can become dedicated to an organization only when no incompatible Allocations remain on it.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host-3
+
+Org A CU
+Org B CU
+Org C CU
+</code></pre></div>
+<p>Host-3 cannot immediately become dedicated to Organization A.</p>
+<p>Kloigos must either:</p>
+<ul>
+<li>choose another eligible host</li>
+<li>wait for incompatible Allocations to terminate</li>
+<li>move incompatible Allocations elsewhere</li>
+<li>explicitly drain the host through a supported administrative workflow</li>
+</ul>
+<p>Kloigos must never simply mark the host dedicated while another organization's workload remains active.</p>
+<hr />
+<h2 id="existing-dedicated-hosts">Existing Dedicated Hosts</h2>
+<p>If an organization already owns a dedicated host with sufficient compatible capacity, additional Allocations from that organization may be placed there.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Allocation Request
+Organization: A
+Tenancy: DEDICATED
+CPU: 8
+
+        │
+        ▼
+
+Host-7
+Dedicated to Organization A
+Available CPU: 16
+
+        │
+        ▼
+
+Eligible
+</code></pre></div>
+<p>This allows an organization to consume the reserved server incrementally rather than requiring one Allocation to consume the entire machine.</p>
+<hr />
+<h2 id="dedicated-tenancy-and-dynamic-compute-units">Dedicated Tenancy and Dynamic Compute Units</h2>
+<p>Dedicated Server Tenancy does not require pre-created Compute Units.</p>
+<p>The physical host remains the owner of allocatable capacity.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Dedicated Host
+Organization A
+       │
+       ├── free CPU
+       ├── free memory
+       ├── free storage
+       └── compatible IP capacity
+              │
+              ▼
+      Allocation Request
+              │
+              ▼
+       Reserve Resources
+              │
+              ▼
+      Materialize Compute Unit
+</code></pre></div>
+<p>The normal Dynamic Compute Unit Provisioning model remains unchanged.</p>
+<p>The difference is that only requests belonging to the tenancy owner may consume the host's capacity.</p>
+<hr />
+<h2 id="dedicated-tenancy-and-cpu-models">Dedicated Tenancy and CPU Models</h2>
+<p>Dedicated Server Tenancy is independent from Dedicated CPU.</p>
+<p>These concepts must not be confused.</p>
+<p>For example, an Allocation may request:</p>
+<div class="highlight"><pre><span></span><code>Tenancy: Dedicated Server
+CPU: Shared CPU
+</code></pre></div>
+<p>This means:</p>
+<ul>
+<li>the physical host is exclusive to the organization</li>
+<li>CPUs may still be shared among that organization's Compute Units</li>
+</ul>
+<p>Likewise:</p>
+<div class="highlight"><pre><span></span><code>Tenancy: Shared Server
+CPU: Dedicated CPU
+</code></pre></div>
+<p>means:</p>
+<ul>
+<li>the Allocation receives exclusive CPU resources</li>
+<li>other organizations may still use different resources on the same physical host</li>
+</ul>
+<p>The dimensions are independent:</p>
+<table>
+<thead>
+<tr>
+<th>Server Tenancy</th>
+<th>CPU Model</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shared</td>
+<td>Shared</td>
+<td>Host and CPU pool may both be shared</td>
+</tr>
+<tr>
+<td>Shared</td>
+<td>Dedicated</td>
+<td>CPU resources exclusive; host may contain other organizations</td>
+</tr>
+<tr>
+<td>Dedicated</td>
+<td>Shared</td>
+<td>Host exclusive to organization; CPU capacity may be shared within it</td>
+</tr>
+<tr>
+<td>Dedicated</td>
+<td>Dedicated</td>
+<td>Host exclusive to organization and assigned CPU resources exclusive to CU</td>
+</tr>
+</tbody>
+</table>
+<p>This distinction must remain explicit in the API, scheduling logic, capacity reporting, and metering.</p>
+<hr />
+<h2 id="dedicated-tenancy-and-storage">Dedicated Tenancy and Storage</h2>
+<p>Dedicated tenancy applies to the physical host, not automatically to external infrastructure.</p>
+<p>If persistent storage resides locally on the dedicated host, that storage naturally resides within the same physical-host tenancy boundary.</p>
+<p>If Kloigos later supports shared or network-attached storage, Dedicated Server Tenancy does not automatically imply that the external storage infrastructure is physically dedicated.</p>
+<p>Any stronger storage-tenancy guarantee must be explicitly defined by the storage model.</p>
+<hr />
+<h2 id="dedicated-tenancy-and-networking">Dedicated Tenancy and Networking</h2>
+<p>Dedicated Server Tenancy does not inherently provide a dedicated physical network.</p>
+<p>Allocation IPs continue to come from administrator-configured compatible IP pools.</p>
+<p>Network Security Groups and host-level network enforcement continue to apply.</p>
+<p>If dedicated NICs, VLANs, or network infrastructure are offered in the future, those are separate infrastructure capabilities and must not be implied merely by <code>tenancy=DEDICATED</code>.</p>
+<hr />
+<h2 id="tenancy-reservation">Tenancy Reservation</h2>
+<p>Dedicated tenancy consumes the entire host from the perspective of cross-organization scheduling.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host Capacity
+
+CPU:       64
+Memory:    512 GB
+Storage:   4 TB
+
+Organization A usage:
+
+CPU:       16
+Memory:    64 GB
+Storage:   500 GB
+</code></pre></div>
+<p>Although substantial physical capacity remains unused, that capacity is unavailable to other organizations.</p>
+<p>Capacity reporting should distinguish between:</p>
+<ul>
+<li>physically unused capacity</li>
+<li>capacity available to the tenancy owner</li>
+<li>capacity available to the general shared fleet</li>
+</ul>
+<p>This prevents the control plane from reporting dedicated but unused capacity as generally schedulable.</p>
+<hr />
+<h2 id="tenancy-lifecycle">Tenancy Lifecycle</h2>
+<p>Dedicated tenancy has a lifecycle separate from individual Compute Units.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Host-7
+Dedicated to Organization A
+
+    │
+    ├── CU-A1 created
+    ├── CU-A2 created
+    ├── CU-A1 destroyed
+    └── CU-A2 destroyed
+</code></pre></div>
+<p>The destruction of the last Compute Unit does not necessarily mean that the host immediately becomes shared.</p>
+<p>The host's tenancy reservation may remain active independently of its current Allocation count.</p>
+<p>This distinction is important because:</p>
+<div class="highlight"><pre><span></span><code>No active CUs
+</code></pre></div>
+<p>does not necessarily mean:</p>
+<div class="highlight"><pre><span></span><code>No tenancy owner
+</code></pre></div>
+<p>The exact product policy governing when dedicated tenancy is released may evolve.</p>
+<hr />
+<h2 id="releasing-dedicated-tenancy">Releasing Dedicated Tenancy</h2>
+<p>Before a dedicated host can return to shared service, Kloigos must ensure that organization-specific execution state no longer creates unintended access or isolation problems.</p>
+<p>Cleanup may include verifying:</p>
+<ul>
+<li>no active Compute Units remain</li>
+<li>no organization-specific CPU reservations remain</li>
+<li>temporary filesystem state is removed</li>
+<li>network configuration is cleaned up</li>
+<li>nftables rules are removed</li>
+<li>temporary mounts are removed</li>
+<li>security-policy associations are removed</li>
+<li>persistent storage is safely detached</li>
+<li>host capacity is reconciled</li>
+</ul>
+<p>Persistent Allocation storage must not be destroyed merely because dedicated tenancy ends.</p>
+<p>The host can return to the shared pool only after the transition is complete.</p>
+<hr />
+<h2 id="concurrency">Concurrency</h2>
+<p>Tenancy reservations must be concurrency-safe.</p>
+<p>Consider two simultaneous requests:</p>
+<div class="highlight"><pre><span></span><code>Request A
+Organization A
+Dedicated Tenancy
+
+Request B
+Organization B
+Dedicated Tenancy
+
+        │
+        ▼
+
+Same currently free Host-9
+</code></pre></div>
+<p>Both requests must not successfully acquire Host-9.</p>
+<p>Likewise, a Shared Tenancy request must not race with a Dedicated Tenancy reservation and become active on the host after exclusivity has been granted.</p>
+<p>Host tenancy state must therefore participate in the same atomic reservation model as other exclusive infrastructure resources.</p>
+<hr />
+<h2 id="failure-and-rollback">Failure and Rollback</h2>
+<p>Tenancy transitions may fail after partial work.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Reserve Host
+     ↓
+Mark Dedicated
+     ↓
+Reserve CPU
+     ↓
+Reserve IP
+     ↓
+CU provisioning FAILED
+</code></pre></div>
+<p>Kloigos must determine whether the host tenancy reservation itself should remain or be rolled back according to the requested lifecycle.</p>
+<p>It must never leave ambiguous state where the control plane considers a host shared while the host is still reserved for or contains state belonging to a dedicated tenant.</p>
+<p>Likewise, a failed release operation must leave the host unavailable for incompatible placement until cleanup and reconciliation succeed.</p>
+<p>Safety takes precedence over prematurely returning the host to the shared fleet.</p>
+<hr />
+<h2 id="metering">Metering</h2>
+<p>Dedicated Server Tenancy may carry a different price because the organization prevents other organizations from consuming unused capacity on the host.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Physical Host
+64 CPUs
+
+Organization A
+Dedicated Tenancy
+
+Actual Allocation:
+16 CPUs
+</code></pre></div>
+<p>Kloigos may need to account for the economic effect of reserving the physical server even though the Allocation consumes only part of its capacity.</p>
+<p>The exact pricing model is administrator-defined and belongs in the <strong>Metering and Pricing Model</strong> design.</p>
+<p>The tenancy model only establishes that dedicated capacity is unavailable to other organizations while the reservation is active.</p>
+<hr />
+<h2 id="reconciliation">Reconciliation</h2>
+<p>The control plane must be able to determine whether actual host usage matches the intended tenancy state.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code>Control Plane
+
+Host-7
+DEDICATED
+Owner: Organization A
+          │
+          │ compare
+          ▼
+Actual Host State
+
+CU-A1
+CU-A2
+CU-B1   ← violation
+</code></pre></div>
+<p>This is a critical isolation failure.</p>
+<p>Reconciliation should be capable of detecting:</p>
+<ul>
+<li>foreign-organization Compute Units on dedicated hosts</li>
+<li>incorrect tenancy ownership</li>
+<li>stale tenancy reservations</li>
+<li>shared hosts incorrectly marked dedicated</li>
+<li>dedicated hosts incorrectly exposed as shared capacity</li>
+</ul>
+<p>A database tenancy flag alone is not sufficient proof that the guarantee is being honored.</p>
+<hr />
+<h2 id="validation-requirements">Validation Requirements</h2>
+<p>Tenancy guarantees must be tested using real scheduling and provisioning behavior.</p>
+<p>Validation should include at minimum:</p>
+<h3 id="shared-tenancy_1">Shared Tenancy</h3>
+<ul>
+<li>multiple organizations can share an eligible host</li>
+<li>normal Compute Unit isolation remains enforced</li>
+<li>capacity is correctly accounted across organizations</li>
+</ul>
+<h3 id="dedicated-tenancy">Dedicated Tenancy</h3>
+<ul>
+<li>first dedicated placement establishes correct organization ownership</li>
+<li>additional Allocations from the same organization may use the host</li>
+<li>Allocations from other organizations are rejected</li>
+<li>unused capacity is not exposed to other organizations</li>
+<li>multiple Compute Units from the owning organization can coexist</li>
+</ul>
+<h3 id="cpu-independence">CPU Independence</h3>
+<p>Validation should explicitly verify:</p>
+<ul>
+<li>Shared Host + Shared CPU</li>
+<li>Shared Host + Dedicated CPU</li>
+<li>Dedicated Host + Shared CPU</li>
+<li>Dedicated Host + Dedicated CPU</li>
+</ul>
+<h3 id="lifecycle">Lifecycle</h3>
+<ul>
+<li>destroying one CU does not release host tenancy</li>
+<li>destroying the final CU does not accidentally expose the host before tenancy policy allows it</li>
+<li>tenancy release performs required cleanup</li>
+<li>host can safely return to shared service</li>
+</ul>
+<h3 id="concurrency_1">Concurrency</h3>
+<ul>
+<li>competing dedicated requests cannot acquire the same host</li>
+<li>shared placement cannot race into a host being reserved as dedicated</li>
+<li>host ownership changes are atomic</li>
+</ul>
+<h3 id="failure">Failure</h3>
+<ul>
+<li>failed provisioning does not violate host ownership</li>
+<li>failed tenancy release keeps the host unavailable to incompatible organizations</li>
+<li>reconciliation detects invalid cross-organization placement</li>
+</ul>
+<p>Detailed execution belongs in the <strong>Validation Architecture</strong> design.</p>
+<hr />
+<h2 id="architectural-invariants">Architectural Invariants</h2>
+<p>The Kloigos tenancy model is governed by the following invariants:</p>
+<ol>
+<li>
+<p><strong>Tenancy is enforced at the physical-host boundary.</strong></p>
+</li>
+<li>
+<p><strong>Shared Tenancy permits Allocations belonging to different organizations to share a physical host.</strong></p>
+</li>
+<li>
+<p><strong>Dedicated Server Tenancy permits only Allocations belonging to the owning organization to use the physical host.</strong></p>
+</li>
+<li>
+<p><strong>Unused capacity on a dedicated host must not be allocated to another organization.</strong></p>
+</li>
+<li>
+<p><strong>A dedicated host may contain multiple Compute Units and Allocations belonging to its owning organization.</strong></p>
+</li>
+<li>
+<p><strong>Dedicated Server Tenancy and Dedicated CPU are independent concepts.</strong></p>
+</li>
+<li>
+<p><strong>Dedicated Server Tenancy does not imply dedicated networking, dedicated external storage, or separate kernels between Compute Units.</strong></p>
+</li>
+<li>
+<p><strong>A host cannot become dedicated while incompatible Allocations remain active on it.</strong></p>
+</li>
+<li>
+<p><strong>A host must not return to shared service until the dedicated tenancy has been safely released and required cleanup has completed.</strong></p>
+</li>
+<li>
+<p><strong>Host tenancy reservations must be concurrency-safe.</strong></p>
+</li>
+<li>
+<p><strong>A Shared Tenancy placement must not race with acquisition of Dedicated Server Tenancy.</strong></p>
+</li>
+<li>
+<p><strong>The absence of active Compute Units does not inherently mean that a dedicated tenancy reservation has ended.</strong></p>
+</li>
+<li>
+<p><strong>Dedicated tenancy must participate in scheduling before physical resources are committed to an incompatible placement.</strong></p>
+</li>
+<li>
+<p><strong>Control-plane tenancy state must correspond to actual Allocation placement on the physical host.</strong></p>
+</li>
+<li>
+<p><strong>Failure handling must prefer temporarily withholding a host from scheduling rather than risk violating its tenancy guarantee.</strong></p>
+</li>
+<li>
+<p><strong>Dedicated Server Tenancy limits cross-organization kernel sharing but does not transform Compute Units into virtual machines.</strong></p>
+</li>
+</ol>
+<hr />
+<h2 id="related-design-documents">Related Design Documents</h2>
+<p>This document defines organization-level physical-host sharing.</p>
+<p>Related behavior is defined in:</p>
+<ul>
+<li><strong>Compute Unit and Allocation Model</strong> — workload identity and execution placement.</li>
+<li><strong>Dynamic Compute Unit Provisioning</strong> — host reservation and CU creation within the tenancy boundary.</li>
+<li><strong>Scheduling and Placement Model</strong> — tenancy as a first-class host eligibility constraint.</li>
+<li><strong>CPU Resource Model</strong> — Dedicated and Shared CPU independently of server tenancy.</li>
+<li><strong>Networking and IP Model</strong> — network identity and isolation across Compute Units.</li>
+<li><strong>Storage and Persistence Model</strong> — storage ownership and locality.</li>
+<li><strong>Security and Isolation Model</strong> — implications of sharing the Linux kernel and the securi</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../Storage_and_Persistence_Model/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Storage and persistence model">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Storage and persistence model
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../about/" class="md-footer__link md-footer__link--next" aria-label="Next: About">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                About
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/fabiog1901/kloigos" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/fabiog1901/kloigos/discussions" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M384 144c0 97.2-86 176-192 176-26.7 0-52.1-5-75.2-14l-81.6 43.2c-9.3 4.9-20.7 3.2-28.2-4.2s-9.2-18.9-4.2-28.2l35.6-67.2C14.3 220.2 0 183.6 0 144 0 46.8 86-32 192-32s192 78.8 192 176m0 368c-94.1 0-172.4-62.1-188.8-144 120-1.5 224.3-86.9 235.8-202.7 83.3 19.2 145 88.3 145 170.7 0 39.6-14.3 76.2-38.4 105.6l35.6 67.2c4.9 9.3 3.2 20.7-4.2 28.2s-18.9 9.2-28.2 4.2L459.2 498c-23.1 9-48.5 14-75.2 14"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.footnote.tooltips", "content.tabs.link", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.progress", "navigation.path", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
