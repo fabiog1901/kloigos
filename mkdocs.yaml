@@ -69,18 +69,32 @@ extra:
     link: https://github.com/fabiog1901/kloigos/discussions
 
 nav:
-  - Home: 
-    - index.md
-  - product-positioning.md
+  - Home: index.md
+  - Product positioning: product-positioning.md
   - Docs:
-    - docs/getting-started.md
-    - docs/ssh-keys.md
-    - docs/server-preparation.md
-    - docs/auth.md
-    - docs/deployment.md
-    - docs/playbooks.md
-    - docs/architecture.md
-  - about.md
+    - Getting started: docs/getting-started.md
+    - SSH keys: docs/ssh-keys.md
+    - Server preparation: docs/server-preparation.md
+    - Authentication: docs/auth.md
+    - Deployment: docs/deployment.md
+    - Playbooks: docs/playbooks.md
+    - Architecture: docs/architecture.md
+  - Reference:
+    - Product context:
+      - Overview: product_context_snapshots/README.md
+      - 2026-09-14 snapshot: product_context_snapshots/2026-09-14.md
+    - Design:
+      - Overview: design/README.md
+      - Architecture overview: design/Architecture_Overview.md
+      - Compute Unit and allocation model: design/Compute_Unit_and_Allocation_Model.md
+      - Dynamic Compute Unit provisioning: design/Dynamic_Compute_Unit_Provisioning.md
+      - CPU resource model: design/CPU_Resource_Model.md
+      - Scheduling and placement model: design/Scheduling_and_Placement_Model.md
+      - Networking and IP model: design/Networking_and_IP_Model.md
+      - Security and isolation model: design/Security_and_Isolation_Model.md
+      - Storage and persistence model: design/Storage_and_Persistence_Model.md
+      - Tenancy model: design/Tenancy_Model.md
+  - About: about.md
 
 extra_css:
   - css/extra.css
