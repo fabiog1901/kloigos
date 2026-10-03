@@ -24,7 +24,13 @@ Not every feature requires a design document. A design document is appropriate w
 |---|---|
 | **Architecture Overview** | Describes the major Kloigos architectural concepts and how the core subsystems fit together. |
 | **Compute Unit and Allocation Model** | Defines the distinction between Compute Units as execution capacity/placement and Allocations as durable workload identities. |
-| **Dynamic Compute Unit Provisioning** | Defines how hosts expose allocatable capacity and Compute Units are dynamically materialized from that capacity. |
+| **Host Families** | Defines how administrators classify Hosts by infrastructure characteristics independently of resource-delivery policy. |
+| **Instance Classes** | Defines the user-facing compute products that combine eligible Host Families, CPU Policy, and resource characteristics. |
+| **CPU Policy Model** | Defines reusable Dedicated and Shared CPU delivery policies and their capacity semantics. |
+| **Logical CPU Manager** | Defines the Host-local resource manager that owns physical CPUs, implements a CPU Policy, and exposes allocatable capacity. |
+| **Shared and Burstable CPU** | Defines proportional CPU entitlement, overcommit, bursting, contention behavior, and enforcement boundaries for Shared CPU. |
+| **Dynamic Compute Unit Allocator** | Defines how Kloigos selects and reserves the infrastructure resources required by an Allocation. |
+| **Dynamic Compute Unit Provisioner** | Defines how Kloigos materializes a Compute Unit from resource assignments recorded in an Allocation. |
 | **CPU Resource Model** | Defines Dedicated and Shared CPU, CPU pools, cpusets, scheduling controls, bursting, overcommit, NUMA, and CPU isolation semantics. |
 | **Scheduling and Placement Model** | Defines how Instance Classes, Host Families, host capacity, topology, tenancy, networking, and other constraints determine placement. |
 | **Networking and IP Model** | Defines host-native networking, administrator-managed IP pools, IP allocation, nftables enforcement, and network lifecycle. |

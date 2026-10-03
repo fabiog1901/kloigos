@@ -82,12 +82,19 @@ nav:
   - Reference:
     - Product context:
       - Overview: product_context_snapshots/README.md
+      - 2026-10-03 snapshot: product_context_snapshots/2026-10-03.md
       - 2026-09-14 snapshot: product_context_snapshots/2026-09-14.md
     - Design:
       - Overview: design/README.md
       - Architecture overview: design/Architecture_Overview.md
       - Compute Unit and allocation model: design/Compute_Unit_and_Allocation_Model.md
-      - Dynamic Compute Unit provisioning: design/Dynamic_Compute_Unit_Provisioning.md
+      - Host Families: design/Host_Families.md
+      - Instance Classes: design/Instance_Classes.md
+      - CPU Policy model: design/CPU_Policy_Model.md
+      - Logical CPU Manager: design/Logical_CPU_Manager.md
+      - Shared and Burstable CPU: design/Shared_and_Burstable_CPU.md
+      - Dynamic Compute Unit Allocator: design/Dynamic_Compute_Unit_Allocator.md
+      - Dynamic Compute Unit Provisioner: design/Dynamic_Compute_Unit_Provisioner.md
       - CPU resource model: design/CPU_Resource_Model.md
       - Scheduling and placement model: design/Scheduling_and_Placement_Model.md
       - Networking and IP model: design/Networking_and_IP_Model.md
