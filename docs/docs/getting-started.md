@@ -141,6 +141,10 @@ The value should look similar to:
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@workstation
 ```
 
+You can also create or import reusable keys from **Admin → SSH Keys**. Generated
+private keys are delivered once and cannot be recovered. Read [SSH key
+management](ssh-keys.md) before using generated keys.
+
 Kloigos will choose a suitable free Compute Unit, assign a floating IP from the
 IP pool, create the Linux user identity, prepare storage, configure resource
 limits, and start the Allocation job.

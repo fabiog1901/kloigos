@@ -1190,12 +1190,13 @@
     </div>
 
     <div x-show="modal.sshKeyCreate.private_key">
-      <div class="notice danger kloigos-private-key-warning"><strong>Save this private key now.</strong> It cannot be displayed or downloaded again after this dialog closes or you navigate away.</div>
+      <div class="notice danger kloigos-private-key-warning"><strong>Save this private key now.</strong> It cannot be displayed or downloaded again after this dialog closes, you navigate away, or delivery is interrupted. If it is lost, delete the stored public-key resource and generate a replacement.</div>
       <dl class="details-list">
         <dt>Name</dt><dd x-text="modal.sshKeyCreate.created?.name || '-'"></dd>
         <dt>Fingerprint</dt><dd class="kloigos-fingerprint" x-text="modal.sshKeyCreate.created?.fingerprint || '-'"></dd>
       </dl>
-      <label><span class="field-label">Private Key</span><textarea class="input kloigos-textarea kloigos-private-key-output" readonly x-model="modal.sshKeyCreate.private_key"></textarea></label>
+      <label><span class="field-label">Private Key</span><textarea class="input kloigos-textarea kloigos-private-key-output" readonly autocomplete="off" autocapitalize="off" spellcheck="false" x-model="modal.sshKeyCreate.private_key"></textarea></label>
+      <p class="muted">Copying places the private key on your system clipboard. Clear the clipboard after saving the key securely.</p>
       <div class="modal-actions"><button class="btn" @click="copyGeneratedPrivateKey()">Copy</button><button class="btn" @click="downloadGeneratedPrivateKey()">Download</button><button class="btn primary" @click="closeSSHKeyCreateModal()">I Have Saved It</button></div>
     </div>
   </div>

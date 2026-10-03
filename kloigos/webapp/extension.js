@@ -177,6 +177,8 @@ window.cpkitWebappExtension = {
     sshKeysLoading: { list: false, save: false, delete: false },
     sshKeysAutoRefreshEnabled: true,
     _sshKeysAutoTimer: null,
+    _sshKeyCreateGeneration: 0,
+    _sshKeyPageHideHandler: null,
     _allocationDetailsAce: null,
     _serverDetailsAce: null,
     modal: {
@@ -271,8 +273,13 @@ window.cpkitWebappExtension = {
     if (this.view === "security_groups") await this.ensureSecurityGroupsView();
     if (this.view === "ssh_keys") await this.ensureSSHKeysView();
     this.$watch("view", () => {
-      if (this.modal.sshKeyCreate.private_key) this.closeSSHKeyCreateModal();
+      if (this.modal.sshKeyCreate.open) this.closeSSHKeyCreateModal();
     });
+    if (this._sshKeyPageHideHandler) {
+      window.removeEventListener("pagehide", this._sshKeyPageHideHandler);
+    }
+    this._sshKeyPageHideHandler = () => this.closeSSHKeyCreateModal();
+    window.addEventListener("pagehide", this._sshKeyPageHideHandler);
     this.setManagedInterval("_allocationsAutoTimer", () => {
       if (this.allocationsAutoRefreshEnabled && this.view === "allocations") {
         this.refreshAllocations();
@@ -305,6 +312,14 @@ window.cpkitWebappExtension = {
     }, 5000);
   },
   methods: {
+    destroy() {
+      this.closeSSHKeyCreateModal();
+      if (this._sshKeyPageHideHandler) {
+        window.removeEventListener("pagehide", this._sshKeyPageHideHandler);
+        this._sshKeyPageHideHandler = null;
+      }
+    },
+
     configureKloigosChrome() {
       this.removeOpenApiJsonLink();
       this.addDocsTopbarLink();
@@ -1146,6 +1161,7 @@ window.cpkitWebappExtension = {
     },
 
     openSSHKeyCreateModal() {
+      this._sshKeyCreateGeneration += 1;
       this.modal.sshKeyCreate = {
         open: true,
         mode: "import",
@@ -1158,7 +1174,17 @@ window.cpkitWebappExtension = {
       this.modalError.sshKeyCreate = "";
     },
 
+    clearGeneratedPrivateKey() {
+      this.modal.sshKeyCreate.private_key = "";
+      this.modal.sshKeyCreate.created = null;
+      document.querySelectorAll(".kloigos-private-key-output").forEach((output) => {
+        output.value = "";
+      });
+    },
+
     closeSSHKeyCreateModal() {
+      this._sshKeyCreateGeneration += 1;
+      this.clearGeneratedPrivateKey();
       this.modal.sshKeyCreate = {
         open: false,
         mode: "import",
@@ -1171,8 +1197,17 @@ window.cpkitWebappExtension = {
       this.modalError.sshKeyCreate = "";
     },
 
+    isSSHKeyCreateActive(modal, generation) {
+      return (
+        generation === this._sshKeyCreateGeneration
+        && this.modal.sshKeyCreate === modal
+        && modal.open
+      );
+    },
+
     async saveSSHKey() {
       const modal = this.modal.sshKeyCreate;
+      const createGeneration = this._sshKeyCreateGeneration;
       const name = String(modal.name || "").trim();
       this.sshKeysLoading.save = true;
       this.modalError.sshKeyCreate = "";
@@ -1192,7 +1227,9 @@ window.cpkitWebappExtension = {
         // retry could create a public-key resource after the first response was lost
         // without recovering the corresponding private key.
         const result = await this.apiFetch("/ssh-keys/", { method: "POST", body });
+        if (!this.isSSHKeyCreateActive(modal, createGeneration)) return;
         await this.refreshSSHKeys();
+        if (!this.isSSHKeyCreateActive(modal, createGeneration)) return;
         if (modal.mode === "generate") {
           if (!result?.private_key) throw new Error("The generated private key was not returned.");
           const { private_key: privateKey, ...metadata } = result;
@@ -1205,7 +1242,12 @@ window.cpkitWebappExtension = {
           this.showNotice("SSH public key imported.");
         }
       } catch (error) {
-        this.modalError.sshKeyCreate = this.errorMessage(error, "Failed to create SSH key.");
+        if (!this.isSSHKeyCreateActive(modal, createGeneration)) return;
+        const privateKey = String(modal.private_key || "");
+        const message = this.errorMessage(error, "Failed to create SSH key.");
+        this.modalError.sshKeyCreate = privateKey
+          ? message.split(privateKey).join("[redacted]")
+          : message;
       } finally {
         this.sshKeysLoading.save = false;
       }
@@ -1216,7 +1258,7 @@ window.cpkitWebappExtension = {
       if (!privateKey) return;
       try {
         await navigator.clipboard.writeText(privateKey);
-        this.showNotice("Private key copied to clipboard.");
+        this.showNotice("Private key copied. Clear your clipboard after saving it.");
       } catch {
         this.showNotice("Unable to copy automatically. Select and copy the private key manually.");
       }
@@ -1231,10 +1273,13 @@ window.cpkitWebappExtension = {
       const link = document.createElement("a");
       link.href = url;
       link.download = `${modal.created?.name || "kloigos-key"}.pem`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      try {
+        document.body.appendChild(link);
+        link.click();
+      } finally {
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
     },
 
     openSSHKeyDeleteConfirm(sshKey) {
